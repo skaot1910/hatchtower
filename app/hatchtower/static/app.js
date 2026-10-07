@@ -1038,7 +1038,7 @@
             var row = list.querySelector('[data-ident="' + s.identifier + '"]');
             if (!row) return;
             if (s.state) {
-              row.className = "status-row state-" + s.state;
+              row.className = "status-card state-" + s.state;
               var pill = row.querySelector('[data-f="state"]');
               if (pill) {
                 pill.className = "pill state-" + s.state;

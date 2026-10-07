@@ -42,6 +42,7 @@
     {% endif %}
   </nav>
   <div class="account">
+    {% if discord_url %}<a class="discord-link" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Community-Discord") }}">{{ hm.discord_icon() }} <span>{{ _("Discord") }}</span></a>{% endif %}
     {{ thm.switch(all_themes) }}
     {{ lng.switch() }}
     <a href="/account" class="muted">{{ user.username }}</a>

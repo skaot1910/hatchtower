@@ -233,8 +233,9 @@ class Monitor:
         if time.time() - self._last_sample.get(ident, 0) >= METRICS_MIN_GAP:
             self._last_sample[ident] = time.time()
             with db.connect() as con:
-                con.execute("INSERT INTO metrics (identifier, ts, cpu, mem, rx, tx) VALUES (?, ?, ?, ?, ?, ?)",
-                            (ident, int(time.time()), res["cpu"], res["memory_bytes"], res["rx_bytes"], res["tx_bytes"]))
+                con.execute("INSERT INTO metrics (identifier, ts, cpu, mem, rx, tx, players) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (ident, int(time.time()), res["cpu"], res["memory_bytes"], res["rx_bytes"], res["tx_bytes"],
+                             players))
         with db.connect() as con:
             con.execute(
                 """

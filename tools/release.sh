@@ -27,7 +27,8 @@ VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/hatchtower/__init__.py)"
 [ -n "$VERSION" ] || fail "Version nicht gefunden."
 TAG="v$VERSION"
 [ "$(tr -d '\r\n' < VERSION)" = "$VERSION" ] || fail "VERSION-Datei passt nicht zu __init__.py ($VERSION)."
-[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || fail "Bitte auf dem Branch main veröffentlichen."
+# Veröffentlicht wird genau der Stand von main (geht auch aus einer separaten Arbeitskopie/Worktree)
+[ "$(git rev-parse HEAD)" = "$(git rev-parse main)" ] || fail "Der ausgecheckte Stand ist nicht main – bitte main veröffentlichen."
 [ -z "$(git status --porcelain)" ] || fail "Es gibt nicht committete Änderungen. Erst committen."
 
 # Versionshinweise aus CHANGELOG.md (Abschnitt "## <version>")

@@ -3,6 +3,17 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.15.0 – 2026-10-07
+
+- **Statusseite ausgebaut:**
+  - Verfügbarkeitsbalken der letzten 30 Tage pro Server (wie bei Uptime Kuma), mit Prozentwert und Legende
+  - Spielerverlauf der letzten 24 Stunden als kleine Grafik (Höchststand und aktuelle Zahl)
+  - Störungs- und Wartungshistorie: Abstürze und öffentliche Wartungsankündigungen der letzten 30 Tage
+  - Gesamtzustand oben („Alle Server sind online“ bzw. „3 von 8 Servern online“)
+  - Alles einzeln ein- und ausschaltbar unter System → Statusseite
+- **Community-Discord:** Link oben in der Kopfzeile und auf der Statusseite; einstellbar unter System → Erscheinungsbild
+- Hatchtower merkt sich die Spielerzahl jetzt im Verlauf
+
 ## 0.14.1 – 2026-10-07
 
 - Update über die Weboberfläche: Ergebnis landet jetzt zuverlässig im Audit-Log

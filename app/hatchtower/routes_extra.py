@@ -94,9 +94,12 @@ def owner_audit(request: Request, owner, action: str, **kw) -> None:
 # Was die Statusseite zeigen darf (gilt für alle Server gleich)
 STATUS_FIELDS = {"name": "Servername aus Pterodactyl", "ingame": "Ingame-Servername", "status": "Status",
                  "started": "Gestartet/Gestoppt (Uhrzeit)", "address": "Adresse (IP und Port)",
-                 "password": "Serverpasswort"}
+                 "password": "Serverpasswort",
+                 "uptime": "Verfügbarkeitsbalken (30 Tage)", "players": "Spielerverlauf (24 Stunden)",
+                 "incidents": "Störungs- und Wartungshistorie (30 Tage)"}
 STATUS_ORDER = {"running": 0, "starting": 1, "stopping": 2, "offline": 3, "suspended": 4, "unknown": 5}
-STATUS_DEFAULT = "name,status,address"
+STATUS_DEFAULT = "name,status,address,uptime,players,incidents"
+STATUS_DAYS = 30
 
 
 def status_fields() -> set[str]:
@@ -155,9 +158,93 @@ async def status_page(request: Request):
         return not_found(request)
     # Angemeldete sehen dieselbe öffentliche Seite, nur mit einem Link zurück zur Übersicht
     logged_in = optional_user(request) is not None
-    return render(request, "status.html", user=None, logged_in=logged_in, servers=status_servers(),
+    servers = status_servers()
+    fields = status_fields()
+    add_status_history(servers, fields)
+    return render(request, "status.html", user=None, logged_in=logged_in, servers=servers,
                   title=db.get_setting("status_title") or load_brand()["name"],
-                  public_announcements=extras.active_announcements(public_only=True))
+                  public_announcements=extras.active_announcements(public_only=True),
+                  fields=fields, summary=status_summary(servers, fields),
+                  incidents=status_incidents(servers, fields) if "incidents" in fields else [],
+                  history_days=STATUS_DAYS)
+
+
+def status_label(item: dict) -> str:
+    return item.get("name") or item.get("ingame") or item.get("egg") or "Server"
+
+
+def status_summary(servers: list[dict], fields: set[str]) -> dict | None:
+    """Kopfzeile der Statusseite: wie viele Server laufen. Nur, wenn der Status gezeigt wird."""
+    if "status" not in fields or not servers:
+        return None
+    online = sum(1 for s in servers if s.get("state") in ("running", "starting"))
+    return {"online": online, "total": len(servers), "all": online == len(servers)}
+
+
+def add_status_history(servers: list[dict], fields: set[str]) -> None:
+    """Verfügbarkeitsbalken und Spielerverlauf je Server (nur, was eingeschaltet ist)."""
+    for s in servers:
+        if "uptime" in fields:
+            days = extras.daily_availability(s["identifier"], STATUS_DAYS, settings.timezone)
+            fmt = i18n.date_format().split(",")[0]
+            bars = []
+            for d in days:
+                if d["pct"] is None:
+                    level, text = "none", i18n.t("keine Daten")
+                else:
+                    level = ("crash" if d["crashes"] else "full" if d["pct"] >= 99 else "high" if d["pct"] >= 50
+                             else "low" if d["pct"] > 0 else "off")
+                    text = i18n.t("{pct} % online", pct=i18n.decimal(f"{d['pct']:g}"))
+                    if d["crashes"]:
+                        text += " · " + i18n.t("{n} Absturz/Abstürze", n=d["crashes"])
+                bars.append({"level": level, "title": f"{d['date'].strftime(fmt)}: {text}"})
+            measured = [d["pct"] for d in days if d["pct"] is not None]
+            s["bars"] = bars
+            s["uptime_pct"] = i18n.decimal(f"{sum(measured) / len(measured):.1f}") if measured else None
+        if "players" in fields:
+            series = extras.player_series(s["identifier"])
+            if series and series["peak"] > 0:
+                s["players_lines"] = extras.sparkline(series["values"])
+                s["players_peak"] = series["peak"]
+                s["players_now"] = series["current"]
+
+
+def status_incidents(servers: list[dict], fields: set[str]) -> list[dict]:
+    """Abstürze der angezeigten Server und öffentliche Wartungen der letzten 30 Tage, neueste zuerst.
+    Technische Fehlermeldungen werden nicht gezeigt, nur eine allgemeine Beschreibung."""
+    from datetime import timedelta, timezone as tz_utc
+    since = (datetime.now(tz_utc.utc) - timedelta(days=STATUS_DAYS)).isoformat(timespec="seconds")
+    names = {s["identifier"]: status_label(s) for s in servers}
+    items = []
+    if names:
+        marks = ",".join("?" * len(names))
+        with db.connect() as con:
+            rows = con.execute(f"SELECT identifier, detected_at, outcome FROM crash_events WHERE detected_at >= ?"
+                               f" AND identifier IN ({marks}) ORDER BY detected_at DESC LIMIT 50",
+                               (since, *names)).fetchall()
+        for r in rows:
+            outcome = r["outcome"] or ""
+            if outcome.startswith(("Neu gestartet", "Restarted")):
+                text = "Absturz – von Hatchtower automatisch neu gestartet"
+            elif "Wings" in outcome:
+                text = "Absturz – der Server hat sich selbst neu gestartet"
+            else:
+                text = "Server unerwartet beendet"
+            items.append({"kind": "crash", "sort": r["detected_at"], "server": names[r["identifier"]],
+                          "time": fmt_dt(r["detected_at"], settings.timezone), "text": i18n.t(text)})
+    now = db.utcnow()
+    with db.connect() as con:
+        anns = con.execute("SELECT * FROM announcements WHERE public = 1 AND (ends_at IS NULL OR ends_at >= ?)"
+                           " ORDER BY COALESCE(starts_at, created_at) DESC LIMIT 20", (since,)).fetchall()
+    for a in anns:
+        start = a["starts_at"] or a["created_at"]
+        state = ("upcoming" if a["starts_at"] and a["starts_at"] > now else
+                 "ended" if a["ends_at"] and a["ends_at"] <= now else "active")
+        items.append({"kind": "maintenance", "sort": start, "state": state, "text": a["text"],
+                      "time": fmt_dt(start, settings.timezone) + (" – " + fmt_dt(a["ends_at"], settings.timezone)
+                                                                    if a["ends_at"] else "")})
+    items.sort(key=lambda x: x["sort"], reverse=True)
+    return items[:30]
 
 
 @app.get("/status.json")

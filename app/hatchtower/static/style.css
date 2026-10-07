@@ -1011,3 +1011,56 @@ a.file-link:hover { color: var(--violet-3); }
 .update-log { max-height: 360px; min-height: 120px; }
 #version .form-actions { flex-wrap: wrap; align-items: center; margin: 10px 0 6px; }
 #version .form-actions .faint { margin: 0; }
+
+/* ==== 0.15: Statusseite mit Verlauf, Discord-Link ==== */
+.status-head-tools { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.status-head .lang-switch-corner { margin: 0; }
+.status-card { padding: 14px 16px; background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--line); border-radius: 14px; display: grid; gap: 12px; }
+.status-card.state-running { box-shadow: inset 4px 0 0 var(--green); }
+.status-card.state-offline { box-shadow: inset 4px 0 0 var(--red); }
+.status-card.state-starting, .status-card.state-stopping { box-shadow: inset 4px 0 0 var(--amber); }
+.status-card .status-row { padding: 0; background: none; border: 0; box-shadow: none; border-radius: 0; }
+
+.status-summary { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; font-weight: 600;
+  border: 1px solid var(--line-2); background: var(--card); }
+.status-summary-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--amber); flex: none; }
+.status-summary.is-all { border-color: var(--green-line); background: var(--green-bg); color: var(--green-fg); }
+.status-summary.is-all .status-summary-dot { background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 25%, transparent); }
+.status-summary.is-none .status-summary-dot { background: var(--red); }
+
+.status-history { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; padding-top: 10px; border-top: 1px solid var(--line); }
+.uptime-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.uptime-bars { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; height: 28px; }
+.ub { display: inline-block; border-radius: 3px; background: var(--bar-bg); min-width: 4px; }
+.uptime-bars .ub { height: 100%; }
+.ub-full { background: var(--green); }
+.ub-high { background: color-mix(in srgb, var(--green) 60%, var(--bar-bg)); }
+.ub-low { background: color-mix(in srgb, var(--green) 30%, var(--bar-bg)); }
+.ub-off { background: color-mix(in srgb, var(--faint) 35%, var(--bar-bg)); }
+.ub-crash { background: var(--red); }
+.ub-none { background: var(--bar-bg); opacity: .5; }
+.uptime-foot { display: flex; justify-content: space-between; margin-top: 4px; }
+.uptime-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 2px 0 0; }
+.uptime-legend .ub { width: 10px; height: 10px; vertical-align: middle; margin-right: -8px; }
+.sparkline { width: 100%; height: 44px; display: block; }
+.sparkline polyline { fill: none; stroke: var(--violet-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+
+.status-incidents h2 { font-size: 17px; margin: 10px 0 10px; }
+.incident-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.incident { display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+.incident-mark { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--amber); }
+.incident-crash .incident-mark { background: var(--red); }
+
+.discord-link { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  color: var(--text); text-decoration: none; border: 1px solid var(--line-2); background: color-mix(in srgb, #5865f2 18%, transparent); }
+.discord-link:hover { border-color: #5865f2; }
+.icon-chat { width: 16px; height: 16px; flex: none; }
+@media (max-width: 720px) {
+  .status-history { grid-template-columns: 1fr; }
+  .status-head { flex-wrap: wrap; }
+  .status-head-tools { width: 100%; justify-content: flex-start; margin-left: 0; }
+}
+@media (max-width: 1100px) { .account .discord-link span { display: none; } }
+@media (max-width: 720px), (pointer: coarse) and (max-height: 540px) { .account .discord-link span { display: inline; } }
+.uptime-head { flex-wrap: wrap; row-gap: 2px; }
+.uptime-head > span { white-space: nowrap; }

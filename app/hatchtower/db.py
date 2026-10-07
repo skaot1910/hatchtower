@@ -298,6 +298,11 @@ MIGRATIONS: list[str] = [
     UPDATE app_settings SET value = 'hell' WHERE key = 'default_theme' AND value = 'polar';
     UPDATE app_settings SET value = 'nacht' WHERE key = 'default_theme' AND value NOT IN ('nacht', 'mittel', 'hell');
     """,
+    # 12: Spielerzahl im Verlauf (für die Statusseite) und Link zum Community-Discord
+    """
+    ALTER TABLE metrics ADD COLUMN players INTEGER;
+    INSERT OR IGNORE INTO app_settings (key, value) VALUES ('community_discord', 'https://discord.gg/uQDCrtjdKG');
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

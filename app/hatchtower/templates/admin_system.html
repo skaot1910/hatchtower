@@ -92,6 +92,9 @@
           {% for code, name in languages.items() %}<option value="{{ code }}" {% if code == default_language %}selected{% endif %}>{{ name }}</option>{% endfor %}
         </select>
       </label>
+      <label>{{ _("Community-Discord (Einladungslink oder Code, leer = ausblenden)") }}
+        <input name="discord" value="{{ discord_url }}" maxlength="80" placeholder="https://discord.gg/…" spellcheck="false">
+      </label>
       <label class="check brand-check"><input type="checkbox" name="show_name" value="1" {% if brand.show_name %}checked{% endif %}> {{ _("Eigenen Namen neben dem Logo anzeigen") }}</label>
     </div>
     <p class="faint small">{{ _("Dein eigener Name steht groß in der Kopfzeile und auf der Login-Seite, „Hatchtower“ dezent darunter und in der Fußzeile. Ohne eigenen Namen steht dort einfach „Hatchtower“. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.") }}</p>

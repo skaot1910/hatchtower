@@ -268,6 +268,14 @@ def check_csrf_header(request: Request) -> None:
         raise Forbidden("Die Sitzung ist abgelaufen. Lade die Seite neu.")
 
 
+DISCORD_RE = re.compile(r"^https://(discord\.gg|discord\.com/invite)/[A-Za-z0-9-]{2,32}$")
+
+
+def community_discord() -> str:
+    url = db.get_setting("community_discord").strip()
+    return url if DISCORD_RE.match(url) else ""
+
+
 def render(request: Request, template: str, status: int = 200, **context) -> HTMLResponse:
     context.setdefault("user", getattr(request.state, "user", None))
     context.setdefault("csrf", getattr(request.state, "csrf", ""))
@@ -278,6 +286,7 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("i18n_browser", {"locale": i18n.locale_tag(), "texts": i18n.browser_catalog()})
     context.setdefault("here", request.url.path + (f"?{request.url.query}" if request.url.query else ""))
     context.setdefault("legal_links", legal.links())
+    context.setdefault("discord_url", community_discord())
     context.setdefault("system_tabs", SYSTEM_TABS)
     if template in ("login.html", "setup.html"):
         from . import mailer
@@ -1654,7 +1663,8 @@ async def branding_file(filename: str):
 
 @app.post("/admin/branding")
 async def admin_branding_save(request: Request, brand_name: str = Form(""), show_name: str = Form(""),
-                              default_theme: str = Form(""), default_language: str = Form("")):
+                              default_theme: str = Form(""), default_language: str = Form(""),
+                              discord: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     name = " ".join(brand_name.split())
@@ -1667,6 +1677,13 @@ async def admin_branding_save(request: Request, brand_name: str = Form(""), show
         db.set_setting("default_theme", default_theme, owner.id)
     if i18n.valid(default_language):
         db.set_setting("default_language", default_language, owner.id)
+    discord = discord.strip()
+    if discord and not discord.startswith("http"):
+        discord = "https://discord.gg/" + discord      # nur der Einladungscode eingegeben
+    if discord and not DISCORD_RE.match(discord):
+        return back("/admin/system#erscheinungsbild",
+                    "Discord: bitte einen Einladungslink wie https://discord.gg/abc123 oder nur den Code eingeben")
+    db.set_setting("community_discord", discord, owner.id)
     audit.record("settings.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"eigener_name": [old["custom"], name], "name_neben_logo": bool(show_name),
                          "standard_theme": default_theme, "standardsprache": default_language})
