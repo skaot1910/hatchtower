@@ -18,7 +18,9 @@ cd "$(dirname "$0")/.."
 REPO="${HATCHTOWER_REPO:-skaot1910/hatchtower}"
 say()  { printf '\033[1;35m==>\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31mFehler:\033[0m %s\n' "$*" >&2; exit 1; }
-PY="$(command -v python3 || command -v python)" || fail "Python wird gebraucht."
+PYBIN="$(command -v python3 || command -v python)" || fail "Python wird gebraucht."
+# Python unter Windows hängt Wagenrückläufe an – für die Shell entfernen
+py() { "$PYBIN" "$@" | tr -d '\r'; }
 
 VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/hatchtower/__init__.py)"
 [ -n "$VERSION" ] || fail "Version nicht gefunden."
@@ -28,7 +30,7 @@ TAG="v$VERSION"
 [ -z "$(git status --porcelain)" ] || fail "Es gibt nicht committete Änderungen. Erst committen."
 
 # Versionshinweise aus CHANGELOG.md (Abschnitt "## <version>")
-NOTES="$("$PY" - "$VERSION" <<'PY'
+NOTES="$(py - "$VERSION" <<'PY'
 import re, sys
 text = open("CHANGELOG.md", encoding="utf-8").read()
 m = re.search(r"^## " + re.escape(sys.argv[1]) + r"\b.*?$\n(.*?)(?=^## |\Z)", text, re.M | re.S)
@@ -57,24 +59,24 @@ say "Paket bauen"
 mkdir -p dist
 PKG="hatchtower-$VERSION.tar.gz"
 git archive --format=tar --prefix="hatchtower-$VERSION/" "$TAG" | gzip -n -9 > "dist/$PKG"
-( cd dist && sha256sum "$PKG" > "$PKG.sha256" )
+( cd dist && sha256sum "$PKG" | sed 's/ \*/  /' > "$PKG.sha256" )
 echo "    $(cat "dist/$PKG.sha256")"
 
 say "GitHub-Release anlegen"
-BODY="$("$PY" -c 'import json,sys; print(json.dumps({"tag_name": sys.argv[1], "name": "Hatchtower " + sys.argv[2], "body": sys.stdin.read(), "draft": False, "prerelease": False}))' "$TAG" "$VERSION" <<< "$NOTES")"
+BODY="$(py -c 'import json,sys; print(json.dumps({"tag_name": sys.argv[1], "name": "Hatchtower " + sys.argv[2], "body": sys.stdin.read(), "draft": False, "prerelease": False}))' "$TAG" "$VERSION" <<< "$NOTES")"
 code=$(gh_api -o dist/release.json -w '%{http_code}' -X POST "https://api.github.com/repos/$REPO/releases" -d "$BODY")
 if [ "$code" = "422" ]; then
   say "Release gibt es schon – Dateien werden ersetzt"
   code=$(gh_api -o dist/release.json -w '%{http_code}' "https://api.github.com/repos/$REPO/releases/tags/$TAG")
 fi
 [ "$code" = "200" ] || [ "$code" = "201" ] || fail "GitHub antwortet mit HTTP $code: $(cat dist/release.json)"
-read -r RID UPLOAD < <("$PY" -c 'import json; r=json.load(open("dist/release.json")); print(r["id"], r["upload_url"].split("{")[0])')
+read -r RID UPLOAD < <(py -c 'import json; r=json.load(open("dist/release.json")); print(r["id"], r["upload_url"].split("{")[0])')
 
 # Vorhandene gleichnamige Dateien entfernen, dann hochladen
 upload() {
   local file="$1" name; name="$(basename "$1")"
   local old
-  old="$("$PY" -c 'import json,sys; r=json.load(open("dist/release.json")); print(next((str(a["id"]) for a in r.get("assets", []) if a["name"]==sys.argv[1]), ""))' "$name")"
+  old="$(py -c 'import json,sys; r=json.load(open("dist/release.json")); print(next((str(a["id"]) for a in r.get("assets", []) if a["name"]==sys.argv[1]), ""))' "$name")"
   [ -n "$old" ] && gh_api -o /dev/null -X DELETE "https://api.github.com/repos/$REPO/releases/assets/$old"
   code=$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/octet-stream" \
          --data-binary @"$file" "$UPLOAD?name=$name")
