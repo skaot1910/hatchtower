@@ -19,6 +19,7 @@ REPO="${HATCHTOWER_REPO:-skaot1910/hatchtower}"
 say()  { printf '\033[1;35m==>\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31mFehler:\033[0m %s\n' "$*" >&2; exit 1; }
 PYBIN="$(command -v python3 || command -v python)" || fail "Python wird gebraucht."
+export PYTHONIOENCODING=utf-8   # sonst scheitert Python unter Windows an Zeichen wie „→“
 # Python unter Windows hängt Wagenrückläufe an – für die Shell entfernen
 py() { "$PYBIN" "$@" | tr -d '\r'; }
 
