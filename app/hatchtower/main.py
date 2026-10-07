@@ -1711,6 +1711,7 @@ async def admin_branding_logo_delete(request: Request, kind: str):
 @app.get("/admin/system", response_class=HTMLResponse)
 async def admin_system(request: Request):
     require_owner(request)
+    record_finished_update()
     ptero: PteroClient = app.state.ptero
     checks = []
 

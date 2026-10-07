@@ -1031,7 +1031,9 @@ async def admin_update_page(request: Request):
 @app.get("/api/system/update-status")
 async def api_update_status(request: Request):
     from . import updates
+    from .main import record_finished_update
     require_owner(request)
+    record_finished_update()   # das Ergebnis steht erst nach dem Neustart fest
     state = updates.read_state(settings.data_dir)
     return {"state": state.get("state", ""), "from": state.get("from", ""), "to": state.get("to", ""),
             "running_version": __version__, "log": state.get("log", "")}

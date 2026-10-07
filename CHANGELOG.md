@@ -3,6 +3,10 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.14.1 – 2026-10-07
+
+- Update über die Weboberfläche: Ergebnis landet jetzt zuverlässig im Audit-Log
+
 ## 0.14.0 – 2026-10-07
 
 - **Update über die Weboberfläche:** unter System → Version und Updates „Update auf … installieren“; Fortschritt und Protokoll live, Ergebnis im Audit-Log
