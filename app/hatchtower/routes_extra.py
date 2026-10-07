@@ -985,3 +985,53 @@ async def files_restore(request: Request, ident: str, file: str = Form("")):
     failed = await file_action(request, ident, directory, "files.restore", path, swap())
     return failed or back(f"/servers/{ident}/files/edit?file={quote(path)}",
                           "Vorherige Fassung wiederhergestellt. Die ersetzte liegt jetzt als .bak daneben.")
+
+
+# == Updates aus der Oberfläche ======================================================
+
+@app.post("/admin/system/update-check")
+async def admin_update_check(request: Request):
+    owner = require_owner(request)
+    await check_csrf(request)
+    upd = app.state.updates
+    if not await upd.check_now():
+        return back("/admin/system#version", i18n.t("Bitte warten: Erneut suchen ist in {n} Sekunden möglich.",
+                                                    n=upd.cooldown_left()))
+    owner_audit(request, owner, "system.update_check", detail={"neueste": upd.latest, "fehler": upd.error})
+    if upd.error:
+        return back("/admin/system#version", upd.error)
+    if upd.available:
+        return back("/admin/system#version", i18n.t("Version {v} ist verfügbar.", v=upd.latest))
+    return back("/admin/system#version", "Hatchtower ist aktuell.")
+
+
+@app.post("/admin/system/update")
+async def admin_update_start(request: Request):
+    from . import updates
+    owner = require_owner(request)
+    await check_csrf(request)
+    upd = app.state.updates
+    if not updates.helper_installed():
+        return back("/admin/system#version", "Das Update über die Oberfläche ist hier noch nicht eingerichtet.")
+    if not upd.available:
+        return back("/admin/system#version", "Es ist kein neueres Update bekannt. Bitte zuerst nach Updates suchen.")
+    if not updates.request_update(settings.data_dir, upd.latest or ""):
+        return RedirectResponse("/admin/system/update", status_code=303)
+    owner_audit(request, owner, "system.update_start", detail={"von": __version__, "auf": upd.latest})
+    return RedirectResponse("/admin/system/update", status_code=303)
+
+
+@app.get("/admin/system/update", response_class=HTMLResponse)
+async def admin_update_page(request: Request):
+    from . import updates
+    require_owner(request)
+    return render(request, "admin_update.html", state=updates.read_state(settings.data_dir))
+
+
+@app.get("/api/system/update-status")
+async def api_update_status(request: Request):
+    from . import updates
+    require_owner(request)
+    state = updates.read_state(settings.data_dir)
+    return {"state": state.get("state", ""), "from": state.get("from", ""), "to": state.get("to", ""),
+            "running_version": __version__, "log": state.get("log", "")}

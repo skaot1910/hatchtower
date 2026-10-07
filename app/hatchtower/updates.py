@@ -1,14 +1,20 @@
 """Prüft regelmäßig, ob es auf GitHub eine neuere Hatchtower-Version gibt.
 
-Nur lesend: eine Anfrage alle 12 Stunden an die GitHub-API. Bei einem privaten
-Repository wird der Token aus /etc/hatchtower/github-token verwendet (falls vorhanden).
-Installiert wird nie automatisch – das macht der Owner mit "hatchtower update".
+Nur lesend: eine Anfrage alle 12 Stunden an die GitHub-API, dazu "Jetzt prüfen" in der
+Oberfläche (höchstens alle 5 Minuten). Bei einem privaten Repository wird der Token aus
+/etc/hatchtower/github-token verwendet (falls vorhanden).
+
+Installiert wird nie automatisch. Ein Owner kann das Update in der Oberfläche anstoßen:
+Die Oberfläche läuft ohne Root-Rechte und legt dafür nur eine Anfrage-Datei ab, auf die der
+Dienst hatchtower-update.service (root) reagiert – er führt "hatchtower update" aus.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
+import re
+import time
 from pathlib import Path
 
 import httpx
@@ -19,6 +25,9 @@ log = logging.getLogger("hatchtower.updates")
 
 TOKEN_FILE = Path("/etc/hatchtower/github-token")
 INTERVAL = 12 * 3600
+MANUAL_COOLDOWN = 5 * 60          # "Jetzt prüfen" höchstens alle 5 Minuten (Schutz vor Missbrauch und GitHub-Limits)
+HELPER_UNIT = Path("/etc/systemd/system/hatchtower-update.path")
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _parse(v: str) -> tuple:
@@ -33,6 +42,7 @@ class UpdateCheck:
         self.error: str | None = None
         self.checked_at: str | None = None
         self._task: asyncio.Task | None = None
+        self._manual_at = 0.0
 
     @property
     def available(self) -> bool:
@@ -87,3 +97,54 @@ class UpdateCheck:
             except Exception:
                 log.exception("Update-Prüfung")
             await asyncio.sleep(INTERVAL)
+
+    # -- Manuelle Prüfung ----------------------------------------------------------
+
+    def cooldown_left(self) -> int:
+        return max(0, int(self._manual_at + MANUAL_COOLDOWN - time.monotonic()))
+
+    async def check_now(self) -> bool:
+        """Sofort prüfen, aber höchstens alle MANUAL_COOLDOWN Sekunden. False = noch gesperrt."""
+        if self.cooldown_left():
+            return False
+        self._manual_at = time.monotonic()
+        await self.check()
+        return True
+
+
+# -- Update aus der Weboberfläche ----------------------------------------------------
+
+def helper_installed() -> bool:
+    return HELPER_UNIT.is_file()
+
+
+def _files(data_dir: Path) -> tuple[Path, Path, Path]:
+    return data_dir / "update.request", data_dir / "update.state", data_dir / "update.log"
+
+
+def read_state(data_dir: Path) -> dict:
+    request, state_file, log_file = _files(data_dir)
+    state: dict = {}
+    try:
+        for line in state_file.read_text().splitlines():
+            key, _, value = line.partition("=")
+            state[key] = value
+    except OSError:
+        pass
+    if request.exists():
+        state = {**state, "state": "requested"}
+    try:
+        text = ANSI.sub("", log_file.read_text(errors="replace"))
+        state["log"] = "\n".join(text.splitlines()[-60:])
+    except OSError:
+        state["log"] = ""
+    return state
+
+
+def request_update(data_dir: Path, target: str) -> bool:
+    """Legt die Anfrage ab. False, wenn schon ein Update läuft oder angefragt ist."""
+    request, _, _ = _files(data_dir)
+    if read_state(data_dir).get("state") in ("requested", "running"):
+        return False
+    request.write_text(target + "\n")
+    return True

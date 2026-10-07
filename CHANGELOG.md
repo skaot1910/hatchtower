@@ -3,6 +3,13 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.14.0 – 2026-10-07
+
+- **Update über die Weboberfläche:** unter System → Version und Updates „Update auf … installieren“; Fortschritt und Protokoll live, Ergebnis im Audit-Log
+  (die Oberfläche selbst hat keine Root-Rechte – sie stößt nur den Dienst `hatchtower-update` an, der genau `hatchtower update` ausführt)
+- **„Jetzt nach Updates suchen“** – höchstens alle 5 Minuten
+- Übersicht standardmäßig nach „Status: online zuerst“ sortiert
+
 ## 0.13.1 – 2026-10-07
 
 - Installation: ruhigere Ausgabe, keine Sprach-Warnungen mehr in frischen Debian-Containern

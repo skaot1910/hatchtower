@@ -1,0 +1,10 @@
+[Unit]
+Description=Hatchtower – Update aus der Weboberfläche anstoßen
+
+[Path]
+# Die Weboberfläche (ohne Root-Rechte) legt diese Datei ab, wenn ein Owner „Update installieren“ drückt.
+PathExists=/var/lib/hatchtower/update.request
+Unit=hatchtower-update.service
+
+[Install]
+WantedBy=multi-user.target

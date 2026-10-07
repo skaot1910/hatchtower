@@ -138,6 +138,8 @@ ln -sf /usr/local/bin/hatchtower /usr/sbin/hatchtower
 install -m 644 "$APP_DIR/installer/$SERVICE.service" "/etc/systemd/system/$SERVICE.service"
 install -m 644 "$APP_DIR/installer/$SERVICE-backup.service" "/etc/systemd/system/$SERVICE-backup.service"
 install -m 644 "$APP_DIR/installer/$SERVICE-backup.timer" "/etc/systemd/system/$SERVICE-backup.timer"
+install -m 644 "$APP_DIR/installer/$SERVICE-update.service" "/etc/systemd/system/$SERVICE-update.service"
+install -m 644 "$APP_DIR/installer/$SERVICE-update.path" "/etc/systemd/system/$SERVICE-update.path"
 
 # --- Optional: Port auf bestimmte IPs beschränken (eigene Tabelle, bestehende Firewall bleibt unberührt)
 if [ -n "$ALLOW" ]; then
@@ -162,8 +164,8 @@ EOF
 fi
 
 systemctl daemon-reload
-systemctl enable "$SERVICE.service" "$SERVICE-backup.timer" >/dev/null
-systemctl start "$SERVICE-backup.timer"
+systemctl enable "$SERVICE.service" "$SERVICE-backup.timer" "$SERVICE-update.path" >/dev/null
+systemctl start "$SERVICE-backup.timer" "$SERVICE-update.path"
 
 if [ "$START" -eq 0 ]; then
   say "Fertig (Dienst nicht gestartet, --no-start)."

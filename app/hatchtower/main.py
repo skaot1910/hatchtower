@@ -79,6 +79,16 @@ async def apply_connection() -> None:
     await old.close()
 
 
+def record_finished_update() -> None:
+    """Nach einem Update aus der Oberfläche: Ergebnis einmal ins Audit-Log schreiben."""
+    state = updates.read_state(settings.data_dir)
+    finished = state.get("finished")
+    if state.get("state") in ("done", "failed") and finished and db.get_setting("update_audited") != finished:
+        audit.record("system.update", result="ok" if state["state"] == "done" else "error", username="System",
+                     ip="intern", detail={"von": state.get("from"), "auf": state.get("to") or state.get("from")})
+        db.set_setting("update_audited", finished, None)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init(settings.db_path)
@@ -93,6 +103,7 @@ async def lifespan(app: FastAPI):
     app.state.logarchive.start()
     app.state.updates = updates.UpdateCheck()
     app.state.updates.start()
+    record_finished_update()
     cleanup_task = asyncio.create_task(retention.run_forever(), name="hatchtower-retention")
     log.info("%s %s gestartet (Modus: %s, Ziel: %s %s)", APP_NAME, __version__, settings.manager_mode,
              "Pterodactyl", settings.pterodactyl_url)
@@ -1738,7 +1749,9 @@ async def admin_system(request: Request):
                   default_theme=themes.valid(db.get_setting("default_theme")) or themes.DEFAULT,
                   default_language=i18n.valid(db.get_setting("default_language")) or i18n.DEFAULT,
                   last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error,
-                  upd=app.state.updates, upd_checked=fmt_dt(app.state.updates.checked_at, settings.timezone))
+                  upd=app.state.updates, upd_checked=fmt_dt(app.state.updates.checked_at, settings.timezone),
+                  upd_cooldown=app.state.updates.cooldown_left(), upd_helper=updates.helper_installed(),
+                  upd_running=updates.read_state(settings.data_dir).get("state") in ("requested", "running"))
 
 
 # Weitere Seiten (Statusseite, E-Mail, Einladungen, Datenumzug, ...)

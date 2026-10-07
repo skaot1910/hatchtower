@@ -637,8 +637,8 @@
     var select = document.getElementById("sort-select");
     var grid = document.getElementById("server-grid");
     if (!select || !grid) return;
-    try { select.value = localStorage.getItem("hatchtower.sort") || "name-asc"; } catch (e) { /* Standard */ }
-    if (!select.value) select.value = "name-asc";
+    try { select.value = localStorage.getItem("hatchtower.sort") || "status-online"; } catch (e) { /* Standard */ }
+    if (!select.value) select.value = "status-online";
 
     function nameOf(card) {
       var h = card.querySelector(".card-head h2");
@@ -1068,6 +1068,61 @@
     });
   }
 
+  // ---- Update aus der Oberfläche: Fortschritt verfolgen ------------------------------------
+  function startUpdateProgress() {
+    var box = document.getElementById("update-progress");
+    if (!box) return;
+    var statusEl = document.getElementById("update-status");
+    var logEl = document.getElementById("update-log");
+    var doneBtn = document.getElementById("update-done");
+    var oldVersion = box.dataset.version;
+    var sawRestart = false, finished = false, started = Date.now();
+    function show(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = "update-status" + (cls ? " " + cls : "");
+    }
+    function finish(text, cls) {
+      finished = true;
+      show(text, cls);
+      doneBtn.hidden = false;
+    }
+    function tick() {
+      if (finished) return;
+      fetch(box.dataset.status, { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (r) {
+          if (r.status === 401) { window.location = "/login"; throw new Error("login"); }
+          if (!r.ok) throw new Error("http");
+          return r.json();
+        })
+        .then(function (s) {
+          if (s.log) { logEl.textContent = s.log; logEl.scrollTop = logEl.scrollHeight; }
+          if (s.state === "failed") {
+            finish(tr("Das Update ist fehlgeschlagen. Hatchtower läuft weiter mit der bisherigen Version – Details siehe Protokoll."), "bad");
+          } else if (s.state === "done" && s.running_version !== oldVersion) {
+            finish(tr("Fertig: Hatchtower läuft jetzt mit Version {v}.", { v: s.running_version }), "ok");
+          } else if (s.state === "done" && sawRestart) {
+            finish(tr("Fertig: Hatchtower läuft mit Version {v}.", { v: s.running_version }), "ok");
+          } else if (s.state === "requested") {
+            show(tr("Update angefordert – startet in wenigen Sekunden …"));
+          } else {
+            show(tr("Update läuft …"));
+          }
+        })
+        .catch(function (e) {
+          if (e.message === "login") return;
+          sawRestart = true;
+          show(tr("Hatchtower startet neu …"));
+        })
+        .then(function () {
+          if (!finished && Date.now() - started > 20 * 60 * 1000) {
+            finish(tr("Das dauert ungewöhnlich lange. Bitte auf dem Server prüfen: journalctl -u hatchtower-update"), "bad");
+          }
+          if (!finished) setTimeout(tick, 3000);
+        });
+    }
+    tick();
+  }
+
   // ---- Felder zum Kopieren (z. B. Einladungslink) ----------------------------------------
   function startCopyFields() {
     document.querySelectorAll("[data-select-on-focus]").forEach(function (f) {
@@ -1083,6 +1138,7 @@
     startStatusPage();
     startCopyFields();
     startPasswordOptIn();
+    startUpdateProgress();
     paintBars(document);
     document.querySelectorAll("[data-c]").forEach(function (el) { el.style.background = el.dataset.c; });
     startMenu();

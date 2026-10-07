@@ -980,7 +980,27 @@
   "Neue Version verfügbar": "New version available",
   "Kein Release gefunden": "No release found",
   "Repository privat oder noch kein Release – Token setzen mit: hatchtower github-token": "Repository private or no release yet – set a token with: hatchtower github-token",
-  "GitHub-Token abgelehnt – neu setzen mit: hatchtower github-token": "GitHub token rejected – set a new one with: hatchtower github-token"
+  "GitHub-Token abgelehnt – neu setzen mit: hatchtower github-token": "GitHub token rejected – set a new one with: hatchtower github-token",
+  "Ein Update läuft gerade.": "An update is running.",
+  "Fortschritt ansehen": "View progress",
+  "Version {v} ist verfügbar.": "Version {v} is available.",
+  "Wieder möglich in {n} Sekunden": "Possible again in {n} seconds",
+  "Jetzt nach Updates suchen": "Check for updates now",
+  "Hatchtower jetzt auf Version {v} aktualisieren? Die Oberfläche ist dabei etwa eine Minute nicht erreichbar. Vorher wird die Datenbank gesichert; startet die neue Version nicht, geht es automatisch zurück.": "Update Hatchtower to version {v} now? The interface will be unavailable for about a minute. The database is backed up first; if the new version does not start, it rolls back automatically.",
+  "Update auf {v} installieren": "Install update to {v}",
+  "Das Update über die Oberfläche steht ab der nächsten Version bereit. Dieses Mal bitte auf dem Server als root ausführen:": "Updating from the interface is available from the next version on. This time, please run as root on the server:",
+  "Hatchtower prüft zweimal am Tag automatisch und installiert nie selbstständig. Manuelles Suchen ist höchstens alle 5 Minuten möglich.": "Hatchtower checks automatically twice a day and never installs on its own. Manual checks are possible at most every 5 minutes.",
+  "Bitte warten: Erneut suchen ist in {n} Sekunden möglich.": "Please wait: checking again is possible in {n} seconds.",
+  "Das Update über die Oberfläche ist hier noch nicht eingerichtet.": "Updating from the interface is not set up here yet.",
+  "Es ist kein neueres Update bekannt. Bitte zuerst nach Updates suchen.": "No newer update is known. Please check for updates first.",
+  "Update": "Update",
+  "Hatchtower wird aktualisiert": "Hatchtower is being updated",
+  "Update wird gestartet …": "Starting update …",
+  "Während des Neustarts ist die Oberfläche kurz nicht erreichbar. Diese Seite fragt selbstständig weiter nach und meldet sich, wenn alles fertig ist.": "During the restart the interface is briefly unavailable. This page keeps checking on its own and tells you when everything is done.",
+  "Zurück zur System-Seite": "Back to the system page",
+  "Nach Updates gesucht": "Checked for updates",
+  "Update angestoßen": "Update started",
+  "Update installiert": "Update installed"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",
@@ -1030,6 +1050,13 @@
   "Keine Zeilen gefunden.": "No lines found.",
   "Archiv konnte nicht geladen werden.": "Archive could not be loaded.",
   "Gestartet": "Started",
-  "Passwörter werden für jeden im Internet sichtbar, der die Statusseite aufruft. Wirklich einschalten?": "Passwords become visible to anyone on the internet who opens the status page. Really enable?"
+  "Passwörter werden für jeden im Internet sichtbar, der die Statusseite aufruft. Wirklich einschalten?": "Passwords become visible to anyone on the internet who opens the status page. Really enable?",
+  "Das Update ist fehlgeschlagen. Hatchtower läuft weiter mit der bisherigen Version – Details siehe Protokoll.": "The update failed. Hatchtower keeps running with the previous version – see the log for details.",
+  "Fertig: Hatchtower läuft jetzt mit Version {v}.": "Done: Hatchtower now runs version {v}.",
+  "Fertig: Hatchtower läuft mit Version {v}.": "Done: Hatchtower runs version {v}.",
+  "Update angefordert – startet in wenigen Sekunden …": "Update requested – starting in a few seconds …",
+  "Update läuft …": "Update running …",
+  "Hatchtower startet neu …": "Hatchtower is restarting …",
+  "Das dauert ungewöhnlich lange. Bitte auf dem Server prüfen: journalctl -u hatchtower-update": "This is taking unusually long. Please check on the server: journalctl -u hatchtower-update"
  }
 }

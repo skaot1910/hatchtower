@@ -36,6 +36,32 @@ if [ "${1:-}" = "update" ]; then
   exec bash "$DIR/installer/install.sh" --update
 fi
 
+# Vom Dienst hatchtower-update.service aufgerufen, wenn in der Weboberfläche „Update installieren“
+# gedrückt wurde (die Oberfläche selbst hat keine Root-Rechte und legt nur eine Anfrage-Datei ab).
+if [ "${1:-}" = "run-update-request" ]; then
+  need_root
+  DATA=/var/lib/hatchtower
+  REQ="$DATA/update.request"; STATE="$DATA/update.state"; LOG="$DATA/update.log"
+  [ -f "$REQ" ] || exit 0
+  rm -f "$REQ"
+  FROM="$(cat "$APP_DIR/VERSION" 2>/dev/null || echo ?)"
+  STARTED="$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
+  write_state() {
+    printf 'state=%s\nfrom=%s\nto=%s\nstarted=%s\nfinished=%s\n' "$1" "$FROM" "${2:-}" "$STARTED" "${3:-}" > "$STATE.tmp"
+    chown root:hatchtower "$STATE.tmp"; chmod 640 "$STATE.tmp"; mv -f "$STATE.tmp" "$STATE"
+  }
+  install -m 640 -o root -g hatchtower /dev/null "$LOG"
+  write_state running
+  export HATCHTOWER_REPO="${HATCHTOWER_REPO:-$(repo)}"
+  [ -n "$HATCHTOWER_REPO" ] || unset HATCHTOWER_REPO
+  if bash "$APP_DIR/installer/get.sh" --update >>"$LOG" 2>&1; then
+    write_state done "$(cat "$APP_DIR/VERSION" 2>/dev/null)" "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
+  else
+    write_state failed "" "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
+  fi
+  exit 0
+fi
+
 if [ "${1:-}" = "github-token" ]; then
   need_root
   if [ "${2:-}" = "--remove" ]; then

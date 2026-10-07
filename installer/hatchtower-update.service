@@ -1,0 +1,10 @@
+[Unit]
+Description=Hatchtower – Update installieren (aus der Weboberfläche angestoßen)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Installiert nur geprüfte GitHub-Releases (SHA-256) – genau wie "hatchtower update" auf der Konsole.
+ExecStart=/usr/local/bin/hatchtower run-update-request
+TimeoutStartSec=30min

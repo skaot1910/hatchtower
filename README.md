@@ -134,6 +134,7 @@ Lädt die neueste Version von GitHub, prüft die SHA-256-Prüfsumme und installi
 `hatchtower update --check` zeigt nur, ob es eine neue Version gibt; ein vorhandenes Paket
 installierst du mit `hatchtower update hatchtower-<version>.tar.gz`. Unter **System** zeigt
 Hatchtower an, wenn eine neue Version verfügbar ist (Prüfung zweimal am Tag, nie automatische Installation).
+Owner können das Update dort auch direkt starten („Update auf … installieren“) und den Fortschritt verfolgen.
 
 Vor dem Update wird die Datenbank gesichert. Startet die neue Version nicht, kehrt Hatchtower
 automatisch zur vorherigen zurück. Benutzer, Rechte, Logos, Zeitpläne und Verlauf bleiben erhalten.

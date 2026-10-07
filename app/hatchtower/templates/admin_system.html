@@ -36,14 +36,33 @@
     <div class="kv"><span>{{ _("Neueste auf GitHub") }}</span><span class="mono">{% if upd.latest %}{% if upd.url %}<a href="{{ upd.url }}" target="_blank" rel="noopener noreferrer">{{ upd.latest }}</a>{% else %}{{ upd.latest }}{% endif %}{% else %}–{% endif %}</span></div>
     <div class="kv"><span>{{ _("Zuletzt geprüft") }}</span><span>{{ upd_checked }}</span></div>
   </div>
-  {% if upd.available %}
-  <div class="hint">{{ _("Version {v} ist verfügbar. Zum Aktualisieren auf dem Server als root ausführen:", v=upd.latest) }} <span class="mono">hatchtower update</span></div>
+  {% if upd_running %}
+  <div class="hint">{{ _("Ein Update läuft gerade.") }} <a href="/admin/system/update">{{ _("Fortschritt ansehen") }}</a></div>
+  {% elif upd.available %}
+  <div class="hint">{{ _("Version {v} ist verfügbar.", v=upd.latest) }}</div>
   {% elif upd.error %}
   <p class="faint small">{{ _(upd.error) }}</p>
   {% elif upd.latest %}
   <p class="faint small">{{ _("Hatchtower ist aktuell.") }}</p>
   {% endif %}
-  <p class="faint small">{{ _("Hatchtower prüft zweimal am Tag, ob es eine neue Version gibt, und installiert nie selbstständig.") }}</p>
+  <div class="form-actions">
+    <form method="post" action="/admin/system/update-check" class="inline-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn btn-ghost btn-sm" type="submit" {% if upd_cooldown %}disabled title="{{ _("Wieder möglich in {n} Sekunden", n=upd_cooldown) }}"{% endif %}>{{ _("Jetzt nach Updates suchen") }}</button>
+    </form>
+    {% if upd.available and not upd_running %}
+      {% if upd_helper %}
+      <form method="post" action="/admin/system/update" class="inline-form"
+            data-confirm="{{ _("Hatchtower jetzt auf Version {v} aktualisieren? Die Oberfläche ist dabei etwa eine Minute nicht erreichbar. Vorher wird die Datenbank gesichert; startet die neue Version nicht, geht es automatisch zurück.", v=upd.latest) }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-primary btn-sm" type="submit">{{ _("Update auf {v} installieren", v=upd.latest) }}</button>
+      </form>
+      {% else %}
+      <p class="faint small">{{ _("Das Update über die Oberfläche steht ab der nächsten Version bereit. Dieses Mal bitte auf dem Server als root ausführen:") }} <span class="mono">hatchtower update</span></p>
+      {% endif %}
+    {% endif %}
+  </div>
+  <p class="faint small">{{ _("Hatchtower prüft zweimal am Tag automatisch und installiert nie selbstständig. Manuelles Suchen ist höchstens alle 5 Minuten möglich.") }}</p>
 </section>
 
 <section class="card">

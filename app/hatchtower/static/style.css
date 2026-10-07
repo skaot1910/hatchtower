@@ -1003,3 +1003,11 @@ a.file-link:hover { color: var(--violet-3); }
 
 /* Hinweis auf neue Version in der Navigation */
 .nav-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); vertical-align: middle; margin-left: 4px; }
+
+/* Update aus der Oberfläche */
+.update-status { font-weight: 600; margin: 0 0 12px; }
+.update-status.ok { color: var(--green-fg); }
+.update-status.bad { color: var(--red-fg); }
+.update-log { max-height: 360px; min-height: 120px; }
+#version .form-actions { flex-wrap: wrap; align-items: center; margin: 10px 0 6px; }
+#version .form-actions .faint { margin: 0; }
