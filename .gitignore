@@ -1,0 +1,38 @@
+# Fertige Pakete (werden als GitHub-Release hochgeladen, nicht ins Repository)
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Laufzeitdaten und Geheimnisse – gehören nie ins Repository
+*.env
+.env
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.htexport
+*.pw
+*.pem
+*.key
+logos/
+
+# Wird bei der Installation erzeugt
+THIRD_PARTY_LICENSES.txt
+
+# Editor, Betriebssystem, Temporäres
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+.tmp*/

@@ -1,0 +1,4 @@
+{# Reiter unter „System“ #}
+<nav class="subnav" aria-label="{{ _("System") }}">
+  {% for href, label in system_tabs %}<a href="{{ href }}" class="{% if request.url.path == href %}active{% endif %}">{{ _(label) }}</a>{% endfor %}
+</nav>

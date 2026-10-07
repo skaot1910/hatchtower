@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Lizenzen") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<a class="backlink" href="/">{{ _("← Übersicht") }}</a>
+<div class="page-head">
+  <div>
+    <h1>{{ _("Über Hatchtower") }}</h1>
+    <p class="muted">{{ _("Hatchtower {version} – Verwaltung und Monitoring für Pterodactyl-Game-Server.", version=version) }}</p>
+  </div>
+  {% if license_file %}<a class="btn btn-ghost" href="/about/licenses.txt" target="_blank" rel="noopener">{{ _("Vollständige Lizenztexte (TXT)") }}</a>{% endif %}
+</div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Kurz zusammengefasst") }}</h2>
+  <ul class="plain-list">
+    <li>{{ _("Alle verwendeten Bibliotheken stehen unter freien, sogenannten permissiven Lizenzen (MIT, BSD, Apache 2.0, PSF, MPL 2.0, HPND). Sie dürfen privat und kommerziell genutzt, verändert und weitergegeben werden.") }}</li>
+    <li>{{ _("Einzige Pflicht: Bei einer Weitergabe von Hatchtower müssen die Lizenz- und Urheberrechtshinweise der Bibliotheken mitgeliefert werden. Das übernimmt die Datei THIRD_PARTY_LICENSES.txt, die bei jeder Installation neu erzeugt wird.") }}</li>
+    <li>{{ _("certifi (Liste vertrauenswürdiger Zertifikate) steht unter der MPL 2.0. Sie wird unverändert genutzt; nur Änderungen an certifi selbst müssten offengelegt werden.") }}</li>
+    <li>{{ _("Hatchtower bringt keine fremden Schriften, Icons, Bilder oder JavaScript-Bibliotheken mit und lädt nichts von fremden Servern. Oberfläche, Logo und Symbole sind selbst erstellt; die Schrift ist die Systemschrift des Geräts.") }}</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Verwendete Open-Source-Bibliotheken") }}</h2>
+  <p class="muted small">{{ _("Python-Pakete dieser Installation, wie sie installiert sind:") }}</p>
+  <div class="table-card">
+    <table class="table stack-table">
+      <thead><tr><th>{{ _("Paket") }}</th><th>{{ _("Version") }}</th><th>{{ _("Lizenz") }}</th></tr></thead>
+      <tbody>
+      {% for p in packages %}
+        <tr>
+          <td>{% if p.url %}<a href="{{ p.url }}" rel="noopener noreferrer">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}</td>
+          <td class="mono faint" data-label="{{ _("Version") }}">{{ p.version }}</td>
+          <td data-label="{{ _("Lizenz") }}">{{ p.license }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Weitere Bestandteile") }}</h2>
+  <div class="table-card">
+    <table class="table stack-table">
+      <thead><tr><th>{{ _("Bestandteil") }}</th><th>{{ _("Lizenz") }}</th><th>{{ _("Nutzung in Hatchtower") }}</th></tr></thead>
+      <tbody>
+        <tr><td>Python {{ python_version }}</td><td data-label="{{ _("Lizenz") }}">PSF-2.0</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("Laufzeitumgebung, aus dem Betriebssystem installiert") }}</td></tr>
+        <tr><td>SQLite {{ sqlite_version }}</td><td data-label="{{ _("Lizenz") }}">{{ _("Gemeinfrei (Public Domain)") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("Datenbank, Teil von Python") }}</td></tr>
+        <tr><td>Debian GNU/Linux</td><td data-label="{{ _("Lizenz") }}">{{ _("verschiedene freie Lizenzen") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("Betriebssystem des Servers, wird nicht mit Hatchtower verteilt") }}</td></tr>
+        <tr><td>Pterodactyl Panel / Wings</td><td data-label="{{ _("Lizenz") }}">MIT</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("nur über die offiziellen Schnittstellen (API und Websocket) angebunden, kein Code übernommen") }}</td></tr>
+        <tr><td>Valve Source Query (A2S)</td><td data-label="{{ _("Lizenz") }}">{{ _("offenes Protokoll") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("Abfrage öffentlicher Serverinformationen über python-a2s") }}</td></tr>
+        <tr><td>Discord Webhooks</td><td data-label="{{ _("Lizenz") }}">{{ _("Nutzungsbedingungen von Discord") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("optional, nur wenn du einen Webhook einträgst") }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Marken und Logos") }}</h2>
+  <ul class="plain-list muted small">
+    <li>{{ _("Pterodactyl, Steam/Valve und Discord sind Marken ihrer jeweiligen Inhaber. Sie werden nur beschreibend genannt; Hatchtower ist ein eigenständiges Projekt und nicht mit ihnen verbunden.") }}</li>
+    <li>{{ _("Spiele-Logos und eigene Logos laden die Benutzer selbst hoch. Die Rechte daran liegen bei den jeweiligen Herstellern. Für den privaten Gebrauch im Verwaltungsbereich ist das üblich; auf einer öffentlichen Statusseite solltest du nur Logos zeigen, die du verwenden darfst.") }}</li>
+  </ul>
+</section>
+{% endblock %}

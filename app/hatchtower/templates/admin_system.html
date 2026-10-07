@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ _("System") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+{% include "_system_tabs.html" %}
+<div class="page-head">
+  <div><h1>{{ _("System") }}</h1><p class="muted">{{ _("Verbindung, Selbsttest und Erscheinungsbild. Alle Prüfungen lesen nur.") }}</p></div>
+  <a class="btn btn-ghost" href="/admin/system">{{ _("Erneut prüfen") }}</a>
+</div>
+
+<div class="two-col">
+  <section class="card">
+    <h2 class="card-h">{{ _("Verbindung") }}</h2>
+    <div class="facts">
+      <div class="kv"><span>{{ _("Pterodactyl") }}</span><span class="mono">{{ settings.pterodactyl_url or '–' }}</span></div>
+      <div class="kv"><span>{{ _("Modus") }}</span><span>{{ _('Lesen und steuern') if not settings.read_only else _('Nur lesen') }}</span></div>
+      <div class="kv"><span>{{ _("Öffentliche Adresse") }}</span><span class="mono">{{ public_host or '–' }}</span></div>
+      <div class="kv"><span>{{ _("Reverse-Proxy") }}</span><span class="mono">{{ settings.trusted_proxies|join(', ') or '–' }}</span></div>
+      <div class="kv"><span>{{ _("Version") }}</span><span class="mono">{{ version }}</span></div>
+    </div>
+    <a class="btn btn-primary btn-sm" href="/admin/connection">{{ _("Verbindung bearbeiten") }}</a>
+  </section>
+  <section class="card">
+    <h2 class="card-h">{{ _("Monitoring") }}</h2>
+    <div class="facts">
+      <div class="kv"><span>{{ _("Letzte erfolgreiche Abfrage") }}</span><span>{{ last_ok }}</span></div>
+      <div class="kv"><span>{{ _("Letzter Abgleich der Serverliste") }}</span><span>{{ last_sync }}</span></div>
+      <div class="kv"><span>{{ _("Fehler") }}</span><span class="{% if last_error %}bad{% else %}faint{% endif %}">{{ _(last_error) if last_error else _('keiner') }}</span></div>
+    </div>
+  </section>
+</div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Selbsttest") }}</h2>
+  <ul class="checks">
+    {% for c in checks %}
+    <li class="{{ 'ok' if c.ok else 'bad' }}"><span class="check-icon" aria-hidden="true">{{ '✓' if c.ok else '✕' }}</span><strong>{{ _(c.label) }}</strong><span class="faint">{{ _(c.detail) if c.detail else '' }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="card" id="erscheinungsbild">
+  <h2 class="card-h">{{ _("Erscheinungsbild") }}</h2>
+  <form method="post" action="/admin/branding" class="form brand-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="form-grid">
+      <label>{{ _("Eigener Name (optional)") }}
+        <input name="brand_name" value="{{ brand.custom }}" maxlength="40" placeholder="{{ _("z. B. der Name deiner Community") }}">
+      </label>
+      <label>{{ _("Standard-Theme (für neue Benutzer und die Login-Seite)") }}
+        <select name="default_theme">
+          {% for t in themes %}<option value="{{ t.key }}" {% if t.key == default_theme %}selected{% endif %}>{{ _(t.name) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _("Standardsprache (für die Login-Seite und Benutzer ohne eigene Wahl)") }}
+        <select name="default_language">
+          {% for code, name in languages.items() %}<option value="{{ code }}" {% if code == default_language %}selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="check brand-check"><input type="checkbox" name="show_name" value="1" {% if brand.show_name %}checked{% endif %}> {{ _("Eigenen Namen neben dem Logo anzeigen") }}</label>
+    </div>
+    <p class="faint small">{{ _("Dein eigener Name steht groß in der Kopfzeile und auf der Login-Seite, „Hatchtower“ dezent darunter und in der Fußzeile. Ohne eigenen Namen steht dort einfach „Hatchtower“. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.") }}</p>
+    <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  </form>
+
+  <div class="brand-logos">
+    {% for kind, label, current, size, shown, hint in [
+      ('header', 'Logo in der Kopfzeile', brand.logo_header, '360 × 72 px', 'max. 180 × 36 px', 'Breites Querformat (5:1) passt am besten, z. B. Schriftzug mit Symbol. Quadratisch geht auch: dann 72 × 72 px.'),
+      ('login', 'Logo auf der Login-Seite', brand.logo_login, '640 × 240 px', 'max. 320 × 120 px', 'Querformat (8:3). Quadratisch geht auch: dann 240 × 240 px.')
+    ] %}
+    <div class="brand-logo-box">
+      <h3>{{ _(label) }}</h3>
+      <div class="brand-preview brand-preview-{{ kind }}">
+        {% if current %}<img src="/branding/{{ current }}" alt="{{ _(label) }}">{% else %}<span class="faint small">{{ _("kein Logo – es wird der Name angezeigt") }}</span>{% endif %}
+      </div>
+      <p class="small"><strong>{{ _("Empfohlen: {size}").format(size=size) }}</strong> <span class="faint">{{ _("(angezeigt mit {shown}, doppelte Größe für scharfe Bildschirme)").format(shown=_(shown)) }}</span></p>
+      <p class="faint small">{{ _(hint) }} {{ _("PNG mit transparentem Hintergrund passt zu allen Themes. Erlaubt: PNG, JPG, WebP bis 2 MB; größere Bilder werden automatisch verkleinert.") }}</p>
+      <form method="post" action="/admin/branding/logo/{{ kind }}" enctype="multipart/form-data" class="inline-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" required aria-label="{{ _("{label} auswählen").format(label=_(label)) }}">
+        <button class="btn btn-primary btn-sm" type="submit">{{ _("Hochladen") }}</button>
+      </form>
+      {% if current %}
+      <form method="post" action="/admin/branding/logo/{{ kind }}/delete" data-confirm="{{ _("{label} entfernen?").format(label=_(label)) }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost btn-sm" type="submit">{{ _("Logo entfernen") }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

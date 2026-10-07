@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ _(title) }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="empty">
+  <h1>{{ _(title) }}</h1>
+  <p class="muted">{{ _(message) }}</p>
+  <a class="btn btn-ghost" href="/">{{ _("Zur Übersicht") }}</a>
+</div>
+{% endblock %}

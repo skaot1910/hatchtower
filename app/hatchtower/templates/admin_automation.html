@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Automationen") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Automationen") }}</h1><p class="muted">{{ _("Läuft im Manager, prüft alle 20 Sekunden aus der eigenen Datenbank. Pterodactyl wird nur angefragt, wenn etwas auszuführen ist.") }}</p></div>
+</div>
+{% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Automationen werden gespeichert, aber nicht ausgeführt.") }}</div>{% endif %}
+
+<div class="two-col">
+  <section class="card">
+    <h2 class="card-h">{{ _("Neustart bei Absturz") }}</h2>
+    <p class="faint small">{{ _("Wechselt ein Server von „running“ direkt auf „offline“, ohne dass jemand ihn gestoppt hat, wartet der Manager 90 Sekunden. Hat Wings ihn bis dahin nicht selbst neu gestartet, startet der Manager ihn. Höchstens 3 Neustarts pro Stunde, danach nur noch Meldung im Audit-Log.") }}</p>
+    <form method="post" action="/admin/automation/crash" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="toggle-list">
+        {% for s in servers %}
+        <label class="check"><input type="checkbox" name="crash__{{ s.identifier }}" value="1" {% if crash.get(s.identifier) %}checked{% endif %}> {{ s.name }} <span class="faint small">{{ s.egg }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="faint small">{{ _("Hinweis: Wer einen Server per Ingame-Befehl beendet, sollte ihn lieber über den Manager oder das Panel stoppen. Stopp-Befehle wie {beispiele} über die Konsole werden erkannt.", beispiele="stop, quit, shutdown") }}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2 class="card-h">{{ _("Letzte Absturz-Ereignisse") }}</h2>
+    {% if crashes %}
+    <ul class="event-list">
+      {% for c in crashes %}<li><span class="faint small nowrap">{{ c.at }}</span> <strong>{{ c.server }}</strong> <span class="muted">{{ _(c.outcome) }}</span></li>{% endfor %}
+    </ul>
+    {% else %}<p class="faint">{{ _("Noch keine Abstürze erkannt.") }}</p>{% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Zeitpläne") }}</h2>
+  {% if schedules %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Server") }}</th><th>{{ _("Aktion") }}</th><th>{{ _("Wann") }}</th><th>{{ _("Vorwarnung") }}</th><th>{{ _("Zuletzt") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for x in schedules %}
+      <tr class="{% if not x.s.enabled %}row-off{% endif %}">
+        <td><strong>{{ x.s.name }}</strong>{% if not x.s.enabled %} <span class="badge">{{ _("pausiert") }}</span>{% endif %}</td>
+        <td data-label="{{ _("Server") }}">{{ x.server }}</td>
+        <td data-label="{{ _("Aktion") }}">{{ x.action }}{% if x.s.command %} <span class="mono faint small">{{ x.s.command }}</span>{% endif %}{% if x.s.only_if_running and x.s.action != 'start' %}<div class="faint small">{{ _("nur wenn gestartet") }}</div>{% endif %}</td>
+        <td class="nowrap" data-label="{{ _("Wann") }}">{{ x.when }}</td>
+        <td data-label="{{ _("Vorwarnung") }}">{% if x.s.warn_minutes %}{{ _("{n} Min. vorher", n=x.s.warn_minutes) }}<div class="mono faint small">{{ x.s.warn_command }}</div>{% else %}<span class="faint">–</span>{% endif %}</td>
+        <td class="faint small" data-label="{{ _("Zuletzt") }}">{{ x.s.last_result or '–' }}</td>
+        <td class="num row-actions">
+          <form method="post" action="/admin/automation/schedules/{{ x.s.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-ghost" type="submit">{{ _("Pausieren") if x.s.enabled else _("Aktivieren") }}</button></form>
+          <form method="post" action="/admin/automation/schedules/{{ x.s.id }}/delete" data-confirm="{{ _("Zeitplan „{name}“ löschen?", name=x.s.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="faint">{{ _("Noch keine Zeitpläne.") }}</p>{% endif %}
+
+  <details class="legend" {% if not schedules %}open{% endif %}>
+    <summary>{{ _("Neuen Zeitplan anlegen") }}</summary>
+    <form method="post" action="/admin/automation/schedules" class="form schedule-form" id="schedule-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="form-grid">
+        <label>{{ _("Name") }}<input name="name" required maxlength="80" placeholder="{{ _("Nächtlicher Neustart") }}"></label>
+        <label>{{ _("Server") }}
+          <select name="identifier" required>
+            <option value="">– {{ _("wählen") }} –</option>
+            {% for s in servers %}<option value="{{ s.identifier }}">{{ s.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ _("Aktion") }}
+          <select name="action" required id="sched-action">
+            {% for key, label in actions.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ _("Wiederholung") }}
+          <select name="repeat" id="sched-repeat">
+            <option value="weekly">{{ _("Wöchentlich an Wochentagen") }}</option>
+            <option value="once">{{ _("Einmalig an einem Datum") }}</option>
+          </select>
+        </label>
+        <label id="sched-date" hidden>{{ _("Datum") }}<input name="date" type="date"></label>
+        <label>{{ _("Uhrzeit") }}<input name="time" type="time" required value="05:00"></label>
+      </div>
+      <label id="sched-command">{{ _("Befehl (nur bei Aktion „Befehl“)") }}<input name="command" maxlength="500" placeholder="save"></label>
+      <fieldset class="weekdays" id="sched-weekdays">
+        <legend>{{ _("Wochentage") }}</legend>
+        {% for d in weekdays %}<label class="check"><input type="checkbox" name="weekdays" value="{{ loop.index0 }}" checked> {{ d }}</label>{% endfor %}
+      </fieldset>
+      <label class="check"><input type="checkbox" name="only_if_running" value="1" checked> {{ _("Nur ausführen, wenn der Server läuft (gilt nicht für Start)") }}</label>
+      <div class="form-grid">
+        <label>{{ _("Vorwarnung (Minuten vorher, optional)") }}<input name="warn_minutes" inputmode="numeric" placeholder="5"></label>
+        <label>{{ _("Vorwarn-Befehl") }}<input name="warn_command" maxlength="300" placeholder="{{ _("say Neustart in {minuten} Minuten!") }}"></label>
+      </div>
+      <p class="faint small">{{ _("Einmalige Zeitpläne werden nach dem Ausführen automatisch pausiert.") }} {{ _("{platzhalter} wird durch die Minutenzahl ersetzt. Welcher Befehl Spielern eine Nachricht zeigt, hängt vom Spiel ab (z. B. „say …“ oder „broadcast …“). Verpasste Termine, etwa während eines Manager-Neustarts, werden nicht nachgeholt.", platzhalter="{minuten}") }}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Zeitplan anlegen") }}</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

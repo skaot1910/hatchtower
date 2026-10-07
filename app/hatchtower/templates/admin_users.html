@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Benutzer") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Benutzer") }}</h1><p class="muted">{{ _("Benutzer des Managers. Pterodactyl-Konten sind davon unabhängig.") }}</p></div>
+</div>
+
+<div class="card table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Spalte|Benutzer") }}</th><th>{{ _("Rolle") }}</th><th>{{ _("Zugriff") }}</th><th>{{ _("Letzte Anmeldung") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr class="{% if not r.u.is_active %}row-off{% endif %}">
+        <td><strong>{{ r.u.username }}</strong>{% if not r.u.is_active %} <span class="badge">{{ _("deaktiviert") }}</span>{% endif %}</td>
+        <td data-label="{{ _("Rolle") }}">{% if r.u.role == 'owner' %}<span class="badge badge-ro">{{ _("Owner") }}</span>{% else %}{{ _("Rolle|Benutzer") }}{% endif %}</td>
+        <td class="summary" data-label="{{ _("Zugriff") }}">
+          {% if r.u.role == 'owner' %}<span class="faint">{{ _("alle Server, alle Rechte") }}</span>
+          {% elif not r.access %}<span class="faint">{{ _("noch kein Server freigegeben") }}</span>
+          {% else %}<div class="access-mini">{% for x in r.access %}<span class="pchip{% if x.kind == 'custom' %} pchip-custom{% endif %}"><strong>{{ x.server }}</strong> · {{ x.label }}</span>{% endfor %}</div>
+          <span class="faint small">{{ _("{n} von {total} Servern", n=r.access|length, total=server_count) }}</span>{% endif %}
+        </td>
+        <td class="faint" data-label="{{ _("Letzte Anmeldung") }}">{{ r.last_login }}</td>
+        <td class="num"><a class="chip chip-sm" href="/admin/users/{{ r.u.id }}">{{ _("Rechte und Konto") }}</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="two-col">
+<section class="card" id="einladen">
+  <h2 class="card-h">{{ _("Per Einladungslink") }}</h2>
+  {% if invite_link %}
+  <div class="flash" role="status">{{ invite_message }}</div>
+  <label>{{ _("Einladungslink (gilt 7 Tage, nur einmal)") }}
+    <input class="mono copy-field" value="{{ invite_link }}" readonly data-select-on-focus>
+  </label>
+  {% endif %}
+  <p class="muted small">{{ _("Der neue Benutzer wählt Benutzername und Passwort selbst. Du musst kein Passwort weitergeben.") }}</p>
+  <form method="post" action="/admin/users/invite" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Rolle") }}
+      <select name="role">
+        <option value="user">{{ _("Benutzer: darf nur, was du pro Server freigibst") }}</option>
+        <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
+      </select>
+    </label>
+    {% if mail_ready %}
+    <label>{{ _("Per E-Mail schicken an (optional)") }}<input name="email" type="email" maxlength="254" autocomplete="off"></label>
+    {% endif %}
+    <button class="btn btn-primary" type="submit">{{ _("Einladungslink erstellen") }}</button>
+  </form>
+  {% if invites %}
+  <h3 class="card-h">{{ _("Offene Einladungen") }}</h3>
+  <ul class="plain-list">
+    {% for i in invites %}
+    <li class="invite-row">
+      <span>{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("erstellt {date}", date=i.created) }} · {{ _("gültig bis {date}", date=i.expires) }}</span></span>
+      <form method="post" action="/admin/users/invites/{{ i.hash }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Zurückziehen") }}</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Direkt anlegen") }}</h2>
+  <form method="post" action="/admin/users" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Benutzername") }}<input name="username" required maxlength="32" pattern="[A-Za-z0-9._\-]+" autocomplete="off"></label>
+    <label>{{ _("Startpasswort") }}<input name="password" type="text" required minlength="15" autocomplete="off" spellcheck="false"></label>
+    <p class="faint small">{{ _("Mindestens 15 Zeichen mit Groß- und Kleinbuchstaben, Zahl und Sonderzeichen. Gib es dem Benutzer sicher weiter; er kann es danach unter „Konto“ ändern.") }}</p>
+    <label>{{ _("Rolle") }}
+      <select name="role">
+        <option value="user">{{ _("Benutzer: darf nur, was du pro Server freigibst") }}</option>
+        <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _("Benutzer anlegen") }}</button>
+  </form>
+</section>
+</div>
+{% endblock %}

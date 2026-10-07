@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Konto") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _("Dein Konto") }}</h1><p class="muted">{{ user.username }} · {{ _("Owner") if user.is_owner else _("Rolle|Benutzer") }}</p></div></div>
+
+<section class="card narrow">
+  <h2 class="card-h">{{ _("Sprache") }}</h2>
+  <p class="muted small">{{ _("Gilt für dein Konto, auf allen deinen Geräten.") }}</p>
+  <form method="post" action="/account/language" class="form form-row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <select name="language" aria-label="{{ _("Sprache") }}">
+      {% for code, name in languages.items() %}<option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
+
+<p class="faint small">{{ _("Die Darstellung (Dunkel, Mittel, Hell) wählst du oben rechts in der Kopfzeile.") }}</p>
+
+<section class="card narrow">
+  <h2 class="card-h">{{ _("Passwort ändern") }}</h2>
+  {% if error %}<div class="alert">{{ _(error) }}</div>{% endif %}
+  <form method="post" action="/account/password" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Aktuelles Passwort") }}<input name="current" type="password" autocomplete="current-password" required></label>
+    <label>{{ _("Neues Passwort") }}<input name="new" type="password" autocomplete="new-password" required minlength="15"></label>
+    <label>{{ _("Neues Passwort wiederholen") }}<input name="repeat" type="password" autocomplete="new-password" required minlength="15"></label>
+    <p class="faint small">{{ _("Mindestens 15 Zeichen mit Groß- und Kleinbuchstaben, Zahl und Sonderzeichen. Danach meldest du dich neu an.") }}</p>
+    <button class="btn btn-primary" type="submit">{{ _("Passwort ändern") }}</button>
+  </form>
+</section>
+
+{% if mail_ready or me.email %}
+<section class="card narrow" id="email">
+  <h2 class="card-h">{{ _("E-Mail-Adresse") }}</h2>
+  {% if me.email %}
+  <p>{{ me.email }} {% if me.email_verified %}<span class="badge badge-ok">{{ _("bestätigt") }}</span>{% endif %}</p>
+  {% else %}
+  <p class="faint">{{ _("Keine E-Mail-Adresse hinterlegt.") }}</p>
+  {% endif %}
+  {% if pending_email %}<p class="hint">{{ _("Bestätigung für {email} ausstehend – sieh in dein Postfach.", email=pending_email) }}</p>{% endif %}
+  {% if mail_ready %}
+  <form method="post" action="/account/email" class="form form-row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="email" type="email" maxlength="254" placeholder="{{ _("neue E-Mail-Adresse") }}" aria-label="{{ _("E-Mail-Adresse") }}" autocomplete="email">
+    <button class="btn btn-primary" type="submit">{{ _("Bestätigungslink senden") }}</button>
+  </form>
+  {% endif %}
+  {% if me.email %}
+  <form method="post" action="/account/email" data-confirm="{{ _("E-Mail-Adresse entfernen? Benachrichtigungen per E-Mail werden dann ausgeschaltet.") }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="email" value="">
+    <button class="btn btn-ghost btn-sm" type="submit">{{ _("E-Mail-Adresse entfernen") }}</button>
+  </form>
+  {% endif %}
+  <p class="faint small">{{ _("Freiwillig. Damit kannst du dein Passwort selbst zurücksetzen und Benachrichtigungen bekommen.") }}</p>
+</section>
+
+<section class="card narrow" id="benachrichtigungen">
+  <h2 class="card-h">{{ _("Benachrichtigungen per E-Mail") }}</h2>
+  {% if me.email_verified and mail_ready %}
+  <form method="post" action="/account/notify" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="notify_email" value="1" {% if me.notify_email %}checked{% endif %}> {{ _("E-Mails bei diesen Ereignissen schicken:") }}</label>
+    <div class="toggle-list">
+      {% for key, label in events.items() %}<label class="check"><input type="checkbox" name="event__{{ key }}" value="1" {% if key in my_events %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
+    </div>
+    <p class="faint small">{{ _("Du bekommst nur Meldungen zu Servern, die du sehen darfst.") }}</p>
+    <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  </form>
+  {% else %}
+  <p class="faint">{{ _("Dafür brauchst du eine bestätigte E-Mail-Adresse.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="card narrow">
+  <h2 class="card-h">{{ _("Deine Daten") }}</h2>
+  <p class="muted small">{{ _("Lade alles herunter, was Hatchtower zu deinem Konto gespeichert hat: Kontodaten, Rechte, Sitzungen und deine Einträge im Audit-Log.") }}</p>
+  <a class="btn btn-ghost" href="/account/export">{{ _("Meine Daten herunterladen (JSON)") }}</a>
+</section>
+
+<section class="card narrow danger-zone" id="loeschen">
+  <h2 class="card-h">{{ _("Konto löschen") }}</h2>
+  <p class="muted small">{{ _("Löscht dein Konto sofort und unwiderruflich: Zugangsdaten, Rechte, Favoriten, E-Mail-Adresse und alle Sitzungen. Einträge im Audit-Log bleiben bis zum Ende der Aufbewahrungsfrist ({n} Tage) und werden dann automatisch gelöscht.", n=audit_days) }}</p>
+  <form method="post" action="/account/delete" class="form" data-confirm="{{ _("Dein Konto wirklich unwiderruflich löschen?") }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Aktuelles Passwort") }}<input name="current" type="password" autocomplete="current-password" required></label>
+    <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ _("Ja, mein Konto endgültig löschen") }}</label>
+    <button class="btn btn-danger" type="submit">{{ _("Konto unwiderruflich löschen") }}</button>
+  </form>
+</section>
+{% endblock %}

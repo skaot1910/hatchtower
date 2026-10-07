@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Hatchtower – Befehl auf dem Server (als root).
+#   hatchtower setup-token | create-owner | reset-password | selftest | version
+#   hatchtower update <hatchtower-x.y.z.tar.gz | https://…/hatchtower-x.y.z.tar.gz>
+set -euo pipefail
+APP_DIR=/opt/hatchtower
+
+if [ "${1:-}" = "update" ]; then
+  [ "$(id -u)" -eq 0 ] || { echo "Bitte als root ausführen."; exit 1; }
+  SRC="${2:-${HATCHTOWER_UPDATE_URL:-}}"
+  [ -n "$SRC" ] || { echo "Aufruf: hatchtower update <paket.tar.gz oder URL>"; exit 1; }
+  WORK="$(mktemp -d /tmp/hatchtower-update.XXXX)"
+  trap 'rm -rf "$WORK"' EXIT
+  case "$SRC" in
+    http://*|https://*) echo "Lade $SRC"; curl -fsSL "$SRC" -o "$WORK/paket.tar.gz";;
+    *) cp "$SRC" "$WORK/paket.tar.gz";;
+  esac
+  tar -xzf "$WORK/paket.tar.gz" -C "$WORK"
+  DIR="$(find "$WORK" -mindepth 1 -maxdepth 1 -type d -name 'hatchtower*' | head -1)"
+  [ -n "$DIR" ] && [ -f "$DIR/installer/install.sh" ] || { echo "Das Paket enthält kein Hatchtower."; exit 1; }
+  echo "Installiert: $(cat $APP_DIR/VERSION 2>/dev/null || echo ?)  →  neu: $(cat "$DIR/VERSION")"
+  exec bash "$DIR/installer/install.sh" --update
+fi
+
+set -a
+. /etc/hatchtower/hatchtower.env
+set +a
+cd "$APP_DIR/app"
+export HOME=/var/lib/hatchtower
+exec setpriv --reuid=hatchtower --regid=hatchtower --init-groups "$APP_DIR/venv/bin/python" -m hatchtower.cli "$@"

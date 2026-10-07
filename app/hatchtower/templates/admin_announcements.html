@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Ankündigungen") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+{% include "_system_tabs.html" %}
+<div class="page-head">
+  <div><h1>{{ _("Ankündigungen") }}</h1><p class="muted">{{ _("Ein Hinweis oben auf jeder Seite für alle angemeldeten Benutzer, z. B. „Heute 20 Uhr Wartung“. Mit Beginn und Ende kannst du ihn im Voraus planen.") }}</p></div>
+</div>
+
+<section class="card" id="ankuendigung-form">
+  <h2 class="card-h">{% if editing %}{{ _("Ankündigung bearbeiten") }}{% else %}{{ _("Neue Ankündigung") }}{% endif %}</h2>
+  <form method="post" action="/admin/announcements" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if editing %}<input type="hidden" name="ann_id" value="{{ editing.id }}">{% endif %}
+    <label>{{ _("Text") }}<textarea name="text" rows="2" maxlength="500" required>{{ editing.text if editing else '' }}</textarea></label>
+    <div class="form-grid">
+      <label>{{ _("Anzeigen ab (leer = sofort)") }}<input type="datetime-local" name="starts" value="{{ editing.start_input if editing else '' }}"></label>
+      <label>{{ _("Anzeigen bis (leer = ohne Ende)") }}<input type="datetime-local" name="ends" value="{{ editing.end_input if editing else '' }}"></label>
+      <label>{{ _("Darstellung") }}
+        <select name="level">
+          <option value="info" {% if not editing or editing.level == 'info' %}selected{% endif %}>{{ _("Hinweis") }}</option>
+          <option value="warn" {% if editing and editing.level == 'warn' %}selected{% endif %}>{{ _("Warnung") }}</option>
+        </select>
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" name="public" value="1" {% if editing and editing.public %}checked{% endif %}> {{ _("Auch auf der öffentlichen Statusseite zeigen") }}</label>
+    <p class="faint small">{{ _("Uhrzeiten in der Zeitzone {tz}.", tz=settings.timezone) }}</p>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+      {% if editing %}<a class="btn btn-ghost" href="/admin/announcements">{{ _("Abbrechen") }}</a>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Geplant und aktiv") }}</h2>
+  {% if rows %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Text") }}</th><th>{{ _("Zeitraum") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><span class="badge {% if r.level == 'warn' %}badge-warn{% endif %}">{{ _("Warnung") if r.level == 'warn' else _("Hinweis") }}</span> {{ r.text }}{% if r.public %} <span class="faint small">· {{ _("Statusseite") }}</span>{% endif %}</td>
+        <td class="nowrap faint small" data-label="{{ _("Zeitraum") }}">{{ r.start_text }} – {{ r.end_text }}</td>
+        <td data-label="{{ _("Status") }}">{{ {"active": _("wird angezeigt"), "upcoming": _("geplant"), "ended": _("beendet")}[r.state] }}</td>
+        <td class="num row-actions">
+          <a class="chip chip-sm" href="/admin/announcements?edit={{ r.id }}#ankuendigung-form">{{ _("Bearbeiten") }}</a>
+          <form method="post" action="/admin/announcements/{{ r.id }}/delete" data-confirm="{{ _("Ankündigung löschen?") }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="faint">{{ _("Noch keine Ankündigungen.") }}</p>{% endif %}
+</section>
+{% endblock %}

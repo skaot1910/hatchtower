@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "_mark.html" as hm %}
+{% import "_lang.html" as lng with context %}
+{% block title %}{{ _("Konto anlegen") }} · {{ brand.name }}{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  {{ lng.switch("lang-switch-corner") }}
+  <div class="login-card">
+    <div class="login-head">
+      {% if brand.logo_login %}<img class="login-logo" src="/branding/{{ brand.logo_login }}" alt="{{ brand.name }}">{% else %}{{ hm.mark("hatch-mark-lg") }}{% endif %}
+      <h1>{{ _("Willkommen bei {name}", name=brand.name) }}</h1>
+      <p class="login-product">{{ _("Du wurdest eingeladen. Leg dein Konto an.") }}</p>
+    </div>
+    {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
+    <form method="post" action="/invite/{{ token }}" class="form">
+      <input type="hidden" name="prelogin" value="{{ prelogin }}">
+      <label>{{ _("Benutzername") }}<input name="username" required maxlength="32" pattern="[A-Za-z0-9._\-]+" value="{{ username }}" autocomplete="username" autofocus></label>
+      <label>{{ _("Passwort") }}<input name="password" type="password" required minlength="15" autocomplete="new-password"></label>
+      <label>{{ _("Passwort wiederholen") }}<input name="repeat" type="password" required minlength="15" autocomplete="new-password"></label>
+      <p class="faint small">{{ _("Mindestens 15 Zeichen mit Groß- und Kleinbuchstaben, Zahl und Sonderzeichen.") }}</p>
+      {% if mail_ready %}
+      <label>{{ _("E-Mail (optional)") }}<input name="email" type="email" maxlength="254" value="{{ email }}" autocomplete="email"></label>
+      <p class="faint small">{{ _("Damit kannst du dein Passwort selbst zurücksetzen und Benachrichtigungen bekommen. Du bekommst einen Link zur Bestätigung.") }}</p>
+      {% endif %}
+      <button class="btn btn-primary btn-block" type="submit">{{ _("Konto anlegen") }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

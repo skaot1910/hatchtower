@@ -1,0 +1,2 @@
+{# Sprachumschalter DE/EN, mit Kontext importieren (braucht lang und here) #}
+{% macro switch(extra="") %}<span class="lang-switch {{ extra }}" role="group" aria-label="{{ _("Sprache") }}">{% for code in languages %}<a href="/lang/{{ code }}?next={{ here|urlencode }}" lang="{{ code }}" title="{{ languages[code] }}"{% if code == lang %} class="is-current" aria-current="true"{% endif %}>{{ code|upper }}</a>{% endfor %}</span>{% endmacro %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "_lang.html" as lng with context %}
+{% block title %}{{ _("Neues Passwort") }} · {{ brand.name }}{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  {{ lng.switch("lang-switch-corner") }}
+  <div class="login-card">
+    <div class="login-head"><h1>{{ _("Neues Passwort") }}</h1></div>
+    {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
+    <form method="post" action="/reset/{{ token }}" class="form">
+      <input type="hidden" name="prelogin" value="{{ prelogin }}">
+      <label>{{ _("Neues Passwort") }}<input name="password" type="password" required minlength="15" autocomplete="new-password" autofocus></label>
+      <label>{{ _("Neues Passwort wiederholen") }}<input name="repeat" type="password" required minlength="15" autocomplete="new-password"></label>
+      <p class="faint small">{{ _("Mindestens 15 Zeichen mit Groß- und Kleinbuchstaben, Zahl und Sonderzeichen.") }}</p>
+      <button class="btn btn-primary btn-block" type="submit">{{ _("Passwort speichern") }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

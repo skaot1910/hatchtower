@@ -1,0 +1,36 @@
+[Unit]
+Description=Hatchtower – Management und Monitoring für Pterodactyl
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=hatchtower
+Group=hatchtower
+WorkingDirectory=/opt/hatchtower/app
+EnvironmentFile=/etc/hatchtower/hatchtower.env
+ExecStart=/opt/hatchtower/venv/bin/uvicorn hatchtower.main:app --host ${HATCHTOWER_BIND} --port ${HATCHTOWER_PORT} --workers 1 --no-proxy-headers --no-server-header --log-level warning
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/hatchtower
+UMask=0027
+# Zusätzliche Abschottung: keine Sonderrechte, kein Zugriff auf Kernel-Einstellungen
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

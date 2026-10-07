@@ -1,0 +1,2 @@
+{# Theme-Umschalter (Dunkel/Mittel/Hell), mit Kontext importieren (braucht theme und here) #}
+{% macro switch(themes_list) %}<span class="theme-switch" role="group" aria-label="{{ _("Darstellung") }}">{% for t in themes_list %}<a href="/theme/{{ t.key }}?next={{ here|urlencode }}" title="{{ _(t.name) }}" aria-label="{{ _(t.name) }}"{% if t.key == theme %} class="is-current" aria-current="true"{% endif %}>{{ t.icon }}</a>{% endfor %}</span>{% endmacro %}

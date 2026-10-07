@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% import "_card.html" as c %}
+{% block content %}
+{% if preview %}
+<div class="preview-banner">{{ _("Vorschau: So sieht") }} <strong>{{ preview }}</strong> {{ _("die Übersicht.") }} <a href="/admin/users">{{ _("Vorschau beenden") }}</a></div>
+{% endif %}
+<div class="page-head">
+  <div>
+    <h1>{{ _("Übersicht") }}</h1>
+    <p class="muted">{{ servers|length }} {{ _("Server sichtbar") }}</p>
+  </div>
+  <div class="head-tools">
+  {% if status_page_on and not preview %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} ↗</a>{% endif %}
+  <div class="view-toggle" role="group" aria-label="{{ _("Ansicht") }}">
+    <button type="button" data-view="tiles" aria-pressed="false">{{ _("▦ Kacheln") }}</button>
+    <button type="button" data-view="list" aria-pressed="true">{{ _("☰ Liste") }}</button>
+  </div>
+  <div class="monitor-status {% if not monitor.healthy %}is-bad{% endif %}" id="monitor-status">
+    {% if monitor.healthy %}{{ _("Monitoring aktiv") }}{% elif monitor.last_error %}{{ _(monitor.last_error) }}{% else %}{{ _("Monitoring startet …") }}{% endif %}
+  </div>
+  </div>
+</div>
+
+{% if not servers %}
+<div class="empty">
+  <h2>{{ _("Noch keine Server sichtbar") }}</h2>
+  <p class="muted">{% if user.is_owner %}{{ _("Das Monitoring liest die Server gerade aus Pterodactyl. Lade die Seite in ein paar Sekunden neu.") }}{% else %}{{ _("Dir wurden noch keine Server freigegeben.") }}{% endif %}</p>
+</div>
+{% endif %}
+
+{% if servers %}
+<div class="list-tools">
+<label class="sort-select">{{ _("Sortieren") }}
+  <select id="sort-select" aria-label="{{ _("Sortieren") }}">
+    <option value="name-asc">{{ _("Name A–Z") }}</option>
+    <option value="name-desc">{{ _("Name Z–A") }}</option>
+    <option value="status-online">{{ _("Status: online zuerst") }}</option>
+    <option value="status-offline">{{ _("Status: offline zuerst") }}</option>
+  </select>
+</label>
+<div class="status-filter" id="status-filter" role="group" aria-label="{{ _("Nach Status filtern") }}">
+  <button type="button" class="sf sf-all" data-filter="all" aria-pressed="true">{{ _("Alle") }} <span class="sf-count" data-count="all"></span></button>
+  <button type="button" class="sf sf-running" data-filter="running" aria-pressed="false"><span class="dot"></span>{{ _("running") }} <span class="sf-count" data-count="running"></span></button>
+  <button type="button" class="sf sf-transition" data-filter="starting stopping" aria-pressed="false"><span class="dot"></span>{{ _("starting / stopping") }} <span class="sf-count" data-count="starting stopping"></span></button>
+  <button type="button" class="sf sf-offline" data-filter="offline" aria-pressed="false"><span class="dot"></span>{{ _("offline") }} <span class="sf-count" data-count="offline"></span></button>
+  <button type="button" class="sf sf-suspended" data-filter="suspended" aria-pressed="false"><span class="dot"></span>{{ _("gesperrt") }} <span class="sf-count" data-count="suspended"></span></button>
+  <button type="button" class="sf sf-unknown" data-filter="unknown" aria-pressed="false"><span class="dot"></span>{{ _("unbekannt") }} <span class="sf-count" data-count="unknown"></span></button>
+</div>
+</div>
+{% set all_tags = [] %}{% for s in servers %}{% for t in s.tags %}{% if t not in all_tags %}{% set _ = all_tags.append(t) %}{% endif %}{% endfor %}{% endfor %}
+{% if all_tags %}
+<div class="tag-filter" id="tag-filter" role="group" aria-label="{{ _("Nach Tag filtern") }}">
+  <button type="button" class="tf" data-tag="" aria-pressed="true">{{ _("Alle Tags") }}</button>
+  {% for t in all_tags|sort %}<button type="button" class="tf" data-tag="{{ t }}" aria-pressed="false">#{{ t }}</button>{% endfor %}
+</div>
+{% endif %}
+<p class="filter-empty" id="filter-empty" hidden>{{ _("Kein Server passt zum gewählten Filter.") }}</p>
+{% if not preview %}
+<div class="bulk-bar" id="bulk-bar" hidden>
+  <span id="bulk-count"></span>
+  <button type="button" class="pbtn pbtn-start" data-bulk-action="start">{{ _("▶ Start") }}</button>
+  <button type="button" class="pbtn" data-bulk-action="restart">{{ _("↻ Restart") }}</button>
+  <button type="button" class="pbtn pbtn-stop" data-bulk-action="stop">{{ _("■ Stop") }}</button>
+  <button type="button" class="btn btn-ghost btn-sm" id="bulk-clear">{{ _("Auswahl aufheben") }}</button>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="grid list-view" id="server-grid" {% if not preview %}data-live="1"{% endif %}>
+  {% for s in servers %}
+  <article class="card server-card state-{{ s.state }}{% if s.favorite %} is-favorite{% endif %}" data-ident="{{ s.identifier }}" data-tags="{{ s.tags|join('|') }}" data-name="{{ s.name }}">
+    <div class="card-head">
+      {% if not preview and (s.can_start or s.can_stop or s.can_restart) %}<input type="checkbox" class="bulk-box" data-bulk="{{ s.identifier }}" data-can="{{ 'start ' if s.can_start }}{{ 'stop ' if s.can_stop }}{{ 'restart' if s.can_restart }}" aria-label="{{ _("{name} für gemeinsame Aktion auswählen", name=s.name) }}" title="{{ _("Für gemeinsame Aktion auswählen") }}">{% endif %}
+      <a class="card-head-link" href="/servers/{{ s.identifier }}" title="{{ s.name }}">
+        {{ c.logo(s) }}
+        <div class="card-title">
+          <div class="title-row"><h2>{{ s.name }}</h2>{{ c.state_pill(s) }}</div>
+          <div class="faint small">{{ s.egg }}{% for t in s.tags %} <span class="tag">#{{ t }}</span>{% endfor %}</div>
+        </div>
+      </a>
+    </div>
+    <div class="facts">{{ c.facts(s) }}</div>
+    <div class="metrics">{{ c.metrics(s) }}</div>
+    {% if not preview %}{{ c.power(s) }}{% endif %}
+    <div class="actions">
+      {% if not preview %}
+      <button type="button" class="chip chip-fav" data-fav="{{ s.identifier }}" aria-pressed="{{ 'true' if s.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}">{{ '★' if s.favorite else '☆' }}</button>
+      {% endif %}
+      <a class="chip" href="/servers/{{ s.identifier }}">{{ _("Details") }}</a>
+      {% if s.can_manage %}<a class="chip chip-ghost" href="/servers/{{ s.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

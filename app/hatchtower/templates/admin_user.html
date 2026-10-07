@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ target.username }} · {{ _("Benutzer") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<a class="backlink" href="/admin/users">{{ _("← Benutzer") }}</a>
+<div class="page-head">
+  <div>
+    <h1>{{ target.username }}</h1>
+    <p class="muted">{{ _("Owner") if target.role == 'owner' else _("Rolle|Benutzer") }}{% if not target.is_active %} · {{ _("deaktiviert") }}{% endif %}</p>
+  </div>
+  {% if target.role != 'owner' %}<a class="btn btn-ghost" href="/?als={{ target.id }}">{{ _("Vorschau als {name}", name=target.username) }}</a>{% endif %}
+</div>
+
+{% if target.role == 'owner' %}
+<div class="card"><p>{{ _("Owner dürfen alles auf allen Servern. Rechte pro Server sind für Owner nicht nötig.") }}</p></div>
+{% else %}
+<section class="card">
+  <div class="matrix-head">
+    <div>
+      <h2 class="card-h">{{ _("Rechte pro Server") }}</h2>
+      <p class="faint small">{{ _("Pro Server entweder eine Rechtegruppe zuweisen oder individuelle Rechte festlegen.") }} {{ _("Ohne Zuweisung sieht {name} den Server nicht.", name=target.username) }} <a href="/admin/groups">{{ _("Rechtegruppen") }}</a></p>
+    </div>
+    <div class="matrix-tools">
+      <label class="faint small" for="bulk-mode">{{ _("Für alle Server:") }}</label>
+      <select id="bulk-mode">
+        <option value="">– {{ _("wählen") }} –</option>
+        <option value="none">{{ _("Kein Zugriff") }}</option>
+        {% for g in groups %}<option value="g:{{ g.id }}">{{ _("Gruppe: {name}", name=g.name) }}</option>{% endfor %}
+      </select>
+      <button type="button" class="chip chip-sm" id="bulk-apply">{{ _("Übernehmen") }}</button>
+    </div>
+  </div>
+
+  {% if not groups %}
+  <div class="hint">{{ _("Du hast noch keine Rechtegruppen.") }} <a href="/admin/groups">{{ _("Gruppe anlegen") }}</a> {{ _("z. B. „Moderator“ mit Sehen, Konsole lesen und Restart. Individuelle Rechte gehen auch ohne Gruppe.") }}</div>
+  {% endif %}
+
+  <form method="post" action="/admin/users/{{ target.id }}/permissions" id="perm-form"
+        data-deps='{{ deps|tojson }}' data-labels='{{ labels|tojson }}' data-groups='{{ group_keys|tojson }}' data-user="{{ target.username }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="access-list">
+      {% for s in servers %}
+      {% set a = assignments.get(s.identifier) %}
+      {% set mode = ('g:' ~ a.group_id) if a and a.mode == 'group' else ('custom' if a and a.mode == 'custom' else 'none') %}
+      <div class="access-row" data-row="{{ s.identifier }}" data-name="{{ s.name }}">
+        <div class="access-main">
+          <div class="access-server"><strong>{{ s.name }}</strong><span class="faint small">{{ s.egg }}</span></div>
+          <select name="mode__{{ s.identifier }}" data-mode aria-label="{{ _("Zugriff auf {name}", name=s.name) }}">
+            <option value="none" {% if mode == 'none' %}selected{% endif %}>{{ _("Kein Zugriff") }}</option>
+            {% for g in groups %}<option value="g:{{ g.id }}" {% if mode == 'g:' ~ g.id %}selected{% endif %}>{{ _("Gruppe: {name}", name=g.name) }}</option>{% endfor %}
+            <option value="custom" {% if mode == 'custom' %}selected{% endif %}>{{ _("Individuell …") }}</option>
+          </select>
+          <div class="access-chips" data-chips aria-live="polite"></div>
+        </div>
+        <div class="custom-perms" data-custom {% if mode != 'custom' %}hidden{% endif %}>
+          {% for gname, perms in grouped %}
+          <fieldset class="perm-group">
+            <legend>{{ _(gname) }}</legend>
+            {% for p in perms %}
+            <label class="check" title="{{ _(p.description) }}">
+              <input type="checkbox" name="perm__{{ s.identifier }}__{{ p.key }}" data-key="{{ p.key }}" value="1"
+                     {% if a and a.mode == 'custom' and p.key in a['keys'] %}checked{% endif %}>
+              {{ _(p.label) }}
+            </label>
+            {% endfor %}
+          </fieldset>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="dep-note faint small" id="dep-note" aria-live="polite"></p>
+    <div class="summary-box" id="summary-box"></div>
+    <button class="btn btn-primary" type="submit">{{ _("Rechte speichern") }}</button>
+  </form>
+
+  <details class="legend">
+    <summary>{{ _("Was bedeutet welches Recht?") }}</summary>
+    <dl>
+      {% for p in permissions %}
+      <dt>{{ _(p.label) }}{% if p.write %} <span class="badge">{{ _("Schreibrecht") }}</span>{% endif %}</dt>
+      <dd>{{ _(p.description) }}{% if p.requires %} {{ _("Setzt automatisch:") }} {% for d in p.requires %}{{ labels[d] }}{% if not loop.last %}, {% endif %}{% endfor %}.{% endif %}</dd>
+      {% endfor %}
+    </dl>
+  </details>
+</section>
+{% endif %}
+
+<div class="two-col">
+  <section class="card">
+    <h2 class="card-h">{{ _("Konto") }}</h2>
+    <form method="post" action="/admin/users/{{ target.id }}/update" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>{{ _("Rolle") }}
+        <select name="role">
+          <option value="user" {% if target.role == 'user' %}selected{% endif %}>{{ _("Rolle|Benutzer") }}</option>
+          <option value="owner" {% if target.role == 'owner' %}selected{% endif %}>{{ _("Owner") }}</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="is_active" value="1" {% if target.is_active %}checked{% endif %}> {{ _("Konto aktiv") }}</label>
+      <button class="btn btn-ghost" type="submit">{{ _("Speichern") }}</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2 class="card-h">{{ _("Passwort neu setzen") }}</h2>
+    <form method="post" action="/admin/users/{{ target.id }}/password" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>{{ _("Neues Passwort") }}<input name="password" type="text" required minlength="15" autocomplete="off" spellcheck="false"></label>
+      <button class="btn btn-ghost" type="submit">{{ _("Passwort setzen") }}</button>
+    </form>
+    <form method="post" action="/admin/users/{{ target.id }}/delete" data-confirm="{{ _("{name} wirklich löschen?", name=target.username) }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn btn-danger btn-sm" type="submit">{{ _("Benutzer löschen") }}</button>
+    </form>
+    <p class="faint small">{{ _("Beim Löschen verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Einträge im Audit-Log werden nach Ablauf der Aufbewahrungsfrist gelöscht.") }}</p>
+  </section>
+</div>
+<section class="card">
+  <h2 class="card-h">{{ _("Datenauskunft") }}</h2>
+  <p class="muted small">{{ _("Alles, was Hatchtower zu diesem Benutzer gespeichert hat, als Datei – z. B. für eine Auskunft nach Art. 15 DSGVO.") }}{% if target.email %} {{ _("E-Mail: {email}", email=target.email) }}{% if not target.email_verified %} ({{ _("nicht bestätigt") }}){% endif %}{% endif %}</p>
+  <a class="btn btn-ghost btn-sm" href="/admin/users/{{ target.id }}/export">{{ _("Daten herunterladen (JSON)") }}</a>
+</section>
+{% endblock %}

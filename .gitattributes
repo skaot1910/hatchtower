@@ -1,0 +1,12 @@
+# Textdateien im Repository immer mit Linux-Zeilenenden (wichtig für Shell-Skripte und Python)
+* text=auto eol=lf
+
+# Windows-Skripte behalten Windows-Zeilenenden
+*.ps1 text eol=crlf
+
+# Binärdateien nie verändern
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.gz binary

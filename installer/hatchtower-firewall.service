@@ -1,0 +1,13 @@
+[Unit]
+Description=Hatchtower – Port nur für freigegebene IPs (eigene nftables-Tabelle)
+After=network-pre.target
+Before=hatchtower.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/hatchtower/firewall.nft
+ExecStop=/usr/sbin/nft delete table inet hatchtower
+
+[Install]
+WantedBy=multi-user.target

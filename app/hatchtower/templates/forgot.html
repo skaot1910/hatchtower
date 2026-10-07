@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "_lang.html" as lng with context %}
+{% block title %}{{ _("Passwort vergessen") }} · {{ brand.name }}{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  {{ lng.switch("lang-switch-corner") }}
+  <div class="login-card">
+    <div class="login-head"><h1>{{ _("Passwort vergessen") }}</h1></div>
+    {% if sent %}
+    <div class="flash" role="status">{{ _("Wenn es ein Konto mit bestätigter E-Mail-Adresse gibt, haben wir gerade einen Link zum Zurücksetzen geschickt. Er gilt eine Stunde.") }}</div>
+    {% else %}
+    {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
+    <p class="muted small">{{ _("Gib deinen Benutzernamen oder deine bestätigte E-Mail-Adresse ein. Du bekommst einen Link, mit dem du ein neues Passwort setzt.") }}</p>
+    <form method="post" action="/forgot" class="form">
+      <input type="hidden" name="prelogin" value="{{ prelogin }}">
+      <label>{{ _("Benutzername oder E-Mail") }}
+        <input name="login" required maxlength="254" autocomplete="username" autofocus>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">{{ _("Link schicken") }}</button>
+    </form>
+    {% endif %}
+    <p class="login-extra"><a href="/login">{{ _("← zur Anmeldung") }}</a></p>
+  </div>
+</div>
+{% endblock %}

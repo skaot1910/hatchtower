@@ -1,0 +1,95 @@
+"""Kleinere Bausteine: Verfügbarkeit, Ankündigungen, Tags und Favoriten."""
+from __future__ import annotations
+
+import re
+import time
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+from . import db
+
+ONLINE_STATES = ("running", "starting", "stopping")
+TAG_RE = re.compile(r"^[\w .+\-]{1,24}$", re.U)
+
+
+# -- Verfügbarkeit -----------------------------------------------------------------
+
+def availability(ident: str, days: int = 30) -> dict:
+    """Anteil der beobachteten Zeit, in der der Server lief, und Zahl der Abstürze."""
+    now = int(time.time())
+    start = now - days * 86400
+    with db.connect() as con:
+        before = con.execute("SELECT state, ts FROM state_changes WHERE identifier = ? AND ts < ? ORDER BY ts DESC LIMIT 1",
+                             (ident, start)).fetchone()
+        rows = con.execute("SELECT state, ts FROM state_changes WHERE identifier = ? AND ts >= ? ORDER BY ts",
+                           (ident, start)).fetchall()
+        since_iso = datetime.fromtimestamp(start, timezone.utc).isoformat(timespec="seconds")
+        crashes = con.execute("SELECT COUNT(*) FROM crash_events WHERE identifier = ? AND detected_at >= ?",
+                              (ident, since_iso)).fetchone()[0]
+    if before is None and not rows:
+        return {"pct": None, "crashes": crashes, "days": 0, "window": days}
+    state, t = (before["state"], start) if before else (rows[0]["state"], rows[0]["ts"])
+    observed_from = t
+    online = 0
+    for r in rows:
+        if r["ts"] <= t:
+            state = r["state"]
+            continue
+        if state in ONLINE_STATES:
+            online += r["ts"] - t
+        state, t = r["state"], r["ts"]
+    if state in ONLINE_STATES:
+        online += now - t
+    total = max(now - observed_from, 1)
+    return {"pct": round(online / total * 100, 1), "crashes": crashes,
+            "days": round(total / 86400, 1), "window": days}
+
+
+# -- Ankündigungen -----------------------------------------------------------------
+
+def active_announcements(public_only: bool = False) -> list[dict]:
+    now = db.utcnow()
+    query = ("SELECT * FROM announcements WHERE (starts_at IS NULL OR starts_at <= ?)"
+             " AND (ends_at IS NULL OR ends_at > ?)")
+    if public_only:
+        query += " AND public = 1"
+    with db.connect() as con:
+        return [dict(r) for r in con.execute(query + " ORDER BY id DESC", (now, now))]
+
+
+def local_to_utc(value: str, tz: str) -> str | None:
+    """Eingabe aus <input type=datetime-local> (Zeitzone von Hatchtower) nach UTC-ISO."""
+    if not value.strip():
+        return None
+    dt = datetime.fromisoformat(value.strip()).replace(tzinfo=ZoneInfo(tz))
+    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
+def utc_to_local_input(value: str | None, tz: str) -> str:
+    if not value:
+        return ""
+    return datetime.fromisoformat(value).astimezone(ZoneInfo(tz)).strftime("%Y-%m-%dT%H:%M")
+
+
+# -- Tags und Favoriten ----------------------------------------------------------------
+
+def parse_tags(text: str) -> list[str]:
+    tags = []
+    for part in (text or "").split(","):
+        tag = " ".join(part.split())
+        if tag and TAG_RE.match(tag) and tag.lower() not in (t.lower() for t in tags):
+            tags.append(tag)
+    return tags[:8]
+
+
+def favorites(user_id: int) -> set[str]:
+    with db.connect() as con:
+        return {r["identifier"] for r in con.execute("SELECT identifier FROM favorites WHERE user_id = ?", (user_id,))}
+
+
+def toggle_favorite(user_id: int, ident: str) -> bool:
+    with db.connect() as con:
+        if con.execute("DELETE FROM favorites WHERE user_id = ? AND identifier = ?", (user_id, ident)).rowcount:
+            return False
+        con.execute("INSERT INTO favorites (user_id, identifier) VALUES (?, ?)", (user_id, ident))
+    return True

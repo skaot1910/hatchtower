@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ _("E-Mail") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+{% include "_system_tabs.html" %}
+<div class="page-head">
+  <div><h1>{{ _("E-Mail") }}</h1><p class="muted">{{ _("Für Einladungen, „Passwort vergessen“ und Benachrichtigungen. Ohne Einschalten verschickt Hatchtower keine E-Mails.") }}</p></div>
+</div>
+
+<div class="two-col">
+  <section class="card">
+    <h2 class="card-h">{{ _("SMTP-Zugang") }}</h2>
+    <form method="post" action="/admin/mail" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="check"><input type="checkbox" name="enabled" value="1" {% if cfg.enabled %}checked{% endif %}> {{ _("E-Mail-Versand einschalten") }}</label>
+      <div class="form-grid">
+        <label>{{ _("SMTP-Server") }}<input name="host" value="{{ cfg.host }}" placeholder="{{ _("z. B. smtp.example.com") }}" spellcheck="false"></label>
+        <label>{{ _("Port") }}<input name="port" value="{{ cfg.port }}" inputmode="numeric"></label>
+        <label>{{ _("Verschlüsselung") }}
+          <select name="security">
+            {% for opt in security_options %}<option value="{{ opt }}" {% if opt == cfg.security %}selected{% endif %}>{{ {"starttls": "STARTTLS (Port 587)", "ssl": "SSL/TLS (Port 465)", "none": _("keine (nur im Heimnetz)")}[opt] }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ _("Benutzername") }}<input name="username" value="{{ cfg.username }}" autocomplete="off" spellcheck="false"></label>
+        <label>{{ _("Passwort") }}<input name="password" type="password" autocomplete="new-password" placeholder="{{ _("gespeichert – leer lassen, um es zu behalten") if has_password else '' }}"></label>
+        <label>{{ _("Absenderadresse") }}<input name="sender" type="email" value="{{ cfg.sender }}" placeholder="hatchtower@example.com"></label>
+        <label>{{ _("Absendername") }}<input name="sender_name" value="{{ cfg.sender_name }}" maxlength="60"></label>
+        <label>{{ _("Adresse von Hatchtower (für Links in E-Mails)") }}<input name="base_url" value="{{ cfg.base_url or suggested_base }}" placeholder="https://gameserver.example.com" spellcheck="false"></label>
+      </div>
+      <p class="faint small">{{ _("Tipp: Nutze ein eigenes Absender-Postfach. Bei Gmail oder Outlook brauchst du ein App-Passwort (nur mit Zwei-Faktor-Anmeldung). Das Passwort wird verschlüsselt gespeichert und nie wieder angezeigt.") }}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+    </form>
+    {% if has_password %}
+    <form method="post" action="/admin/mail/password/delete" data-confirm="{{ _("SMTP-Passwort entfernen?") }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn btn-ghost btn-sm" type="submit">{{ _("Gespeichertes Passwort entfernen") }}</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="card-h">{{ _("Testnachricht") }}</h2>
+    {% if cfg.ready %}
+    <form method="post" action="/admin/mail/test" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>{{ _("Empfänger") }}<input name="to" type="email" required></label>
+      <button class="btn btn-ghost" type="submit">{{ _("Testnachricht senden") }}</button>
+    </form>
+    {% else %}
+    <p class="faint">{{ _("Erst speichern und einschalten, dann kannst du hier testen.") }}</p>
+    {% endif %}
+    <h2 class="card-h">{{ _("Was ist damit möglich?") }}</h2>
+    <ul class="plain-list muted small">
+      <li>{{ _("Benutzer hinterlegen und bestätigen ihre Adresse unter „Konto“.") }}</li>
+      <li>{{ _("„Passwort vergessen?“ erscheint auf der Login-Seite.") }}</li>
+      <li>{{ _("Einladungen lassen sich direkt per E-Mail verschicken.") }}</li>
+      <li>{{ _("Benutzer können Benachrichtigungen per E-Mail einschalten.") }}</li>
+    </ul>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Statusseite") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+{% include "_system_tabs.html" %}
+<div class="page-head">
+  <div><h1>{{ _("Öffentliche Statusseite") }}</h1><p class="muted">{{ _("Eine Seite ohne Anmeldung für deine Community: welche Server laufen und wie man sie erreicht. Passwörter, Ressourcen und Steuerung sind dort nie zu sehen.") }}</p></div>
+  {% if enabled %}<a class="btn btn-ghost" href="/status" target="_blank" rel="noopener">{{ _("Statusseite öffnen") }}</a>{% endif %}
+</div>
+<form method="post" action="/admin/statuspage" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <section class="card">
+    <label class="check"><input type="checkbox" name="enabled" value="1" {% if enabled %}checked{% endif %}> {{ _("Statusseite einschalten") }}</label>
+    <label>{{ _("Überschrift (optional)") }}<input name="title" value="{{ status_title }}" maxlength="60" placeholder="{{ brand.name }}"></label>
+    <p class="faint small">{{ _("Adresse:") }} <span class="mono copyable" data-copy="{{ status_url }}">{{ status_url }}</span></p>
+  </section>
+  <section class="card">
+    <h2 class="card-h">{{ _("Diese Angaben anzeigen") }}</h2>
+    <p class="faint small">{{ _("Gilt für alle Server auf der Statusseite. Ausgeblendete Angaben verlassen Hatchtower gar nicht erst – auch nicht über die automatische Aktualisierung.") }}</p>
+    <div class="toggle-list">
+      {% for key, label in fields.items() if key != 'password' %}<label class="check"><input type="checkbox" name="field__{{ key }}" value="1" {% if key in active_fields %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
+    </div>
+    <div class="danger-box">
+      <label class="check"><input type="checkbox" name="field__password" value="1" {% if 'password' in active_fields %}checked{% endif %}> {{ _("Serverpasswort anzeigen") }}</label>
+      <p class="small">{{ _("Achtung: Die Statusseite ist ohne Anmeldung für jeden im Internet erreichbar. Eingeschaltet kann jeder, der die Adresse kennt, die Passwörter aller angezeigten Server lesen – auch Suchmaschinen und Bots.") }}</p>
+      <label class="check"><input type="checkbox" name="password_confirm" value="1" {% if 'password' in active_fields %}checked{% endif %}> {{ _("Ich habe verstanden, dass die Passwörter damit öffentlich einsehbar sind.") }}</label>
+    </div>
+    <p class="faint small">{{ _("Logo und Spiel werden immer angezeigt. Ohne Servernamen steht der Ingame-Servername als Überschrift.") }}</p>
+  </section>
+  <section class="card">
+    <h2 class="card-h">{{ _("Diese Server anzeigen") }}</h2>
+    <p class="faint small">{{ _("Als Adresse erscheint die öffentliche Adresse. Die interne IP wird nie gezeigt.") }}</p>
+    <div class="toggle-list">
+      {% for s in servers %}<label class="check"><input type="checkbox" name="show__{{ s.identifier }}" value="1" {% if s.on_status %}checked{% endif %}> {{ s.name }} <span class="faint small">{{ s.egg }}</span></label>{% endfor %}
+    </div>
+  </section>
+  <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+</form>
+{% endblock %}

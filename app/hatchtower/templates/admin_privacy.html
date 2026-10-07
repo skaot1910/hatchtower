@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Datenschutz") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+{% include "_system_tabs.html" %}
+<div class="page-head">
+  <div><h1>{{ _("Datenschutz und Rechtliches") }}</h1><p class="muted">{{ _("Wie lange Hatchtower personenbezogene Daten aufbewahrt, sowie Impressum und Datenschutzerklärung.") }}</p></div>
+</div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Aufbewahrung") }}</h2>
+  <form method="post" action="/admin/privacy/retention" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="form-grid">
+      <label>{{ _("Audit-Log (mit IP-Adressen und Benutzernamen)") }}
+        <select name="audit_days">
+          {% for d in choices %}<option value="{{ d }}" {% if d == audit_days %}selected{% endif %}>{{ _("1 Tag") if d == 1 else _("{n} Tage", n=d) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _("Konsolen-Archiv") }}
+        <select name="console_days">
+          <option value="0" {% if console_days == 0 %}selected{% endif %}>{{ _("aus – nichts mitschreiben") }}</option>
+          {% for d in choices %}<option value="{{ d }}" {% if d == console_days %}selected{% endif %}>{{ _("1 Tag") if d == 1 else _("{n} Tage", n=d) }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <ul class="plain-list faint small">
+      <li>{{ _("Ältere Einträge löscht Hatchtower automatisch, mindestens einmal pro Stunde.") }}</li>
+      <li>{{ _("Wird ein Benutzer gelöscht, verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Seine Einträge im Audit-Log bleiben zur Nachvollziehbarkeit bis zum Ende der Aufbewahrungsfrist und werden dann ebenfalls gelöscht.") }}</li>
+      <li>{{ _("Statuswechsel und Absturz-Ereignisse (ohne Personenbezug) bleiben 90 Tage, der Ressourcen-Verlauf 72 Stunden.") }}</li>
+      <li>{{ _("Das Konsolen-Archiv kann Spielernamen und Chat enthalten. Halte die Frist so kurz wie möglich.") }}</li>
+    </ul>
+    <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
+
+{% for page, info in pages.items() %}
+<section class="card" id="{{ page }}">
+  <h2 class="card-h">{{ _("Impressum") if page == 'impressum' else _("Datenschutzerklärung") }}</h2>
+  {% if info.from_template %}<div class="hint">{{ _("Vorlage eingefügt – noch nicht gespeichert. Ergänze die Angaben in eckigen Klammern und speichere dann.") }}</div>{% endif %}
+  <form method="post" action="/admin/privacy/legal/{{ page }}" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="enabled" value="1" {% if info.enabled %}checked{% endif %}> {{ _("Anzeigen (Link in der Fußzeile und auf der Login-Seite)") }}</label>
+    <textarea name="text" rows="14" class="legal-editor" spellcheck="true">{{ info.text }}</textarea>
+    <p class="faint small">{{ _("Format: Leerzeile = neuer Absatz, „## “ am Zeilenanfang = Überschrift, „- “ = Aufzählung. Links und E-Mail-Adressen werden automatisch verlinkt.") }}{% if page == 'datenschutz' %} {{ _("{audit_tage} und {konsolen_tage} werden durch die eingestellten Fristen ersetzt.") }}{% endif %}</p>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+      <a class="btn btn-ghost btn-sm" href="/admin/privacy?vorlage={{ page }}&sprache=de#{{ page }}">{{ _("Deutsche Vorlage einfügen") }}</a>
+      <a class="btn btn-ghost btn-sm" href="/admin/privacy?vorlage={{ page }}&sprache=en#{{ page }}">{{ _("Englische Vorlage einfügen") }}</a>
+      {% if info.enabled and info.text %}<a class="btn btn-ghost btn-sm" href="/{{ page }}" target="_blank" rel="noopener">{{ _("Ansehen") }}</a>{% endif %}
+    </div>
+  </form>
+</section>
+{% endfor %}
+<p class="faint small">{{ _("Die Vorlagen passen zu dem, was Hatchtower speichert, sind aber keine Rechtsberatung. Prüfe sie für deinen Fall.") }}</p>
+{% endblock %}

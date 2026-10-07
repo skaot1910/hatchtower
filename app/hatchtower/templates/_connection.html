@@ -1,0 +1,116 @@
+{% macro panel_form(c, next) %}
+<form method="post" action="/admin/connection/panel" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="howto">
+    <strong>{{ _("So bekommst du den Application-API-Key") }}</strong>
+    <ol>
+      <li>{{ _("Im Pterodactyl-Panel oben rechts auf das") }} <strong>{{ _("Zahnrad") }}</strong> {{ _("(Admin-Bereich) klicken.") }}</li>
+      <li>{{ _("Links") }} <strong>{{ _("Application API") }}</strong> {{ _("öffnen, dann") }} <strong>{{ _("Create New") }}</strong>.</li>
+      <li>{{ _("Als Beschreibung z. B. „Hatchtower“ eintragen und") }} <strong>{{ _("alle Rechte auf „Read“") }}</strong> {{ _("stellen. Hatchtower braucht hier nichts anderes.") }}</li>
+      <li>{{ _("Speichern und den Key kopieren. Er beginnt mit") }} <span class="mono">ptla_</span> {{ _("und wird nur einmal angezeigt.") }}</li>
+    </ol>
+  </div>
+  <label>{{ _("Adresse des Panels") }}
+    <input name="panel_url" value="{{ c.panel_url }}" placeholder="https://panel.example.com" required spellcheck="false">
+  </label>
+  <label>{{ _("Application-API-Key") }}
+    <input name="app_key" type="password" autocomplete="off" spellcheck="false"
+           placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.app_key_masked) if c.app_key_masked else 'ptla_…' }}">
+  </label>
+  <p class="faint small">{{ _("Die Adresse, unter der der Hatchtower-Server das Panel erreicht. Im Heimnetz kann das auch eine IP sein, z. B. http://192.168.1.10. Beim Speichern wird die Verbindung sofort getestet.") }}</p>
+  <button class="btn btn-primary" type="submit">{{ _("Testen und speichern") }}</button>
+</form>
+{% endmacro %}
+
+{% macro client_form(c, next) %}
+<form method="post" action="/admin/connection/client" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="howto">
+    <strong>{{ _("So bekommst du den Client-API-Key") }}</strong>
+    <ol>
+      <li>{{ _("Im Panel unter") }} <strong>{{ _("Admin → Users") }}</strong> {{ _("einen eigenen Benutzer nur für Hatchtower anlegen, z. B. „hatchtower-service“, mit einem langen Zufallspasswort.") }}</li>
+      <li><strong>{{ _("Administrator: Yes") }}</strong> {{ _("setzen. Dann sieht Hatchtower automatisch alle Server, auch neue.") }}</li>
+      <li>{{ _("Mit diesem Benutzer anmelden, oben rechts auf das") }} <strong>{{ _("Konto-Symbol") }}</strong>{{ _(", dann") }} <strong>{{ _("API Credentials") }}</strong>.</li>
+      <li>{{ _("Einen Key erstellen. Bei") }} <strong>{{ _("Allowed IPs") }}</strong> {% if c.manager_ip %}<span class="mono">{{ c.manager_ip }}</span> {{ _("eintragen, das ist die Adresse dieses Servers") }}{% else %}{{ _("die IP dieses Servers eintragen") }}{% endif %}.</li>
+      <li>{{ _("Den Key kopieren. Er beginnt mit") }} <span class="mono">ptlc_</span> {{ _("und wird nur einmal angezeigt.") }}</li>
+    </ol>
+    <div class="key-warning">
+      <p><strong>{{ _("Wichtig:") }}</strong> {{ _("Pterodactyl kann Client-Keys nicht einschränken. Der Key darf alles, was der Benutzer darf. Bei einem Administrator heißt das: Er kann alle Server steuern, Dateien löschen und Server neu installieren. Den wirksamsten Schutz bietet die") }} <strong>{{ _("Allowed IP") }}</strong>{{ _(": Der Key funktioniert dann nur von diesem Server aus. Nutze den Benutzer nur für Hatchtower und gib ihm ein langes Passwort mit 2FA.") }}</p>
+      <p><strong>{{ _("Vorsichtiger:") }}</strong> {{ _("Den Benutzer nicht zum Administrator machen, sondern nur als Subuser zu den gewünschten Servern hinzufügen. Pterodactyl begrenzt dann selbst, was möglich ist. Neue Server musst du aber jedes Mal zuweisen.") }}</p>
+    </div>
+  </div>
+  <label>{{ _("Client-API-Key") }}
+    <input name="client_key" type="password" autocomplete="off" spellcheck="false"
+           placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.client_key_masked) if c.client_key_masked else 'ptlc_…' }}">
+  </label>
+  <button class="btn btn-primary" type="submit">{{ _("Testen und speichern") }}</button>
+</form>
+{% endmacro %}
+
+{% macro nodes_form(c, next) %}
+<form method="post" action="/admin/connection/nodes" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="next" value="{{ next }}">
+  <p class="muted small">{{ _("Die Wings-Server liest Hatchtower automatisch aus dem Panel, mehrere Nodes sind kein Problem. Für Konsole, Datei-Downloads und Uploads muss Hatchtower jeden Wings direkt erreichen.") }}</p>
+  {% if c.nodes_error %}<div class="alert">{{ _(c.nodes_error) }}</div>{% endif %}
+  {% for n in c.nodes %}
+  <div class="node-row">
+    <div class="node-main">
+      <strong>{{ n.name }}</strong>{% if n.maintenance %} <span class="badge">{{ _("Wartung") }}</span>{% endif %}
+      <span class="faint small mono">{{ _("im Panel:") }} {{ n.scheme }}://{{ n.fqdn }}</span>
+    </div>
+    <div class="node-checks">
+      <span class="check-pill {{ 'ok' if n.daemon_ok else 'bad' }}">{{ '✓' if n.daemon_ok else '✕' }} {{ _("Daemon") }} {{ n.host }}:{{ n.daemon_port }}</span>
+      <span class="check-pill {{ 'ok' if n.sftp_ok else 'bad' }}">{{ '✓' if n.sftp_ok else '✕' }} {{ _("SFTP") }} {{ n.host }}:{{ n.sftp_port }}</span>
+    </div>
+    <label class="node-override">{{ _("Andere Adresse für diesen Node (optional)") }}
+      <input name="override__{{ n.fqdn }}" value="{{ n.override }}" spellcheck="false" placeholder="{{ _("z. B. 192.168.1.20 oder http://192.168.1.20:8080") }}">
+    </label>
+  </div>
+  {% else %}
+  {% if not c.nodes_error %}<p class="faint">{{ _("Noch keine Nodes gefunden. Speichere zuerst Panel und Application-Key.") }}</p>{% endif %}
+  {% endfor %}
+  <p class="faint small">{{ _("Eine andere Adresse brauchst du nur, wenn der Node im Panel unter einer Adresse eingetragen ist, die dieser Server nicht erreicht, z. B. eine öffentliche Domain hinter der eigenen Firewall. Leer lassen = Adresse aus dem Panel.") }}</p>
+  <button class="btn btn-primary" type="submit">{{ _("Speichern und erneut prüfen") }}</button>
+</form>
+{% endmacro %}
+
+{% macro options_form(c, next) %}
+<form method="post" action="/admin/connection/options" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="next" value="{{ next }}">
+  <fieldset class="mode-choice">
+    <legend>{{ _("Modus") }}</legend>
+    <label class="mode-option">
+      <input type="radio" name="mode" value="read-only" {% if c.mode != 'read-write' %}checked{% endif %}>
+      <span><strong>{{ _("Nur lesen") }}</strong><span class="faint small">{{ _("Übersicht, Konsole mitlesen, Dateien ansehen und herunterladen. Hatchtower verändert nichts in Pterodactyl. Gut zum Ausprobieren.") }}</span></span>
+    </label>
+    <label class="mode-option">
+      <input type="radio" name="mode" value="read-write" {% if c.mode == 'read-write' %}checked{% endif %}>
+      <span><strong>{{ _("Lesen und steuern") }}</strong><span class="faint small">{{ _("Zusätzlich Start, Stop, Restart, Konsolenbefehle, Dateien ändern und Automationen, jeweils nur mit dem passenden Recht.") }}</span></span>
+    </label>
+  </fieldset>
+  <div class="form-grid">
+    <label>{{ _("Öffentliche Adresse für Spieler (optional)") }}
+      <input name="public_host" value="{{ c.public_host }}" placeholder="{{ _("z. B. play.example.de oder DynDNS-Name") }}" spellcheck="false">
+    </label>
+    <label>{{ _("Zeitzone") }}
+      <select name="timezone">
+        <optgroup label="{{ _("Häufig") }}">
+          {% for z in c.timezones.common %}<option value="{{ z }}" {% if z == c.timezone %}selected{% endif %}>{{ z }}</option>{% endfor %}
+        </optgroup>
+        <optgroup label="{{ _("Alle Zeitzonen") }}">
+          {% for z in c.timezones.others %}<option value="{{ z }}" {% if z == c.timezone %}selected{% endif %}>{{ z }}</option>{% endfor %}
+        </optgroup>
+      </select>
+    </label>
+    <label>{{ _("Reverse-Proxy-IPs (optional)") }}
+      <input name="trusted_proxies" value="{{ c.trusted_proxies }}" placeholder="{{ _("z. B. 192.168.1.5") }}" spellcheck="false">
+    </label>
+  </div>
+  <p class="faint small"><strong>{{ _("Öffentliche Adresse:") }}</strong> {{ _("wird in der Übersicht mit dem Port jedes Servers angezeigt, damit Spieler wissen, wohin sie sich verbinden.") }} <strong>{{ _("Zeitzone:") }}</strong> {{ _("gilt für Zeitpläne und alle angezeigten Uhrzeiten.") }} <strong>{{ _("Reverse-Proxy:") }}</strong> {{ _("Läuft Hatchtower hinter einem Reverse-Proxy (z. B. Pangolin, Nginx, Traefik), trag dessen IP ein. Dann stehen im Audit-Log die echten IPs der Besucher.") }}</p>
+  <button class="btn btn-primary" type="submit">{{ _('Einrichtung abschließen') if next.startswith('/setup') else _('Speichern') }}</button>
+</form>
+{% endmacro %}

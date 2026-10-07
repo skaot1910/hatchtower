@@ -1,0 +1,7 @@
+[Unit]
+Description=Hatchtower – tägliches Datenbank-Backup
+
+[Service]
+Type=oneshot
+User=hatchtower
+ExecStart=/bin/sh -c 'test -f /var/lib/hatchtower/hatchtower.db && sqlite3 /var/lib/hatchtower/hatchtower.db ".backup /var/backups/hatchtower/hatchtower-$(date +%%F).db"; find /var/backups/hatchtower -name "hatchtower-*.db" -mtime +14 -delete'

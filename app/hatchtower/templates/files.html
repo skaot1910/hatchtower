@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Dateien") }} · {{ server.name }} · {{ brand.name }}{% endblock %}
+{% block content %}
+{% macro icon_folder() %}<svg class="ico ico-folder" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.2c0-.94.76-1.7 1.7-1.7h5.05c.45 0 .88.18 1.2.5l1.55 1.55h7.8c.94 0 1.7.76 1.7 1.7v1.25H2.5z" class="ico-tab"/><path d="M2.5 9.1h19v8.7c0 .94-.76 1.7-1.7 1.7H4.2c-.94 0-1.7-.76-1.7-1.7z"/></svg>{% endmacro %}
+{% macro icon_file() %}<svg class="ico ico-file" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.75h7.4L19 8.35V20a1.25 1.25 0 0 1-1.25 1.25H6A1.25 1.25 0 0 1 4.75 20V4A1.25 1.25 0 0 1 6 2.75z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13.25 3v5.25h5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>{% endmacro %}
+{% macro icon_up() %}<svg class="ico ico-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6 4.5 11.5 10 17M5 11.5h9.5a5 5 0 0 1 5 5V19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{% endmacro %}
+<a class="backlink" href="/servers/{{ server.identifier }}">← {{ server.name }}</a>
+<div class="page-head">
+  <div>
+    <h1>{{ _("Dateien") }}</h1>
+    <nav class="crumbs" aria-label="{{ _("Pfad") }}">
+      <a href="?dir=/">{{ server.name }}</a>
+      {% for name, path in crumbs %}<span>/</span><a href="?dir={{ path|urlencode }}">{{ name }}</a>{% endfor %}
+    </nav>
+  </div>
+  {% if settings.read_only %}<span class="badge badge-ro">{{ _("Nur lesen") }}</span>{% endif %}
+</div>
+
+{% if error %}<div class="alert">{{ _(error) }}</div>{% endif %}
+
+{% if can_upload or can_mkdir %}
+<div class="file-tools card">
+  {% if can_upload %}
+  <form method="post" action="/servers/{{ server.identifier }}/files/upload?dir={{ directory|urlencode }}" enctype="multipart/form-data" class="inline-form" data-busy="{{ _("Lade hoch …") }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="files" multiple required aria-label="{{ _("Dateien auswählen") }}">
+    <button class="btn btn-primary btn-sm" type="submit">{{ _("Hochladen") }}</button>
+    <span class="faint small">{{ _("max. 200 MB") }}</span>
+  </form>
+  {% endif %}
+  {% if can_mkdir %}
+  <form method="post" action="/servers/{{ server.identifier }}/files/mkdir" class="inline-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="dir" value="{{ directory }}">
+    <input name="name" placeholder="{{ _("Neuer Ordner") }}" maxlength="255" required aria-label="{{ _("Name des neuen Ordners") }}">
+    <button class="btn btn-ghost btn-sm" type="submit">{{ _("Ordner anlegen") }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if can_download %}
+<form method="post" action="/servers/{{ server.identifier }}/files/zip" id="zip-form" class="selection-bar" hidden>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="dir" value="{{ directory }}">
+  <span id="selection-count">{{ _("0 ausgewählt") }}</span>
+  <button class="btn btn-primary btn-sm" type="submit">{{ _("Als ZIP herunterladen") }}</button>
+  <button class="btn btn-ghost btn-sm" type="button" id="selection-clear">{{ _("Auswahl aufheben") }}</button>
+  <span class="faint small">{{ _("Ordner werden mit Inhalt gepackt · max. 1000 Dateien bzw. 10 GB") }}</span>
+</form>
+{% endif %}
+
+<div class="card table-card">
+  <table class="table files-table stack-table">
+    <thead><tr>{% if can_download %}<th class="sel"><input type="checkbox" id="select-all" aria-label="{{ _("Alle auswählen") }}"></th>{% endif %}<th>{{ _("Name") }}</th><th class="num">{{ _("Größe") }}</th><th>{{ _("Geändert") }}</th><th></th></tr></thead>
+    <tbody>
+      {% if parent is not none %}
+      <tr>{% if can_download %}<td class="sel"></td>{% endif %}<td colspan="4"><a href="?dir={{ parent|urlencode }}" class="file-link">{{ icon_up() }} <span>{{ _("Zurück zu übergeordnetem Ordner") }}</span></a></td></tr>
+      {% endif %}
+      {% for f in files %}
+      <tr class="{{ 'is-file' if f.is_file else 'is-dir' }}">
+        {% if can_download %}<td class="sel"><input type="checkbox" name="names" value="{{ f.name }}" form="zip-form" aria-label="{{ _("{name} auswählen", name=f.name) }}"></td>{% endif %}
+        <td>
+          {% if f.is_file %}<span class="file-link">{{ icon_file() }} <span>{{ f.name }}</span></span>
+          {% else %}<a href="?dir={{ f.path|urlencode }}" class="file-link folder-link">{{ icon_folder() }} <span>{{ f.name }}</span></a>{% endif %}
+        </td>
+        <td class="num faint col-size" data-label="{{ _("Größe") }}">{{ f.size_text if f.is_file else _('Ordner') }}</td>
+        <td class="faint" data-label="{{ _("Geändert") }}">{{ f.modified_text }}</td>
+        <td class="num row-actions">
+          {% if f.is_file and can_edit and f.size <= 1048576 %}<a class="chip chip-sm" href="/servers/{{ server.identifier }}/files/edit?file={{ f.path|urlencode }}">{{ _("Bearbeiten") }}</a>{% endif %}
+          {% if f.is_file and can_download %}<a class="chip chip-sm" href="/servers/{{ server.identifier }}/files/download?file={{ f.path|urlencode }}">{{ _("Herunterladen") }}</a>{% endif %}
+          {% if can_rename %}
+          <form method="post" action="/servers/{{ server.identifier }}/files/rename" data-rename="{{ f.name }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="dir" value="{{ directory }}">
+            <input type="hidden" name="old" value="{{ f.name }}">
+            <input type="hidden" name="new" value="">
+            <button class="chip chip-sm chip-ghost" type="submit">{{ _("Umbenennen") }}</button>
+          </form>
+          {% endif %}
+          {% if can_delete %}
+          <form method="post" action="/servers/{{ server.identifier }}/files/delete" data-confirm="{% if f.is_file %}{{ _("„{name}“ wirklich löschen? Das kann nicht rückgängig gemacht werden.", name=f.name) }}{% else %}{{ _("„{name}“ mit allem Inhalt wirklich löschen? Das kann nicht rückgängig gemacht werden.", name=f.name) }}{% endif %}">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="dir" value="{{ directory }}">
+            <input type="hidden" name="name" value="{{ f.name }}">
+            <button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      {% if not error %}<tr><td colspan="5" class="faint">{{ _("Dieser Ordner ist leer.") }}</td></tr>{% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

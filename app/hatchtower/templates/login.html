@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "_mark.html" as hm %}
+{% import "_lang.html" as lng with context %}
+{% block title %}{{ _("Anmelden") }} · {{ brand.name }}{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  {{ lng.switch("lang-switch-corner") }}
+  <div class="login-card">
+    <div class="login-head">
+      {% if brand.logo_login %}<img class="login-logo" src="/branding/{{ brand.logo_login }}" alt="{{ brand.name }}">{% else %}{{ hm.mark("hatch-mark-lg") }}{% endif %}
+      {% if brand.custom and brand.show_name %}<h1>{{ brand.custom }}</h1><p class="login-product">{{ _("läuft mit") }} <strong>{{ brand.product }}</strong></p>
+      {% elif brand.logo_login %}<p class="login-product">{{ brand.product }}</p>
+      {% else %}<h1>{{ brand.product }}</h1><p class="login-product">{{ _("Game-Server-Management für Pterodactyl") }}</p>{% endif %}
+    </div>
+    {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
+    <form method="post" action="/login" class="form">
+      <input type="hidden" name="prelogin" value="{{ prelogin }}">
+      <label>{{ _("Benutzername") }}
+        <input name="username" autocomplete="username" required autofocus maxlength="64">
+      </label>
+      <label>{{ _("Passwort") }}
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">{{ _("Anmelden") }}</button>
+    </form>
+    {% if forgot_enabled %}<p class="login-extra"><a href="/forgot">{{ _("Passwort vergessen?") }}</a></p>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ _(page_title) }} · {{ brand.name }}{% endblock %}
+{% block content %}
+{% if not user %}<a class="backlink" href="/login">{{ _("← zur Anmeldung") }}</a>{% else %}<a class="backlink" href="/">{{ _("← Übersicht") }}</a>{% endif %}
+<article class="card legal-text">
+  <h1>{{ _(page_title) }}</h1>
+  {{ content }}
+</article>
+{% endblock %}

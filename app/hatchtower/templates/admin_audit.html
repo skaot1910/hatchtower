@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Audit-Log") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Audit-Log") }}</h1><p class="muted">{{ _("{n} Einträge · nur anhängbar, nicht änderbar", n=total) }} · {{ _("wird nach {n} Tagen gelöscht", n=retention_days) }} (<a href="/admin/privacy">{{ _("ändern") }}</a>)</p></div>
+  <div class="head-tools">
+    <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=csv&{{ export_query }}">{{ _("Export als CSV") }}</a>
+    <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=txt&{{ export_query }}">{{ _("Export als TXT") }}</a>
+  </div>
+</div>
+
+<form method="get" class="filters">
+  <select name="action" aria-label="{{ _("Aktion") }}">
+    <option value="">{{ _("Alle Aktionen") }}</option>
+    {% for key, label in actions.items() %}<option value="{{ key }}" {% if key == f_action %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <input name="username" value="{{ f_username }}" placeholder="{{ _("Spalte|Benutzer") }}" aria-label="{{ _("Spalte|Benutzer") }}">
+  <select name="server" aria-label="{{ _("Server") }}">
+    <option value="">{{ _("Alle Server") }}</option>
+    {% for ident, name in servers.items() %}<option value="{{ ident }}" {% if ident == f_server %}selected{% endif %}>{{ name }}</option>{% endfor %}
+  </select>
+  <button class="btn btn-ghost btn-sm" type="submit">{{ _("Filtern") }}</button>
+</form>
+
+<div class="card table-card">
+  <table class="table audit stack-table">
+    <thead><tr><th>{{ _("Zeit") }}</th><th>{{ _("Spalte|Benutzer") }}</th><th>{{ _("IP") }}</th><th>{{ _("Aktion") }}</th><th>{{ _("Server") }}</th><th>{{ _("Details") }}</th><th>{{ _("Ergebnis") }}</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr>
+        <td class="nowrap faint">{{ e.ts }}</td>
+        <td data-label="{{ _("Spalte|Benutzer") }}">{{ e.username }}</td>
+        <td class="mono faint" data-label="{{ _("IP") }}">{{ e.ip }}</td>
+        <td data-label="{{ _("Aktion") }}">{{ e.action }}</td>
+        <td data-label="{{ _("Server") }}">{{ e.server }}</td>
+        <td class="detail mono">{{ e.detail }}</td>
+        <td data-label="{{ _("Ergebnis") }}"><span class="result result-{{ e.result }}">{{ e.result }}</span></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="faint">{{ _("Keine Einträge.") }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pages > 1 %}
+<nav class="pager">
+  {% if page > 1 %}<a class="chip chip-sm" href="?page={{ page - 1 }}&action={{ f_action|urlencode }}&username={{ f_username|urlencode }}&server={{ f_server|urlencode }}">{{ _("← Neuer") }}</a>{% endif %}
+  <span class="faint small">{{ _("Seite {page} von {pages}", page=page, pages=pages) }}</span>
+  {% if page < pages %}<a class="chip chip-sm" href="?page={{ page + 1 }}&action={{ f_action|urlencode }}&username={{ f_username|urlencode }}&server={{ f_server|urlencode }}">{{ _("Älter →") }}</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

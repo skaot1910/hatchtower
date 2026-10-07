@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% import "_card.html" as c %}
+{% block title %}{{ server.name }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<a class="backlink" href="/">{{ _("← Übersicht") }}</a>
+<div id="server-detail" data-ident="{{ server.identifier }}" data-live="1">
+<div class="server-head card">
+  {{ c.logo(server, "logo-lg") }}
+  <div class="server-head-main">
+    <div class="title-row"><h1>{{ server.name }}</h1>{{ c.state_pill(server) }}</div>
+    <div class="faint">{{ server.egg }} · {{ _("Kennung") }} {{ server.identifier }}{% if server.has_public_address and server.internal_address %} · {{ _("intern") }} {{ server.internal_address }}{% endif %}</div>
+    {% if server.tags %}<div class="tags">{% for t in server.tags %}<span class="tag">#{{ t }}</span>{% endfor %}</div>{% endif %}
+    <div class="actions">
+      <button type="button" class="chip chip-fav" data-fav="{{ server.identifier }}" aria-pressed="{{ 'true' if server.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}">{{ '★' if server.favorite else '☆' }}</button>
+      {% if server.can_files %}<a class="chip" href="/servers/{{ server.identifier }}/files">{{ _("Dateien") }}</a>{% endif %}
+      {% if server.can_manage %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
+    </div>
+  </div>
+  {{ c.power(server, True) }}
+</div>
+
+<div class="two-col">
+  <section class="card">
+    <h2 class="card-h">{{ _("Server") }}</h2>
+    <div class="facts">{{ c.facts(server) }}
+      <div class="kv kv-uptime"><span>{{ _("Online-Zeit ({n} Tage)", n=uptime.window) }}</span>
+        <span>{% if uptime.pct is none %}<span class="faint">{{ _("noch keine Daten") }}</span>{% else %}{{ uptime.pct|string|replace('.', ',') if lang == 'de' else uptime.pct }} %{% if uptime.days < uptime.window %} <span class="faint small">({{ _("seit {n} Tagen gemessen", n=uptime.days|round|int) }})</span>{% endif %}{% endif %}</span></div>
+      <div class="kv kv-crashes"><span>{{ _("Abstürze ({n} Tage)", n=uptime.window) }}</span><span class="{% if uptime.crashes %}bad{% endif %}">{{ uptime.crashes }}</span></div>
+    </div>
+  </section>
+  <section class="card">
+    <h2 class="card-h">{{ _("Ressourcen") }}</h2>
+    <div class="metrics">{{ c.metrics(server) }}</div>
+    <p class="faint small">{{ _("Stand:") }} <span data-f="updated_at">{{ server.updated_at }}</span> · {{ _("Status laut Pterodactyl") }}</p>
+  </section>
+</div>
+</div>
+
+<section class="card" id="verlauf" data-metrics="/api/servers/{{ server.identifier }}/metrics">
+  <div class="chart-head">
+    <h2 class="card-h">{{ _("Verlauf") }}</h2>
+    <div class="view-toggle" role="group" aria-label="{{ _("Zeitraum") }}">
+      <button type="button" data-range="120" aria-pressed="true">{{ _("Live") }}</button>
+      <button type="button" data-range="3600" aria-pressed="false">{{ _("1 h") }}</button>
+      <button type="button" data-range="21600" aria-pressed="false">{{ _("6 h") }}</button>
+      <button type="button" data-range="43200" aria-pressed="false">{{ _("12 h") }}</button>
+      <button type="button" data-range="86400" aria-pressed="false">{{ _("24 h") }}</button>
+      <button type="button" data-range="259200" aria-pressed="false">{{ _("72 h") }}</button>
+    </div>
+  </div>
+  <div class="charts">
+    <figure class="chart"><figcaption><span>{{ _("CPU") }}</span><span class="chart-now" data-now="cpu">–</span></figcaption><canvas data-chart="cpu" aria-label="{{ _("CPU-Verlauf") }}" role="img"></canvas></figure>
+    <figure class="chart"><figcaption><span>{{ _("RAM") }}</span><span class="chart-now" data-now="mem">–</span></figcaption><canvas data-chart="mem" aria-label="{{ _("RAM-Verlauf") }}" role="img"></canvas></figure>
+    <figure class="chart"><figcaption><span>{{ _("Netzwerk") }} <span class="legend-dot rx"></span>{{ _("empfangen") }} <span class="legend-dot tx"></span>{{ _("gesendet") }}</span><span class="chart-now" data-now="net">–</span></figcaption><canvas data-chart="net" aria-label="{{ _("Netzwerk-Verlauf") }}" role="img"></canvas></figure>
+  </div>
+  <p class="faint small chart-note" id="chart-note">{{ _("Live: letzte 2 Minuten, jede Sekunde aktualisiert, solange der Server läuft. Gespeichert werden 72 Stunden.") }}</p>
+</section>
+
+{% if server.can_console %}
+<section class="card console-card" id="konsole">
+  <div class="console-toolbar">
+    <h2 class="card-h">{{ _("Konsole") }}</h2>
+    <span class="console-state faint small" id="console-state">{{ _("verbinde …") }}</span>
+    <input type="search" id="console-filter" placeholder="{{ _("Im Log suchen") }}" aria-label="{{ _("Im Log suchen") }}">
+    <button class="btn btn-ghost btn-sm" id="console-pause" type="button">{{ _("Pause") }}</button>
+    <button class="btn btn-ghost btn-sm" id="console-download" type="button">{{ _("Log herunterladen") }}</button>
+  </div>
+  <pre class="console" id="console" data-stream="/servers/{{ server.identifier }}/console/stream" data-name="{{ server.name }}" tabindex="0" aria-live="off"></pre>
+  {% if server.can_command %}
+  <form class="console-input" id="console-cmd" data-url="/api/servers/{{ server.identifier }}/command" autocomplete="off">
+    <span class="prompt" aria-hidden="true">&gt;</span>
+    <input name="command" maxlength="500" placeholder="{{ _("Befehl an den Server senden") }}" aria-label="{{ _("Befehl") }}" spellcheck="false">
+    <button class="btn btn-primary btn-sm" type="submit">{{ _("Senden") }}</button>
+  </form>
+  {% elif settings.read_only %}<p class="faint small">{{ _("Read-only: Die Konsole kann nur mitgelesen werden.") }}</p>{% endif %}
+</section>
+{% endif %}
+{% if server.can_console %}
+<section class="card" id="log-archiv" data-logs="/api/servers/{{ server.identifier }}/logs" data-download="/servers/{{ server.identifier }}/logs.txt">
+  <div class="console-toolbar">
+    <h2 class="card-h">{{ _("Log-Archiv") }}</h2>
+    {% if archive_days %}<span class="faint small">{{ _("Hatchtower schreibt die Konsole mit und behält sie {n} Tage.", n=archive_days) }}</span>{% endif %}
+  </div>
+  {% if archive_days %}
+  <form class="log-filters" id="log-filters">
+    <input type="search" name="q" maxlength="200" placeholder="{{ _("Suchen, z. B. error oder einen Spielernamen") }}" aria-label="{{ _("Im Archiv suchen") }}">
+    <select name="level" aria-label="{{ _("Art") }}">
+      <option value="">{{ _("Alle Zeilen") }}</option>
+      <option value="warn">{{ _("Warnungen und Fehler") }}</option>
+      <option value="error">{{ _("Nur Fehler") }}</option>
+    </select>
+    <select name="range" aria-label="{{ _("Zeitraum") }}">
+      <option value="1h">{{ _("Letzte Stunde") }}</option>
+      <option value="24h" selected>{{ _("Letzte 24 Stunden") }}</option>
+      <option value="7d">{{ _("Letzte 7 Tage") }}</option>
+      <option value="all">{{ _("Alles") }}</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" type="submit">{{ _("Suchen") }}</button>
+    <a class="btn btn-ghost btn-sm" id="log-download" href="/servers/{{ server.identifier }}/logs.txt">{{ _("Als .txt herunterladen") }}</a>
+  </form>
+  <pre class="console log-archive" id="log-lines" tabindex="0"></pre>
+  <button class="btn btn-ghost btn-sm" type="button" id="log-more" hidden>{{ _("Ältere Zeilen laden") }}</button>
+  {% else %}
+  <p class="faint">{{ _("Das Konsolen-Archiv ist ausgeschaltet.") }}{% if user.is_owner %} <a href="/admin/privacy">{{ _("Einschalten") }}</a>{% endif %}</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

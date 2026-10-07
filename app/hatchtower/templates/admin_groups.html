@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Rechtegruppen") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _("Rechtegruppen") }}</h1>
+    <p class="muted">{{ _("Eigene Bündel von Rechten, z. B. „Moderator“ oder „Admin Valheim“. Eine Gruppe weist du unter Benutzer pro Server zu. Änderst du eine Gruppe, gilt das sofort für alle, die sie haben.") }}</p>
+  </div>
+</div>
+
+<div class="group-grid">
+  {% for g in groups %}
+  <article class="card group-card{% if editing and editing.id == g.id %} is-editing{% endif %}">
+    <div class="group-head">
+      <h2>{{ g.name }}</h2>
+      <span class="faint small">{{ _("1 Zuweisung") if g.usage == 1 else _("{n} Zuweisungen", n=g.usage) }}</span>
+    </div>
+    {% if g.description %}<p class="muted small">{{ g.description }}</p>{% endif %}
+    {% for gname, perms in grouped %}
+      {% set inside = perms|selectattr('key', 'in', g['keys'])|list %}
+      {% if inside %}
+      <div class="group-perms"><span class="faint small">{{ _(gname) }}</span>{% for p in inside %}<span class="pchip{% if p.write %} pchip-w{% endif %}">{{ _(p.label) }}</span>{% endfor %}</div>
+      {% endif %}
+    {% endfor %}
+    <div class="actions">
+      <a class="chip chip-sm" href="/admin/groups?edit={{ g.id }}#gruppe-form">{{ _("Bearbeiten") }}</a>
+      <form method="post" action="/admin/groups/{{ g.id }}/delete" data-confirm="{{ _("Gruppe „{name}“ löschen?", name=g.name) }}{% if g.usage %} {{ _("{n} Zuweisung(en) werden entfernt, die Benutzer verlieren dort ihren Zugriff.", n=g.usage) }}{% endif %}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button>
+      </form>
+    </div>
+  </article>
+  {% else %}
+  <div class="empty"><h2>{{ _("Noch keine Gruppen") }}</h2><p class="muted">{{ _("Leg unten deine erste Gruppe an.") }}</p></div>
+  {% endfor %}
+</div>
+
+<section class="card" id="gruppe-form">
+  <h2 class="card-h">{% if editing %}{{ _("Gruppe „{name}“ bearbeiten", name=editing.name) }}{% else %}{{ _("Neue Gruppe") }}{% endif %}</h2>
+  <form method="post" action="/admin/groups" class="form perm-set" data-deps='{{ deps|tojson }}' data-labels='{{ labels|tojson }}'>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if editing %}<input type="hidden" name="group_id" value="{{ editing.id }}">{% endif %}
+    <div class="form-grid">
+      <label>{{ _("Name") }}<input name="name" required maxlength="40" value="{{ editing.name if editing else '' }}" placeholder="{{ _("Moderator") }}"></label>
+      <label>{{ _("Beschreibung (optional)") }}<input name="description" maxlength="200" value="{{ editing.description if editing else '' }}" placeholder="{{ _("Darf neu starten und die Konsole lesen") }}"></label>
+    </div>
+    <div class="perm-columns">
+      {% for gname, perms in grouped %}
+      <fieldset class="perm-group">
+        <legend>{{ _(gname) }}</legend>
+        {% for p in perms %}
+        <label class="check perm-option">
+          <input type="checkbox" name="perm__{{ p.key }}" data-key="{{ p.key }}" value="1" {% if editing and p.key in editing['keys'] %}checked{% endif %}>
+          <span><strong>{{ _(p.label) }}</strong>{% if p.write %} <span class="badge">{{ _("Schreibrecht") }}</span>{% endif %}<span class="faint small">{{ _(p.description) }}</span></span>
+        </label>
+        {% endfor %}
+      </fieldset>
+      {% endfor %}
+    </div>
+    <p class="dep-note faint small" aria-live="polite"></p>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">{% if editing %}{{ _("Änderungen speichern") }}{% else %}{{ _("Gruppe anlegen") }}{% endif %}</button>
+      {% if editing %}<a class="btn btn-ghost" href="/admin/groups">{{ _("Abbrechen") }}</a>{% endif %}
+    </div>
+  </form>
+</section>
+{% endblock %}

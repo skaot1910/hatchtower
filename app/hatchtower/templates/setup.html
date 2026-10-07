@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% import "_connection.html" as cf with context %}
+{% import "_mark.html" as hm %}
+{% import "_lang.html" as lng with context %}
+{% block title %}{{ _("Einrichtung") }} · {{ brand.name }}{% endblock %}
+{% block body_class %}setup-page{% endblock %}
+{% block content %}
+<div class="setup-wrap">
+  {{ lng.switch("lang-switch-corner") }}
+  <div class="setup-head">
+    {{ hm.mark("hatch-mark-lg") }}
+    <div>
+      <h1>{{ _("{name} einrichten", name=brand.product) }}</h1>
+      <p class="muted">{{ _("In wenigen Schritten mit deinem Pterodactyl-Panel verbinden.") }}</p>
+    </div>
+  </div>
+
+  <ol class="setup-steps">
+    <li class="{{ 'is-active' if step == 'owner' else 'is-done' }}">{{ _("Konto") }}</li>
+    {% set ns = namespace(passed=(step == 'owner')) %}
+    {% for key, label in steps %}
+      {% set state = 'is-active' if key == step else ('' if ns.passed else 'is-done') %}
+      {% if key == step %}{% set ns.passed = true %}{% endif %}
+      <li class="{{ state }}">{% if step != 'owner' and state != 'is-active' %}<a href="/setup?step={{ key }}">{{ _(label) }}</a>{% else %}{{ _(label) }}{% endif %}</li>
+    {% endfor %}
+  </ol>
+
+  <section class="card setup-card">
+    {% if step == 'owner' %}
+      <h2 class="card-h">{{ _("1. Dein Owner-Konto") }}</h2>
+      <p class="muted">{{ _("Gib den") }} <strong>{{ _("Einrichtungscode") }}</strong> {{ _("ein, den das Installationsskript angezeigt hat. Verloren? Auf dem Server neu erzeugen mit") }} <span class="mono">hatchtower setup-token</span>.</p>
+      {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
+      <form method="post" action="/setup/owner" class="form">
+        <input type="hidden" name="prelogin" value="{{ prelogin }}">
+        <label>{{ _("Einrichtungscode") }}<input name="token" required autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" class="mono"></label>
+        <label>{{ _("Benutzername") }}<input name="username" required maxlength="32" value="{{ username }}" autocomplete="username"></label>
+        <div class="form-grid">
+          <label>{{ _("Passwort") }}<input name="password" type="password" required minlength="15" autocomplete="new-password"></label>
+          <label>{{ _("Passwort wiederholen") }}<input name="repeat" type="password" required minlength="15" autocomplete="new-password"></label>
+        </div>
+        <p class="faint small">{{ _("Mindestens 15 Zeichen mit Groß- und Kleinbuchstaben, Zahl und Sonderzeichen. Dieses Konto darf alles, also gut aufbewahren.") }}</p>
+        <button class="btn btn-primary" type="submit">{{ _("Konto anlegen und weiter") }}</button>
+      </form>
+      <details class="legend setup-import">
+        <summary>{{ _("Oder: Daten aus einer anderen Hatchtower-Installation übernehmen") }}</summary>
+        <p class="muted small">{{ _("Spielt eine Exportdatei ein (System → Datenumzug in der alten Installation). Danach meldest du dich mit einem Konto aus der Datei an; Verbindung und Einstellungen sind schon eingetragen.") }}</p>
+        <form method="post" action="/setup/import" enctype="multipart/form-data" class="form" data-busy="{{ _("Importiere …") }}">
+          <input type="hidden" name="prelogin" value="{{ prelogin }}">
+          <label>{{ _("Einrichtungscode") }}<input name="token" required autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" class="mono"></label>
+          <label>{{ _("Exportdatei (.htexport)") }}<input type="file" name="file" accept=".htexport" required></label>
+          <label>{{ _("Passwort der Exportdatei") }}<input name="passphrase" type="password" required autocomplete="off"></label>
+          <button class="btn btn-ghost" type="submit">{{ _("Importieren") }}</button>
+        </form>
+      </details>
+    {% elif step == 'panel' %}
+      <h2 class="card-h">{{ _("2. Pterodactyl-Panel verbinden") }}</h2>
+      {{ cf.panel_form(conn, '/setup?step=panel') }}
+    {% elif step == 'client' %}
+      <h2 class="card-h">{{ _("3. Client-API-Key") }}</h2>
+      {{ cf.client_form(conn, '/setup?step=client') }}
+    {% elif step == 'nodes' %}
+      <h2 class="card-h">{{ _("4. Wings-Server prüfen") }}</h2>
+      {{ cf.nodes_form(conn, '/setup?step=nodes') }}
+    {% elif step == 'options' %}
+      <h2 class="card-h">{{ _("5. Optionen") }}</h2>
+      {{ cf.options_form(conn, '/setup?step=options') }}
+    {% endif %}
+  </section>
+  {% if step not in ('owner', 'panel') %}
+  <p class="setup-skip faint small"><a href="/setup?step={{ {'client': 'panel', 'nodes': 'client', 'options': 'nodes'}[step] }}">{{ _("← zurück") }}</a></p>
+  {% endif %}
+</div>
+{% endblock %}
