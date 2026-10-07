@@ -54,10 +54,6 @@ Irgendjemand muss auf diese ganzen Eier aufpassen. Also: ein Turm. 🗼
 Zusammen: **Hatchtower**, der Wachturm über der Brutstation. Deshalb ist das Logo auch ein Ei
 mit einem Riss. Es schlüpft gerade, keine Sorge, das ist so gewollt. 🐣
 
-> **Fun Fact:** Hatchtower hieß früher **Crest Control**, nach dem Knochenkamm (*Crest*) auf dem
-> Kopf eines Pterodactylus. Der Name war lustig, klang aber verdächtig nach Kammerjäger. 🪳
-> Ein Turm voller Eier klang dann doch freundlicher.
-
 ---
 
 ## Ein Blick hinein
