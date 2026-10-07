@@ -38,6 +38,28 @@ die Stelle, an der deine Server wirklich laufen. Hatchtower legt sich darüber u
 
 ---
 
+## 🥚 Warum eigentlich „Hatchtower“?
+
+Pterodactyl ist bekanntlich ein Flugsaurier. Und wie es sich für einen ordentlichen Saurier
+gehört, ist in seiner Welt alles voller Urzeit-Biologie: Die Server-Vorlagen heißen **Eggs**,
+die liegen in **Nests**, und der Dienst, der alles antreibt, heißt **Wings**. 🦖
+
+Irgendjemand muss auf diese ganzen Eier aufpassen. Also: ein Turm. 🗼
+
+- **Hatch** – das Schlüpfen. Aus einem Egg wird ein laufender Server, und jemand sollte
+  dabei zusehen, ob er gesund schlüpft oder nachts um drei abstürzt.
+- **Tower** – der Wachturm. Von oben hat man den besten Blick auf alle Nester, sieht sofort,
+  wer gerade schlüpft, wer schläft und wer schon wieder Unfug in der Konsole treibt.
+
+Zusammen: **Hatchtower**, der Wachturm über der Brutstation. Deshalb ist das Logo auch ein Ei
+mit einem Riss. Es schlüpft gerade, keine Sorge, das ist so gewollt. 🐣
+
+> **Fun Fact:** Hatchtower hieß früher **Crest Control**, nach dem Knochenkamm (*Crest*) auf dem
+> Kopf eines Pterodactylus. Der Name war lustig, klang aber verdächtig nach Kammerjäger. 🪳
+> Ein Turm voller Eier klang dann doch freundlicher.
+
+---
+
 ## Ein Blick hinein
 
 ### Alle Server auf einen Blick
