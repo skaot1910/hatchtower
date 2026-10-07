@@ -56,9 +56,9 @@ if [ -n "$need" ]; then
   [ "$MODE" = check ] && fail "Es fehlen Programme:$need"
   say "Benötigte Programme installieren:$need"
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -q >/dev/null
+  apt-get update -qq >/dev/null
   # shellcheck disable=SC2086
-  apt-get install -y -q --no-install-recommends $need >/dev/null
+  apt-get install -y -qq --no-install-recommends $need >/dev/null 2>&1
 fi
 
 WORK="$(mktemp -d /tmp/hatchtower-get.XXXX)"

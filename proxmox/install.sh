@@ -120,8 +120,11 @@ for _ in $(seq 1 60); do
 done
 pct exec "$HT_CTID" -- getent hosts api.github.com >/dev/null 2>&1 || fail "Der Container erreicht GitHub nicht (Netzwerk/DNS prüfen)."
 
+# Frische Debian-Vorlagen haben keine passende Sprache eingestellt – C.UTF-8 gibt es immer
+CENV=(env LANG=C.UTF-8 LC_ALL=C.UTF-8 DEBIAN_FRONTEND=noninteractive)
+
 say "Grundpakete im Container installieren"
-pct exec "$HT_CTID" -- bash -c "export DEBIAN_FRONTEND=noninteractive; apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends curl ca-certificates python3 >/dev/null"
+pct exec "$HT_CTID" -- "${CENV[@]}" bash -c "apt-get update -qq >/dev/null && apt-get install -y -qq --no-install-recommends curl ca-certificates python3 >/dev/null 2>&1"
 
 # --- Hatchtower im Container installieren ---------------------------------------------
 WORK="$(mktemp -d)"
@@ -140,7 +143,7 @@ fi
 ARGS=(--port "$HT_PORT")
 [ -n "$HT_ALLOW" ] && ARGS+=(--allow "$HT_ALLOW")
 say "Hatchtower installieren"
-pct exec "$HT_CTID" -- env HATCHTOWER_REPO="$REPO" GITHUB_TOKEN_FILE=/root/.hatchtower-token \
+pct exec "$HT_CTID" -- "${CENV[@]}" HATCHTOWER_REPO="$REPO" GITHUB_TOKEN_FILE=/root/.hatchtower-token \
   HATCHTOWER_SAVE_TOKEN="$SAVE_TOKEN" bash /root/hatchtower-get.sh "${ARGS[@]}"
 pct exec "$HT_CTID" -- rm -f /root/hatchtower-get.sh /root/.hatchtower-token
 

@@ -3,6 +3,10 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.13.1 – 2026-10-07
+
+- Installation: ruhigere Ausgabe, keine Sprach-Warnungen mehr in frischen Debian-Containern
+
 ## 0.13.0 – 2026-10-07
 
 - **Installation mit einem Befehl auf Proxmox:** `proxmox/install.sh` legt einen Debian-Container an und installiert die neueste Version von GitHub

@@ -57,8 +57,11 @@ NEED="python3 python3-venv sqlite3 ca-certificates curl"
 MISSING=""
 for p in $NEED; do dpkg -s "$p" >/dev/null 2>&1 || MISSING="$MISSING $p"; done
 if [ -n "$MISSING" ]; then
-  apt-get update -q
-  apt-get install -y -q --no-install-recommends $MISSING
+  echo "    installiere:$MISSING"
+  apt-get update -qq >/dev/null
+  apt-get install -y -qq --no-install-recommends $MISSING >/dev/null 2>&1 || {
+    apt-get install -y --no-install-recommends $MISSING   # bei Fehlern noch einmal mit Ausgabe
+  }
 fi
 
 # --- Benutzer und Ordner ---------------------------------------------------
