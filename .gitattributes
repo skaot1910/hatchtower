@@ -10,3 +10,7 @@
 *.webp binary
 *.ico binary
 *.gz binary
+
+# Nicht ins Release-Paket (git archive)
+.gitattributes export-ignore
+.gitignore export-ignore

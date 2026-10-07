@@ -7,7 +7,8 @@
 #                      --bind 0.0.0.0         Adresse, auf der gelauscht wird
 #                      --allow "IP1,IP2"      Port nur für diese IPs öffnen (eigene nftables-Tabelle)
 #                      --no-start             Dienst nicht starten (für Umzüge)
-#  Update:             hatchtower update <paket.tar.gz>   (ruft dieses Skript mit --update auf)
+#  Update:             hatchtower update              (neueste Version von GitHub)
+#                      hatchtower update <paket.tar.gz>  (vorhandenes Paket)
 #
 #  Getestet mit Debian 12 und 13 (auch als Proxmox-LXC).
 # =============================================================================
@@ -83,12 +84,14 @@ if [ "$FRESH" -eq 1 ]; then
     echo "HATCHTOWER_PORT=${PORT:-8000}"
     echo "HATCHTOWER_BIND=${BIND:-0.0.0.0}"
     echo "HATCHTOWER_TZ=$SYS_TZ"
+    echo "HATCHTOWER_REPO=${HATCHTOWER_REPO:-skaot1910/hatchtower}"
   } > "$ENV_FILE"
   umask 022
 else
   [ -n "$PORT" ] && sed -i "s/^HATCHTOWER_PORT=.*/HATCHTOWER_PORT=$PORT/" "$ENV_FILE"
   [ -n "$BIND" ] && sed -i "s/^HATCHTOWER_BIND=.*/HATCHTOWER_BIND=$BIND/" "$ENV_FILE"
   grep -q '^HATCHTOWER_TZ=' "$ENV_FILE" || echo "HATCHTOWER_TZ=$SYS_TZ" >> "$ENV_FILE"
+  grep -q '^HATCHTOWER_REPO=' "$ENV_FILE" || echo "HATCHTOWER_REPO=${HATCHTOWER_REPO:-skaot1910/hatchtower}" >> "$ENV_FILE"
 fi
 chown root:hatchtower "$ENV_FILE"; chmod 640 "$ENV_FILE"
 # shellcheck disable=SC1090

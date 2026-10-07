@@ -969,7 +969,18 @@
   "optional, nur wenn du einen Webhook einträgst": "optional, only if you enter a webhook",
   "Marken und Logos": "Trademarks and logos",
   "Pterodactyl, Steam/Valve und Discord sind Marken ihrer jeweiligen Inhaber. Sie werden nur beschreibend genannt; Hatchtower ist ein eigenständiges Projekt und nicht mit ihnen verbunden.": "Pterodactyl, Steam/Valve and Discord are trademarks of their respective owners. They are mentioned only descriptively; Hatchtower is an independent project and not affiliated with them.",
-  "Spiele-Logos und eigene Logos laden die Benutzer selbst hoch. Die Rechte daran liegen bei den jeweiligen Herstellern. Für den privaten Gebrauch im Verwaltungsbereich ist das üblich; auf einer öffentlichen Statusseite solltest du nur Logos zeigen, die du verwenden darfst.": "Game logos and custom logos are uploaded by the users themselves. The rights belong to the respective manufacturers. For private use in the admin area this is common; on a public status page you should only show logos you are allowed to use."
+  "Spiele-Logos und eigene Logos laden die Benutzer selbst hoch. Die Rechte daran liegen bei den jeweiligen Herstellern. Für den privaten Gebrauch im Verwaltungsbereich ist das üblich; auf einer öffentlichen Statusseite solltest du nur Logos zeigen, die du verwenden darfst.": "Game logos and custom logos are uploaded by the users themselves. The rights belong to the respective manufacturers. For private use in the admin area this is common; on a public status page you should only show logos you are allowed to use.",
+  "Version und Updates": "Version and updates",
+  "Installiert": "Installed",
+  "Neueste auf GitHub": "Latest on GitHub",
+  "Zuletzt geprüft": "Last checked",
+  "Version {v} ist verfügbar. Zum Aktualisieren auf dem Server als root ausführen:": "Version {v} is available. To update, run as root on the server:",
+  "Hatchtower ist aktuell.": "Hatchtower is up to date.",
+  "Hatchtower prüft zweimal am Tag, ob es eine neue Version gibt, und installiert nie selbstständig.": "Hatchtower checks twice a day for a new version and never installs on its own.",
+  "Neue Version verfügbar": "New version available",
+  "Kein Release gefunden": "No release found",
+  "Repository privat oder noch kein Release – Token setzen mit: hatchtower github-token": "Repository private or no release yet – set a token with: hatchtower github-token",
+  "GitHub-Token abgelehnt – neu setzen mit: hatchtower github-token": "GitHub token rejected – set a new one with: hatchtower github-token"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, db, extras, i18n, legal, logarchive, logos, retention, security,
-               setup, themes, zipdownload)
+               setup, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, load_settings, parse_proxies
 from .monitor import Monitor
 from .permissions import (BY_KEY, PERMISSIONS, UserContext, describe_access, grouped_permissions, load_assignments,
@@ -91,11 +91,14 @@ async def lifespan(app: FastAPI):
     app.state.monitor.start()
     app.state.automation.start()
     app.state.logarchive.start()
+    app.state.updates = updates.UpdateCheck()
+    app.state.updates.start()
     cleanup_task = asyncio.create_task(retention.run_forever(), name="hatchtower-retention")
     log.info("%s %s gestartet (Modus: %s, Ziel: %s %s)", APP_NAME, __version__, settings.manager_mode,
              "Pterodactyl", settings.pterodactyl_url)
     yield
     cleanup_task.cancel()
+    await app.state.updates.stop()
     await app.state.logarchive.stop()
     await app.state.automation.stop()
     await app.state.monitor.stop()
@@ -271,6 +274,7 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("in_system", any(request.url.path.startswith(p) for p, _ in SYSTEM_TABS))
     if context.get("user") is not None:
         context.setdefault("announcements", extras.active_announcements())
+        context.setdefault("update_available", getattr(app.state, "updates", None) is not None and app.state.updates.available)
         context.setdefault("status_page_on", db.get_setting("status_enabled") == "1")
     user = context.get("user")
     context.setdefault("theme", themes.valid(getattr(user, "theme", None)) or themes.valid(db.get_setting("default_theme")) or themes.DEFAULT)
@@ -1733,7 +1737,8 @@ async def admin_system(request: Request):
                   public_host=db.get_setting("public_host"), themes=themes.THEMES,
                   default_theme=themes.valid(db.get_setting("default_theme")) or themes.DEFAULT,
                   default_language=i18n.valid(db.get_setting("default_language")) or i18n.DEFAULT,
-                  last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error)
+                  last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error,
+                  upd=app.state.updates, upd_checked=fmt_dt(app.state.updates.checked_at, settings.timezone))
 
 
 # Weitere Seiten (Statusseite, E-Mail, Einladungen, Datenumzug, ...)

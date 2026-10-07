@@ -40,6 +40,46 @@ fein steuerbaren Rechten, Live-Monitoring, Automationen und Audit-Log darüber.
 
 ## Installation
 
+### Auf Proxmox VE – ein Befehl
+
+In der Shell des Proxmox-Hosts (als root):
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/skaot1910/hatchtower/main/proxmox/install.sh)"
+```
+
+Das Skript fragt Container-ID, Hostname, CPU, RAM, Speicher, Netzwerk (DHCP oder feste IP) und
+Port ab – jeweils mit Vorschlag, Enter übernimmt ihn. Dann legt es einen unprivilegierten
+Debian-Container an, lädt die neueste Hatchtower-Version von GitHub, prüft die Prüfsumme und
+installiert sie.
+
+**Solange das Repository privat ist**, braucht der Download einen GitHub-Token mit Lesezugriff
+(siehe unten). Dann in zwei Schritten – der Token wird nicht angezeigt und landet nicht im Verlauf:
+
+```bash
+read -rsp "GitHub-Token: " GITHUB_TOKEN && export GITHUB_TOKEN && echo
+```
+```bash
+bash -c "$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" https://api.github.com/repos/skaot1910/hatchtower/contents/proxmox/install.sh)"
+```
+
+Ohne Rückfragen geht es auch: `HT_YES=1 HT_CTID=120 HT_IP=192.168.1.50/24 HT_GW=192.168.1.1 …`
+(alle Variablen stehen oben in `proxmox/install.sh`).
+
+### Auf einem vorhandenen Debian/Ubuntu-Server oder LXC
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/skaot1910/hatchtower/main/installer/get.sh)"
+```
+
+Bei privatem Repository wie oben mit `GITHUB_TOKEN` und der Adresse
+`https://api.github.com/repos/skaot1910/hatchtower/contents/installer/get.sh`.
+Optionen für den Installer anhängen, z. B. `bash -c "$(curl …)" _ --allow "192.168.1.5"`.
+
+### Aus einem Paket (ohne GitHub-Zugriff)
+
+Das Paket `hatchtower-<version>.tar.gz` gibt es unter **Releases**.
+
 ```bash
 tar -xzf hatchtower-<version>.tar.gz
 cd hatchtower-<version>
@@ -49,6 +89,15 @@ sudo bash installer/install.sh
 Optionen: `--port 8000` (Port der Oberfläche), `--bind 0.0.0.0`,
 `--allow "192.168.1.5,192.168.1.10"` (Port nur für diese IPs öffnen, in einer eigenen
 nftables-Tabelle – eine bestehende Firewall wird nicht angefasst).
+
+### GitHub-Token für ein privates Repository
+
+Auf GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
+Generate new token**. Als Repository nur `hatchtower` wählen, unter *Permissions* bei
+**Contents** „Read-only“ einstellen (Metadata wird automatisch lesend). Ablaufdatum nach Wunsch.
+Der Token darf nur lesen und nur dieses eine Repository. Auf dem Server hinterlegst du ihn mit
+`hatchtower github-token` (Eingabe wird nicht angezeigt). Ist das Repository später öffentlich,
+braucht es keinen Token mehr.
 
 Am Ende zeigt das Skript die Adresse und einen **Einrichtungscode**. Im Browser führt dann ein
 Assistent durch alles Weitere:
@@ -78,8 +127,13 @@ gespeichert und nie wieder angezeigt.
 ## Update
 
 ```bash
-sudo hatchtower update hatchtower-<neue-version>.tar.gz
+hatchtower update
 ```
+
+Lädt die neueste Version von GitHub, prüft die SHA-256-Prüfsumme und installiert sie.
+`hatchtower update --check` zeigt nur, ob es eine neue Version gibt; ein vorhandenes Paket
+installierst du mit `hatchtower update hatchtower-<version>.tar.gz`. Unter **System** zeigt
+Hatchtower an, wenn eine neue Version verfügbar ist (Prüfung zweimal am Tag, nie automatische Installation).
 
 Vor dem Update wird die Datenbank gesichert. Startet die neue Version nicht, kehrt Hatchtower
 automatisch zur vorherigen zurück. Benutzer, Rechte, Logos, Zeitpläne und Verlauf bleiben erhalten.
@@ -93,7 +147,9 @@ automatisch zur vorherigen zurück. Benutzer, Rechte, Logos, Zeitpläne und Verl
 | `hatchtower reset-password` | Passwort eines Benutzers neu setzen und Konto entsperren |
 | `hatchtower selftest` | Verbindung zu Panel und Wings prüfen (nur lesend) |
 | `hatchtower version` | Installierte Version |
-| `hatchtower update <paket>` | Auf eine neue Version aktualisieren |
+| `hatchtower update` | Neueste Version von GitHub installieren (`--check`: nur nachsehen) |
+| `hatchtower update <paket>` | Ein vorhandenes Paket installieren |
+| `hatchtower github-token` | Lese-Token für ein privates Repository hinterlegen (`--remove` entfernt ihn) |
 | `journalctl -u hatchtower -f` | Log des Dienstes |
 
 ## Dateien
@@ -104,6 +160,7 @@ automatisch zur vorherigen zurück. Benutzer, Rechte, Logos, Zeitpläne und Verl
 | `/etc/hatchtower/hatchtower.env` | interne Schlüssel und Port (nicht weitergeben) |
 | `/var/lib/hatchtower/hatchtower.db` | Datenbank (SQLite) inkl. verschlüsselter API-Keys |
 | `/var/backups/hatchtower/` | tägliches Backup um 03:30 (14 Tage) und Backups vor Updates |
+| `/etc/hatchtower/github-token` | optional: Lese-Token für Updates aus einem privaten Repository |
 
 ## Sicherheit
 
@@ -119,10 +176,14 @@ automatisch zur vorherigen zurück. Benutzer, Rechte, Logos, Zeitpläne und Verl
 
 | Werkzeug | Zweck |
 |---|---|
-| `tools\build-release.ps1` | Installationspaket bauen → `dist\hatchtower-<version>.tar.gz` |
+| `bash tools/release.sh` | Neue Version veröffentlichen: Tag, Paket aus Git, Prüfsumme, GitHub-Release (Text aus `CHANGELOG.md`) |
+| `tools\build-release.ps1` | Testpaket aus dem Arbeitsordner bauen → `dist\hatchtower-<version>.tar.gz` |
 | `tools\deploy.ps1 [-Target host]` | Paket bauen und per `hatchtower update` auf einen Server ausrollen |
 | `tools/smoketest.sh` | Rauchtest auf dem Server, eigene Test-Datenbank, immer nur lesend |
 | `tools/devserver.sh` | Test-Instanz auf Port 8001 für Oberflächentests (per SSH-Tunnel) |
+
+Neue Version veröffentlichen: Version in `app/hatchtower/__init__.py` und `VERSION` erhöhen, Abschnitt in
+`CHANGELOG.md` ergänzen, committen, dann in Git Bash `bash tools/release.sh`.
 
 Aufbau des Programms (`app/hatchtower/`): `main.py` (Web), `ptero.py` (Pterodactyl-Adapter mit
 Read-Only-Sperre), `wings.py` (Konsole), `monitor.py` (Abgleich, Verlauf), `automation.py`,

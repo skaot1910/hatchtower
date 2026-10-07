@@ -29,6 +29,23 @@
   </section>
 </div>
 
+<section class="card" id="version">
+  <h2 class="card-h">{{ _("Version und Updates") }}</h2>
+  <div class="facts">
+    <div class="kv"><span>{{ _("Installiert") }}</span><span class="mono">{{ version }}</span></div>
+    <div class="kv"><span>{{ _("Neueste auf GitHub") }}</span><span class="mono">{% if upd.latest %}{% if upd.url %}<a href="{{ upd.url }}" target="_blank" rel="noopener noreferrer">{{ upd.latest }}</a>{% else %}{{ upd.latest }}{% endif %}{% else %}–{% endif %}</span></div>
+    <div class="kv"><span>{{ _("Zuletzt geprüft") }}</span><span>{{ upd_checked }}</span></div>
+  </div>
+  {% if upd.available %}
+  <div class="hint">{{ _("Version {v} ist verfügbar. Zum Aktualisieren auf dem Server als root ausführen:", v=upd.latest) }} <span class="mono">hatchtower update</span></div>
+  {% elif upd.error %}
+  <p class="faint small">{{ _(upd.error) }}</p>
+  {% elif upd.latest %}
+  <p class="faint small">{{ _("Hatchtower ist aktuell.") }}</p>
+  {% endif %}
+  <p class="faint small">{{ _("Hatchtower prüft zweimal am Tag, ob es eine neue Version gibt, und installiert nie selbstständig.") }}</p>
+</section>
+
 <section class="card">
   <h2 class="card-h">{{ _("Selbsttest") }}</h2>
   <ul class="checks">
