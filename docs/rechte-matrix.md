@@ -149,6 +149,7 @@ Grundregeln:
 | POST | `/admin/users/{user_id}/update` | Formular | Rolle und Aktiv-Status |
 | POST | `/admin/users/{user_id}/password` | Formular | Passwort eines Benutzers setzen |
 | POST | `/admin/users/{user_id}/delete` | Formular | Benutzer löschen |
+| POST | `/admin/servers/{ident}/reviewed` | Formular | Hinweis auf neuen Server als erledigt markieren |
 | GET | `/admin/groups` | – | Rechtegruppen |
 | POST | `/admin/groups` | Formular | Rechtegruppe speichern |
 | POST | `/admin/groups/{group_id}/delete` | Formular | Rechtegruppe löschen |

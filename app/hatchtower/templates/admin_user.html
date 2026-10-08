@@ -17,16 +17,7 @@
   <div class="matrix-head">
     <div>
       <h2 class="card-h">{{ _("Rechte pro Server") }}</h2>
-      <p class="faint small">{{ _("Pro Server entweder eine Rechtegruppe zuweisen oder individuelle Rechte festlegen.") }} {{ _("Ohne Zuweisung sieht {name} den Server nicht.", name=target.username) }} <a href="/admin/groups">{{ _("Rechtegruppen") }}</a></p>
-    </div>
-    <div class="matrix-tools">
-      <label class="faint small" for="bulk-mode">{{ _("Für alle Server:") }}</label>
-      <select id="bulk-mode">
-        <option value="">– {{ _("wählen") }} –</option>
-        <option value="none">{{ _("Kein Zugriff") }}</option>
-        {% for g in groups %}<option value="g:{{ g.id }}">{{ _("Gruppe: {name}", name=g.name) }}</option>{% endfor %}
-      </select>
-      <button type="button" class="chip chip-sm" id="bulk-apply">{{ _("Übernehmen") }}</button>
+      <p class="faint small">{{ _("„Alle Server“ gilt für jeden Server ohne eigene Einstellung – auch für Server, die später in Pterodactyl dazukommen. Eine Einstellung pro Server geht immer vor, „Kein Zugriff“ nimmt einen Server aus.") }} <a href="/admin/groups">{{ _("Rechtegruppen") }}</a></p>
     </div>
   </div>
 
@@ -37,14 +28,25 @@
   <form method="post" action="/admin/users/{{ target.id }}/permissions" id="perm-form"
         data-deps='{{ deps|tojson }}' data-labels='{{ labels|tojson }}' data-groups='{{ group_keys|tojson }}' data-user="{{ target.username }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="access-all">
+      <label><strong>{{ _("Alle Server, auch künftige") }}</strong>
+        <select name="default_group" id="default-group">
+          <option value="">{{ _("aus – nur die unten zugewiesenen Server") }}</option>
+          {% for g in groups %}<option value="{{ g.id }}" data-write="{{ 1 if g.has_write else 0 }}" {% if default_group == g.id %}selected{% endif %}>{{ _("Gruppe: {name}", name=g.name) }}</option>{% endfor %}
+        </select>
+      </label>
+      <p class="danger-note small" id="default-warn" hidden>{{ _("Achtung: Diese Gruppe enthält Steuer- oder Schreibrechte. {name} kann damit jeden neu hinzukommenden Server sofort starten, stoppen oder ändern – auch Testserver. Für „Alle Server“ eignen sich meist reine Lese-Gruppen.", name=target.username) }}</p>
+      {% if not groups %}<p class="faint small">{{ _("Dafür braucht es eine Rechtegruppe.") }}</p>{% endif %}
+    </div>
     <div class="access-list">
       {% for s in servers %}
       {% set a = assignments.get(s.identifier) %}
-      {% set mode = ('g:' ~ a.group_id) if a and a.mode == 'group' else ('custom' if a and a.mode == 'custom' else 'none') %}
+      {% set mode = ('g:' ~ a.group_id) if a and a.mode == 'group' else (a.mode if a else 'auto') %}
       <div class="access-row" data-row="{{ s.identifier }}" data-name="{{ s.name }}">
         <div class="access-main">
           <div class="access-server"><strong>{{ s.name }}</strong><span class="faint small">{{ s.egg }}</span></div>
           <select name="mode__{{ s.identifier }}" data-mode aria-label="{{ _("Zugriff auf {name}", name=s.name) }}">
+            <option value="auto" {% if mode == 'auto' %}selected{% endif %}>{{ _("Wie „Alle Server“") }}</option>
             <option value="none" {% if mode == 'none' %}selected{% endif %}>{{ _("Kein Zugriff") }}</option>
             {% for g in groups %}<option value="g:{{ g.id }}" {% if mode == 'g:' ~ g.id %}selected{% endif %}>{{ _("Gruppe: {name}", name=g.name) }}</option>{% endfor %}
             <option value="custom" {% if mode == 'custom' %}selected{% endif %}>{{ _("Individuell …") }}</option>

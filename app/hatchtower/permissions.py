@@ -121,29 +121,72 @@ def grouped_permissions() -> list[tuple[str, list[Permission]]]:
     return [(g, [p for p in PERMISSIONS if p.group == g]) for g in GROUP_ORDER]
 
 
+# Ausdrücklich „kein Zugriff“ auf einen Server – Ausnahme von „Alle Server, auch künftige“
+BLOCKED = "-"
+
+
 def load_grants(user_id: int) -> dict[str, set[str]]:
-    """Wirksame Rechte pro Server: aus zugewiesener Gruppe oder individuell festgelegt."""
+    """Wirksame Rechte pro Server: eigene Einstellung pro Server (Gruppe, individuell oder
+    ausdrücklich kein Zugriff) geht vor; alle übrigen Server bekommen „Alle Server“, falls gesetzt."""
     grants: dict[str, set[str]] = {}
+    explicit: set[str] = set()
     with db.connect() as con:
         for row in con.execute(
             "SELECT identifier, permission FROM user_server_permissions WHERE user_id = ?", (user_id,)
         ):
-            grants.setdefault(row["identifier"], set()).add(row["permission"])
+            explicit.add(row["identifier"])
+            if row["permission"] != BLOCKED:
+                grants.setdefault(row["identifier"], set()).add(row["permission"])
         for row in con.execute(
             "SELECT g.identifier, i.permission FROM user_server_groups g"
             " JOIN perm_group_items i ON i.group_id = g.group_id WHERE g.user_id = ?", (user_id,)
         ):
+            explicit.add(row["identifier"])
             grants.setdefault(row["identifier"], set()).add(row["permission"])
+        default = {r["permission"] for r in con.execute(
+            "SELECT i.permission FROM user_default_access d JOIN perm_group_items i ON i.group_id = d.group_id"
+            " WHERE d.user_id = ?", (user_id,))}
+        if default:
+            for row in con.execute("SELECT identifier FROM servers WHERE present = 1"):
+                if row["identifier"] not in explicit:
+                    grants[row["identifier"]] = set(default)
     return {ident: with_dependencies(keys) for ident, keys in grants.items()}
 
 
+def load_default_group(user_id: int) -> int | None:
+    with db.connect() as con:
+        row = con.execute("SELECT group_id FROM user_default_access WHERE user_id = ?", (user_id,)).fetchone()
+    return row["group_id"] if row else None
+
+
+def save_default_group(user_id: int, group_id: int | None) -> None:
+    with db.connect() as con:
+        con.execute("DELETE FROM user_default_access WHERE user_id = ?", (user_id,))
+        if group_id is not None:
+            con.execute("INSERT INTO user_default_access (user_id, group_id, updated_at) VALUES (?, ?, ?)",
+                        (user_id, group_id, db.utcnow()))
+
+
+def users_with_default_access() -> list[dict]:
+    """Benutzer, die über „Alle Server“ automatisch Zugriff auf neue Server bekommen."""
+    with db.connect() as con:
+        return [dict(r) for r in con.execute(
+            "SELECT u.id, u.username, g.name AS group_name FROM user_default_access d"
+            " JOIN users u ON u.id = d.user_id JOIN perm_groups g ON g.id = d.group_id"
+            " WHERE u.role != 'owner' ORDER BY u.username COLLATE NOCASE")]
+
+
 def load_assignments(user_id: int) -> dict[str, dict]:
-    """Pro Server: {'mode': 'group'|'custom', 'group_id': …, 'keys': {…}}."""
+    """Pro Server: {'mode': 'group'|'custom'|'none', 'group_id': …, 'keys': {…}}.
+    'none' heißt: ausdrücklich kein Zugriff. Server ohne Eintrag folgen „Alle Server“."""
     result: dict[str, dict] = {}
     with db.connect() as con:
         for row in con.execute(
             "SELECT identifier, permission FROM user_server_permissions WHERE user_id = ?", (user_id,)
         ):
+            if row["permission"] == BLOCKED:
+                result[row["identifier"]] = {"mode": "none", "group_id": None, "keys": set()}
+                continue
             result.setdefault(row["identifier"], {"mode": "custom", "group_id": None, "keys": set()})["keys"].add(
                 row["permission"])
         for row in con.execute("SELECT identifier, group_id FROM user_server_groups WHERE user_id = ?", (user_id,)):
@@ -156,7 +199,10 @@ def save_assignments(user_id: int, assignments: dict[str, dict]) -> None:
         con.execute("DELETE FROM user_server_permissions WHERE user_id = ?", (user_id,))
         con.execute("DELETE FROM user_server_groups WHERE user_id = ?", (user_id,))
         for ident, a in assignments.items():
-            if a["mode"] == "group":
+            if a["mode"] == "none":
+                con.execute("INSERT INTO user_server_permissions (user_id, identifier, permission) VALUES (?, ?, ?)",
+                            (user_id, ident, BLOCKED))
+            elif a["mode"] == "group":
                 con.execute("INSERT INTO user_server_groups (user_id, identifier, group_id) VALUES (?, ?, ?)",
                             (user_id, ident, a["group_id"]))
             elif a["mode"] == "custom":
@@ -196,14 +242,20 @@ def save_group(group_id: int | None, name: str, description: str, keys: set[str]
     return group_id
 
 
-def describe_access(assignments: dict[str, dict], groups: dict[int, str], server_names: dict[str, str]) -> list[dict]:
+def describe_access(assignments: dict[str, dict], groups: dict[int, str], server_names: dict[str, str],
+                    default_group: int | None = None) -> list[dict]:
     """Kurzübersicht pro Server für die Benutzerliste."""
     rows = []
+    if default_group is not None:
+        rows.append({"server": t("Alle Server"), "label": groups.get(default_group, "?"), "kind": "all"})
     for ident, name in sorted(server_names.items(), key=lambda kv: kv[1].lower()):
         a = assignments.get(ident)
         if not a:
             continue
-        if a["mode"] == "group":
+        if a["mode"] == "none":
+            if default_group is not None:
+                rows.append({"server": name, "label": t("ausgenommen"), "kind": "none"})
+        elif a["mode"] == "group":
             rows.append({"server": name, "label": groups.get(a["group_id"], "?"), "kind": "group"})
         elif "server.view" in with_dependencies(a["keys"]):
             rows.append({"server": name, "label": t("individuell"), "kind": "custom"})

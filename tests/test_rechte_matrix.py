@@ -584,3 +584,68 @@ def test_passwort_mit_benutzernamen_klare_meldung():
     assert msg == "Das Passwort darf den Benutzernamen nicht enthalten."
     assert security.password_message("kurz", "x").startswith("Das Passwort braucht mindestens 15 Zeichen")
     assert security.password_message("Sehr-Langes-Passwort-123", "olga") is None
+
+
+# == Alle Server, auch künftige ====================================================================
+
+def set_default(world, uid: int, keys: set[str]) -> int:
+    from hatchtower import permissions
+    gid = permissions.save_group(None, f"Standard {uid}", "", keys)
+    permissions.save_default_group(uid, gid)
+    return gid
+
+
+def test_alle_server_gilt_auch_fuer_neue_server(world):
+    uid = world.user("mod")
+    set_default(world, uid, {"server.view", "console.read"})
+    with db.connect() as con:
+        con.execute("INSERT INTO servers (identifier, ptero_id, uuid, name, present) VALUES ('srv-neu', 99, 'uuid-neu', 'Server srv-neu', 1)")
+    grants = main.load_grants(uid)
+    assert grants["srv-a"] == grants["srv-neu"] == {"server.view", "console.read"}
+    assert "srv-gone" not in grants        # in Pterodactyl gelöscht: kein Zugriff
+
+
+def test_einstellung_pro_server_geht_vor_und_kein_zugriff_nimmt_aus(world):
+    from hatchtower import permissions
+    uid = world.user("mod")
+    set_default(world, uid, {"server.view", "power.restart"})
+    permissions.save_assignments(uid, {"srv-a": {"mode": "custom", "group_id": None, "keys": {"server.view"}},
+                                       "srv-b": {"mode": "none", "group_id": None, "keys": set()}})
+    grants = main.load_grants(uid)
+    assert grants["srv-a"] == {"server.view"}
+    assert not grants.get("srv-b")
+    before = world.snapshot()
+    c = world.client(uid)
+    assert_denied(world, c.get("/servers/srv-b"), before, uid)
+
+
+def test_alle_server_ueber_das_formular(world):
+    from hatchtower import permissions
+    gid = permissions.save_group(None, "Lesen", "", {"server.view"})
+    uid = world.user("mod")
+    o = world.client(world.ids["olga"])
+    assert_ok(o.post(f"/admin/users/{uid}/permissions", data={"csrf": o.csrf, "default_group": str(gid),
+                                                              "mode__srv-a": "auto", "mode__srv-b": "none"}))
+    assert permissions.load_default_group(uid) == gid
+    grants = main.load_grants(uid)
+    assert grants["srv-a"] == {"server.view"} and not grants.get("srv-b")
+    page = o.get("/admin/users")
+    assert "Alle Server" in page.text
+
+
+def test_neuer_server_wird_gemeldet_und_bleibt_bis_erledigt_sichtbar(world, monkeypatch):
+    from hatchtower import notify
+    sent = []
+    monkeypatch.setattr(notify, "emit", lambda vault, event, ident, detail="": sent.append((event, ident, detail)))
+    uid = world.user("mod")
+    set_default(world, uid, {"server.view"})
+    with db.connect() as con:
+        con.execute("INSERT INTO servers (identifier, ptero_id, uuid, name, present, review_pending) VALUES ('srv-neu', 99, 'uuid-neu', 'Server srv-neu', 1, 1)")
+    main.announce_new_servers(["srv-neu"])
+    assert sent and sent[0][0] == "new_server" and "mod" in sent[0][2]
+    assert world.audit("server.new")
+    o = world.client(world.ids["olga"])
+    assert "Neuer Server: Server srv-neu" in o.get("/").text
+    assert "Neuer Server" not in world.client(uid).get("/").text      # nur Owner sehen den Hinweis
+    assert_ok(o.post("/admin/servers/srv-neu/reviewed", data={"csrf": o.csrf}))
+    assert "Neuer Server: Server srv-neu" not in o.get("/").text

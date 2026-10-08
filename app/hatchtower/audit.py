@@ -43,6 +43,8 @@ ACTION_LABELS = {
     "files.mkdir": "Ordner angelegt",
     "files.delete": "Gelöscht",
     "automation.settings": "Absturz-Neustart geändert",
+    "server.new": "Neuer Server erkannt",
+    "server.reviewed": "Neuen Server als erledigt markiert",
     "automation.crash": "Absturz erkannt",
     "schedule.create": "Zeitplan angelegt",
     "schedule.update": "Zeitplan geändert",

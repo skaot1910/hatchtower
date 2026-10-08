@@ -23,7 +23,8 @@ FORMAT = "hatchtower-export"
 SECRET_SETTINGS = ("conn_app_key", "conn_client_key", "mail_password_enc", "notify_webhook_url_enc")
 SKIP_SETTINGS = ("setup_token_hash", "setup_token_created")
 TABLES = ("users", "perm_groups", "perm_group_items", "user_server_permissions", "user_server_groups",
-          "favorites", "server_meta", "automation_settings", "schedules", "announcements")
+          "favorites", "server_meta", "automation_settings", "schedules", "announcements",
+          "user_default_access")
 LOGO_NAME = re.compile(r"^[0-9a-f]{32}\.webp$")
 MAX_IMPORT_BYTES = 50 * 1024 * 1024
 

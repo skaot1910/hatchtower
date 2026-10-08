@@ -63,6 +63,7 @@ class Monitor:
         self.last_sync: str | None = None
         self._task: asyncio.Task | None = None
         self.on_offline = None  # Rückruf für Automationen (Absturz-Erkennung)
+        self.on_new_servers = None  # Rückruf, wenn Pterodactyl einen bisher unbekannten Server liefert
         self._follow: dict[str, float] = {}
         self._last_sample: dict[str, float] = {}
         self._follow_task: asyncio.Task | None = None
@@ -198,6 +199,7 @@ class Monitor:
 
         now = db.utcnow()
         with db.connect() as con:
+            known = {r["identifier"] for r in con.execute("SELECT identifier FROM servers")}
             con.execute("UPDATE servers SET present = 0")
             for s in servers:
                 name, password = startup.get(s.identifier, (None, None))
@@ -224,6 +226,16 @@ class Monitor:
                     ),
                 )
         self.last_sync = now
+        # Bei der allerersten Abfrage (leere Datenbank) ist nichts „neu“
+        new = [s.identifier for s in servers if s.identifier not in known] if known else []
+        if new:
+            with db.connect() as con:
+                con.executemany("UPDATE servers SET review_pending = 1 WHERE identifier = ?", [(i,) for i in new])
+            if self.on_new_servers:
+                try:
+                    self.on_new_servers(new)
+                except Exception:
+                    log.exception("Neue Server")
         if full:
             with db.connect() as con:
                 con.execute("DELETE FROM metrics WHERE ts < ?", (int(time.time()) - METRICS_KEEP_SECONDS,))

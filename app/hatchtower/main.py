@@ -20,11 +20,12 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, db, extras, i18n, legal, logarchive, logos, retention, security,
-               setup, themes, updates, zipdownload)
+               notify, setup, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, load_settings, parse_proxies
 from .monitor import Monitor
 from .permissions import (BY_KEY, PERMISSIONS, UserContext, describe_access, grouped_permissions, load_assignments,
-                          load_grants, load_groups, save_assignments, save_group, with_dependencies)
+                          load_default_group, load_grants, load_groups, save_assignments, save_default_group, save_group,
+                          users_with_default_access, with_dependencies)
 from .ptero import PteroClient, PteroError, ReadOnlyViolation
 from .views import SERVER_QUERY, fmt_dt, fmt_size, server_view
 from .wings import console_stream
@@ -99,6 +100,7 @@ async def lifespan(app: FastAPI):
     app.state.logarchive = logarchive.LogArchive(app.state.ptero)
     app.state.monitor.on_offline = app.state.automation.on_offline
     app.state.logarchive.on_status = lambda ident: app.state.monitor.follow(ident, 20)
+    app.state.monitor.on_new_servers = announce_new_servers
     app.state.monitor.start()
     app.state.automation.start()
     app.state.logarchive.start()
@@ -697,6 +699,7 @@ async def dashboard(request: Request, als: int | None = None):
     servers = load_servers(view_user)
     down = app.state.monitor.down_since
     return render(request, "dashboard.html", servers=servers, preview=preview,
+                  new_servers=pending_reviews() if user.is_owner and not preview else [],
                   fmt_down_since=fmt_dt(down, settings.timezone) if down else None)
 
 
@@ -1342,8 +1345,12 @@ async def admin_users(request: Request):
     group_names = {g["id"]: g["name"] for g in load_groups()}
     rows = []
     for u in users:
-        access = [] if u["role"] == "owner" else describe_access(load_assignments(u["id"]), group_names, names)
-        rows.append({"u": u, "access": access, "last_login": fmt_dt(u["last_login_at"], settings.timezone)})
+        access = [] if u["role"] == "owner" else describe_access(load_assignments(u["id"]), group_names, names,
+                                                                    load_default_group(u["id"]))
+        grants = load_grants(u["id"])
+        visible = sum(1 for ident in names if "server.view" in grants.get(ident, set()))
+        rows.append({"u": u, "access": access, "visible": visible,
+                     "last_login": fmt_dt(u["last_login_at"], settings.timezone)})
     from . import accounts, mailer
     invites = [{"hash": i["token_hash"], "role": __import__("json").loads(i["data"] or "{}").get("role", "user"),
                 "email": i["email"], "created": fmt_dt(i["created_at"], settings.timezone),
@@ -1400,8 +1407,11 @@ async def admin_user_detail(request: Request, user_id: int):
     with db.connect() as con:
         servers = con.execute("SELECT identifier, name, egg FROM servers WHERE present = 1 ORDER BY name COLLATE NOCASE").fetchall()
     groups = load_groups()
+    for g in groups:
+        g["has_write"] = any(BY_KEY[k].write for k in g["keys"] if k in BY_KEY)
     return render(
         request, "admin_user.html", target=target, servers=servers, assignments=load_assignments(user_id),
+        default_group=load_default_group(user_id),
         groups=groups, grouped=grouped_permissions(), permissions=PERMISSIONS,
         deps={p.key: list(p.requires) for p in PERMISSIONS},
         labels={p.key: i18n.t(p.label) for p in PERMISSIONS},
@@ -1418,12 +1428,20 @@ async def admin_user_permissions(request: Request, user_id: int):
         return back("/admin/users")
     form = await request.form()
     known = server_names()
-    group_ids = {g["id"]: g["name"] for g in load_groups()}
+    groups = load_groups()
+    group_ids = {g["id"]: g["name"] for g in groups}
     assignments: dict[str, dict] = {}
     log_detail: dict[str, str] = {}
+    default_raw = str(form.get("default_group", ""))
+    default_group = int(default_raw) if default_raw.isdigit() and int(default_raw) in group_ids else None
+    if default_group is not None:
+        log_detail["Alle Server, auch künftige"] = f"Gruppe {group_ids[default_group]}"
     for ident in known:
-        mode = str(form.get(f"mode__{ident}", "none"))
-        if mode.startswith("g:") and mode[2:].isdigit() and int(mode[2:]) in group_ids:
+        mode = str(form.get(f"mode__{ident}", "auto"))
+        if mode == "none":
+            assignments[ident] = {"mode": "none", "group_id": None, "keys": set()}
+            log_detail[known[ident]] = "kein Zugriff"
+        elif mode.startswith("g:") and mode[2:].isdigit() and int(mode[2:]) in group_ids:
             assignments[ident] = {"mode": "group", "group_id": int(mode[2:]), "keys": set()}
             log_detail[known[ident]] = f"Gruppe {group_ids[int(mode[2:])]}"
         elif mode == "custom":
@@ -1432,9 +1450,55 @@ async def admin_user_permissions(request: Request, user_id: int):
                 assignments[ident] = {"mode": "custom", "group_id": None, "keys": keys}
                 log_detail[known[ident]] = "individuell: " + ", ".join(sorted(with_dependencies(keys)))
     save_assignments(user_id, assignments)
+    save_default_group(user_id, default_group)
     audit.record("permissions.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"user": target["username"], "rechte": log_detail})
+    group = next((g for g in groups if g["id"] == default_group), None)
+    if group and any(BY_KEY[k].write for k in group["keys"] if k in BY_KEY):
+        return back(f"/admin/users/{user_id}", i18n.t(
+            "Rechte gespeichert. Achtung: „{gruppe}“ enthält Steuer- oder Schreibrechte – {name} kann damit auch jeden"
+            " neu hinzukommenden Server sofort steuern.", gruppe=group["name"], name=target["username"]))
     return back(f"/admin/users/{user_id}", "Rechte gespeichert")
+
+
+# -- Neue Server ----------------------------------------------------------------------
+
+def announce_new_servers(idents: list[str]) -> None:
+    """Pterodactyl liefert einen bisher unbekannten Server: Audit-Log, Meldung an die Owner.
+    Freigegeben ist er nur für Benutzer mit „Alle Server, auch künftige“."""
+    names = server_names()
+    auto = users_with_default_access()
+    i18n.use_default()
+    for ident in idents:
+        name = names.get(ident, ident)
+        audit.record("server.new", username="Monitoring", ip="intern", server=ident,
+                     detail={"server": name, "automatisch freigegeben": [f"{u['username']} ({u['group_name']})" for u in auto]})
+        who = ", ".join(u["username"] for u in auto) or i18n.t("niemand (nur Owner)")
+        notify.emit(vault, "new_server", ident, i18n.t(
+            "Neuer Server „{name}“ in Pterodactyl. Automatisch freigegeben für: {wer}. Statusseite und Neustart nach"
+            " Absturz sind für ihn noch aus.", name=name, wer=who))
+
+
+def pending_reviews() -> list[dict]:
+    with db.connect() as con:
+        rows = con.execute("SELECT identifier, name, egg FROM servers WHERE present = 1 AND review_pending = 1"
+                           " ORDER BY name COLLATE NOCASE").fetchall()
+    if not rows:
+        return []
+    who = ", ".join(u["username"] for u in users_with_default_access())
+    return [{"identifier": r["identifier"], "name": r["name"], "egg": r["egg"] or "", "auto": who} for r in rows]
+
+
+@app.post("/admin/servers/{ident}/reviewed")
+async def admin_server_reviewed(request: Request, ident: str):
+    owner = require_owner(request)
+    await check_csrf(request)
+    with db.connect() as con:
+        changed = con.execute("UPDATE servers SET review_pending = 0 WHERE identifier = ? AND review_pending = 1",
+                              (ident,)).rowcount
+    if changed:
+        audit.record("server.reviewed", user_id=owner.id, username=owner.username, ip=ip_of(request), server=ident)
+    return back("/")
 
 
 # -- Rechtegruppen ------------------------------------------------------------------

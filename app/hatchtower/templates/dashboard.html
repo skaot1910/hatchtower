@@ -26,6 +26,21 @@
   {{ _("Hatchtower bekommt keine aktuellen Daten. Die Server werden deshalb als „keine aktuellen Daten“ angezeigt – ob sie wirklich laufen, ist gerade nicht bekannt.") }}
 </div>
 
+{% for n in new_servers %}
+<div class="new-server" role="note">
+  <div>
+    <strong>{{ _("Neuer Server: {name}", name=n.name) }}</strong> <span class="faint small">{{ n.egg }}</span>
+    <div class="small muted">{% if n.auto %}{{ _("Automatisch freigegeben für: {wer}", wer=n.auto) }}{% else %}{{ _("Noch für niemanden freigegeben (nur Owner).") }}{% endif %} {{ _("Statusseite und Neustart nach Absturz sind noch aus.") }}</div>
+  </div>
+  <div class="new-server-actions">
+    <a class="chip chip-sm" href="/admin/users">{{ _("Rechte prüfen") }}</a>
+    <a class="chip chip-sm" href="/admin/statuspage">{{ _("Statusseite") }}</a>
+    <a class="chip chip-sm" href="/admin/automation">{{ _("Automationen") }}</a>
+    <form method="post" action="/admin/servers/{{ n.identifier }}/reviewed"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-ghost" type="submit">{{ _("Erledigt") }}</button></form>
+  </div>
+</div>
+{% endfor %}
+
 {% if not servers %}
 <div class="empty">
   <h2>{{ _("Noch keine Server sichtbar") }}</h2>

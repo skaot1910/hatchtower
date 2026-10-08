@@ -311,6 +311,17 @@ MIGRATIONS: list[str] = [
     UPDATE app_settings SET value = replace(replace(value, ',players', ''), 'players,', '')
         WHERE key = 'status_fields';
     """,
+    # 14: „Alle Server, auch künftige“ pro Benutzer; neue Server warten auf Durchsicht durch einen Owner
+    """
+    CREATE TABLE user_default_access (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        group_id    INTEGER NOT NULL REFERENCES perm_groups(id) ON DELETE CASCADE,
+        updated_at  TEXT
+    );
+    ALTER TABLE servers ADD COLUMN review_pending INTEGER NOT NULL DEFAULT 0;
+    UPDATE app_settings SET value = value || ',new_server'
+        WHERE key = 'notify_webhook_events' AND value != '';
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

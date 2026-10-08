@@ -166,6 +166,8 @@ ROUTES: tuple[Route, ...] = (
     R("POST", "/admin/users/{user_id}/password", "owner", "Passwort eines Benutzers setzen", csrf="form",
       form={"password": "Neues-Langes-Passwort-1"}),
     R("POST", "/admin/users/{user_id}/delete", "owner", "Benutzer löschen", csrf="form"),
+    R("POST", "/admin/servers/{ident}/reviewed", "owner", "Hinweis auf neuen Server als erledigt markieren",
+      csrf="form"),
     R("GET", "/admin/groups", "owner", "Rechtegruppen"),
     R("POST", "/admin/groups", "owner", "Rechtegruppe speichern", csrf="form",
       form={"name": "Gekapert", "perm__sftp.delete": "1"}),

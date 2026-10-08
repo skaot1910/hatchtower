@@ -1067,3 +1067,15 @@ a.file-link:hover { color: var(--violet-3); }
 .status-summary.is-unknown .status-summary-dot { background: var(--blue); }
 .uptime-detail { margin: -2px 0 6px; }
 .uptime-detail .uptime-bars { height: 14px; }
+
+/* 0.17: Alle Server, auch künftige */
+.access-all { display: grid; gap: 6px; padding: 12px 14px; margin-bottom: 12px; border: 1px solid var(--accent-line); border-radius: var(--radius-sm); background: var(--violet-bg); }
+.access-all label { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.access-all select { max-width: 360px; }
+.danger-note { margin: 0; color: var(--red-fg); }
+.pchip-all { border-color: var(--accent-line); }
+.pchip-none { opacity: .7; text-decoration: line-through; }
+.new-server { display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 12px;
+  border: 1px solid var(--accent-line); background: var(--violet-bg); border-radius: var(--radius-sm); }
+.new-server-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.new-server-actions form { margin: 0; }

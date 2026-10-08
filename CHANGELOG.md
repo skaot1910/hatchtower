@@ -3,6 +3,14 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.17.0 – 2026-10-08
+
+- **„Alle Server, auch künftige“** pro Benutzer: eine Rechtegruppe gilt für jeden Server ohne eigene Einstellung – auch für Server, die später in Pterodactyl dazukommen
+  - Einstellung pro Server geht immer vor; „Kein Zugriff“ nimmt einzelne Server aus
+  - Deutliche Warnung, wenn die Gruppe Steuer- oder Schreibrechte enthält
+- **Neue Server werden gemeldet:** Hinweis in der Übersicht für Owner (mit „Rechte prüfen“, „Statusseite“, „Automationen“, „Erledigt“), Eintrag im Audit-Log und Benachrichtigung „Neuer Server erkannt“ mit der Liste der automatisch freigegebenen Benutzer
+- Statusseite und Neustart nach Absturz bleiben bei neuen Servern aus, bis ein Owner sie einschaltet
+
 ## 0.16.0 – 2026-10-08
 
 - **Neues Recht „Automationen verwalten“** (pro Server): Benutzer können Zeitpläne und den Neustart nach Absturz für ihre Server selbst pflegen – nur mit Aktionen, die sie auch selbst ausführen dürfen. Fehlt dem Ersteller später das Recht, läuft der Zeitplan nicht mehr.

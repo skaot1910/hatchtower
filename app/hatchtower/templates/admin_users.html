@@ -16,8 +16,8 @@
         <td class="summary" data-label="{{ _("Zugriff") }}">
           {% if r.u.role == 'owner' %}<span class="faint">{{ _("alle Server, alle Rechte") }}</span>
           {% elif not r.access %}<span class="faint">{{ _("noch kein Server freigegeben") }}</span>
-          {% else %}<div class="access-mini">{% for x in r.access %}<span class="pchip{% if x.kind == 'custom' %} pchip-custom{% endif %}"><strong>{{ x.server }}</strong> · {{ x.label }}</span>{% endfor %}</div>
-          <span class="faint small">{{ _("{n} von {total} Servern", n=r.access|length, total=server_count) }}</span>{% endif %}
+          {% else %}<div class="access-mini">{% for x in r.access %}<span class="pchip{% if x.kind == 'custom' %} pchip-custom{% elif x.kind == 'all' %} pchip-all{% elif x.kind == 'none' %} pchip-none{% endif %}"><strong>{{ x.server }}</strong> · {{ x.label }}</span>{% endfor %}</div>
+          <span class="faint small">{{ _("{n} von {total} Servern", n=r.visible, total=server_count) }}</span>{% endif %}
         </td>
         <td class="faint" data-label="{{ _("Letzte Anmeldung") }}">{{ r.last_login }}</td>
         <td class="num"><a class="chip chip-sm" href="/admin/users/{{ r.u.id }}">{{ _("Rechte und Konto") }}</a></td>
