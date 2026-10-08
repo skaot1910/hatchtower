@@ -548,7 +548,8 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
             message = "Einladung erstellt. E-Mail ist nicht eingeschaltet, gib den Link selbst weiter."
         else:
             text = i18n.t("Hallo,\n\ndu wurdest zu {brand} eingeladen. Über diesen Link legst du dein Konto an "
-                          "(gilt {n} Tage):\n\n{link}", brand=load_brand()["name"], n=days,
+                          "({gueltig}):\n\n{link}", brand=load_brand()["name"],
+                          gueltig=accounts.validity_text(days),
                           link=f"{cfg.base_url}/invite/{raw}")
             try:
                 await mailer.send(cfg, email, i18n.t("Einladung zu {brand}", brand=load_brand()["name"]),
@@ -557,11 +558,11 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
             except mailer.MailError as exc:
                 message = i18n.t("E-Mail konnte nicht verschickt werden: {grund}", grund=exc)
     owner_audit(request, owner, "user.invite", detail={"role": role, "email": email or None, "invite": note or None,
-                                                       "days": days, "uses": uses or "∞"})
+                                                       "days": days or "∞", "uses": uses or "∞"})
     from .main import admin_users
     request.state.invite_link = link
     request.state.invite_message = i18n.t(message)
-    request.state.invite_valid = {"days": days, "uses": uses}
+    request.state.invite_valid = {"validity": accounts.validity_text(days), "uses": uses}
     return await admin_users(request)
 
 

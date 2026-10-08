@@ -401,6 +401,18 @@ def test_einladung_unbegrenzt_und_ablauf_im_audit(world):
         assert con.execute("SELECT COUNT(*) FROM tokens WHERE purpose = 'invite'").fetchone()[0] == 0
 
 
+def test_einladung_ohne_ablauf(world):
+    owner = world.client(world.ids["olga"])
+    r = owner.post("/admin/users/invite", data={"csrf": owner.csrf, "days": "0", "uses": "1"})
+    assert r.status_code == 200
+    with db.connect() as con:
+        assert con.execute("SELECT expires_at FROM tokens WHERE purpose = 'invite' AND created_by = ?"
+                           " ORDER BY rowid DESC", (world.ids["olga"],)).fetchone()[0] == accounts.NEVER
+    retention.cleanup()
+    assert world.audit("invite.expire") == []
+    assert "unbegrenzt gültig" in owner.get("/admin/users").text
+
+
 def test_einladung_ungueltige_auswahl_wird_ersetzt(world):
     owner = world.client(world.ids["olga"])
     owner.post("/admin/users/invite", data={"csrf": owner.csrf, "days": "365", "uses": "1000"})

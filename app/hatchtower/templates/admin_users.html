@@ -32,7 +32,7 @@
   <h2 class="card-h">{{ _("Per Einladungslink") }}</h2>
   {% if invite_link %}
   <div class="flash" role="status">{{ invite_message }}</div>
-  <label>{% if invite_valid.uses == 1 %}{{ _("Einladungslink (gilt {n} Tage, nur einmal)", n=invite_valid.days) }}{% elif invite_valid.uses %}{{ _("Einladungslink (gilt {n} Tage, für {k} Konten)", n=invite_valid.days, k=invite_valid.uses) }}{% else %}{{ _("Einladungslink (gilt {n} Tage, beliebig oft)", n=invite_valid.days) }}{% endif %}
+  <label>{{ _("Einladungslink ({gueltig}, {nutzbar})", gueltig=invite_valid.validity, nutzbar=_("nur einmal") if invite_valid.uses == 1 else (_("für {k} Konten", k=invite_valid.uses) if invite_valid.uses else _("beliebig oft"))) }}
     <input class="mono copy-field" value="{{ invite_link }}" readonly data-select-on-focus>
   </label>
   {% endif %}
@@ -48,7 +48,7 @@
     <div class="invite-limits">
       <label>{{ _("Gültig für") }}
         <select name="days">
-          {% for d in invite_days %}<option value="{{ d }}"{% if d == 7 %} selected{% endif %}>{{ _("1 Tag") if d == 1 else _("{n} Tage", n=d) }}</option>{% endfor %}
+          {% for d in invite_days %}<option value="{{ d }}"{% if d == 7 %} selected{% endif %}>{% if d == 0 %}{{ _("unbegrenzt") }}{% elif d == 1 %}{{ _("1 Tag") }}{% else %}{{ _("{n} Tage", n=d) }}{% endif %}</option>{% endfor %}
         </select>
       </label>
       <label>{{ _("Nutzbar") }}
@@ -68,7 +68,7 @@
   <ul class="plain-list">
     {% for i in invites %}
     <li class="invite-row">
-      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {{ _("gültig bis {date}", date=i.expires) }}</span></span>
+      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {% if i.expires %}{{ _("gültig bis {date}", date=i.expires) }}{% else %}{{ _("unbegrenzt gültig") }}{% endif %}</span></span>
       <form method="post" action="/admin/users/invites/{{ i.hash }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Zurückziehen") }}</button></form>
     </li>
     {% endfor %}

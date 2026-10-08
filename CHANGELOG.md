@@ -3,6 +3,10 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.19.1 – 2026-10-08
+
+- **Einladungslinks länger gültig:** zusätzlich 30, 60 oder 90 Tage und unbegrenzt (läuft nie ab, bis zum Zurückziehen oder Aufbrauchen)
+
 ## 0.19.0 – 2026-10-08
 
 - **Einladungslinks einstellbar:** gültig 1, 3, 7 oder 14 Tage; nutzbar einmal, 2–10, 25, 50, 100 Mal oder unbegrenzt

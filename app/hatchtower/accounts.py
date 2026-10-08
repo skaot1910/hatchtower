@@ -1,7 +1,7 @@
 """Einmal-Links für Einladungen, Passwort-Zurücksetzen und E-Mail-Bestätigung.
 
-In der Datenbank steht nur der SHA-256-Hash des Links. Links laufen ab: Einladung 1–14 Tage
-(Standard 7), Passwort zurücksetzen 1 Stunde, E-Mail bestätigen 24 Stunden. Passwort- und E-Mail-Links
+In der Datenbank steht nur der SHA-256-Hash des Links. Links laufen ab: Einladung 1–90 Tage
+oder unbegrenzt (Standard 7), Passwort zurücksetzen 1 Stunde, E-Mail bestätigen 24 Stunden. Passwort- und E-Mail-Links
 gelten einmal, Einladungen so oft wie eingestellt (max_uses, 0 = unbegrenzt).
 """
 from __future__ import annotations
@@ -12,9 +12,11 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from . import audit, db
+from .i18n import t
 
 VALID_HOURS = {"invite": 7 * 24, "reset": 1, "verify": 24}
-INVITE_DAYS = (1, 3, 7, 14)
+INVITE_DAYS = (1, 3, 7, 14, 30, 60, 90, 0)   # 0 = läuft nicht ab
+NEVER = "9999-12-31T23:59:59+00:00"
 INVITE_USES = (*range(1, 11), 25, 50, 100, 0)   # 0 = unbegrenzt
 
 
@@ -38,6 +40,7 @@ def create(purpose: str, *, user_id: int | None = None, email: str | None = None
             "INSERT INTO tokens (token_hash, purpose, user_id, email, data, created_at, expires_at, created_by,"
             " max_uses, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (_hash(raw), purpose, user_id, email, json.dumps(data or {}), now.isoformat(timespec="seconds"),
+             NEVER if hours == 0 else
              (now + timedelta(hours=hours or VALID_HOURS[purpose])).isoformat(timespec="seconds"), created_by,
              max_uses, note))
     return raw
@@ -85,6 +88,13 @@ def invite_info(row) -> dict:
         creator = con.execute("SELECT username FROM users WHERE id = ?", (row["created_by"],)).fetchone()
     return {"invite": row["note"] or None, "created_by": creator["username"] if creator else None,
             "created": row["created_at"], "uses": uses_text(row["uses"], row["max_uses"])}
+
+
+def validity_text(days: int) -> str:
+    """„gilt 7 Tage“ bzw. „unbegrenzt gültig“ (übersetzt)."""
+    if days == 0:
+        return t("unbegrenzt gültig")
+    return t("gilt 1 Tag") if days == 1 else t("gilt {n} Tage", n=days)
 
 
 def uses_text(uses: int, max_uses: int) -> str:

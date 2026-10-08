@@ -149,7 +149,7 @@ Auf dem Handy passt sich Hatchtower automatisch an.
 
 **Benutzer und Sicherheit**
 - Eigene Benutzer und Rechte pro Server, selbst erstellte Rechtegruppen
-- Einladungslinks statt Startpasswort: 1–14 Tage gültig, einmal bis unbegrenzt nutzbar, mit interner Beschreibung; Nutzung und Ablauf stehen im Audit-Log
+- Einladungslinks statt Startpasswort: 1–90 Tage oder unbegrenzt gültig, einmal bis unbegrenzt nutzbar, mit interner Beschreibung; Nutzung und Ablauf stehen im Audit-Log
 - Optional E-Mail: eigene Adresse pro Benutzer mit Bestätigung, „Passwort vergessen“, Einladungen per Mail
 - Audit-Log, das sich nicht verändern lässt
 - Read-Only-Modus: Hatchtower kann komplett nur lesend betrieben werden

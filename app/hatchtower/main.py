@@ -1360,7 +1360,8 @@ async def admin_users(request: Request):
     from . import accounts, mailer
     invites = [{"hash": i["token_hash"], "role": __import__("json").loads(i["data"] or "{}").get("role", "user"),
                 "email": i["email"], "created": fmt_dt(i["created_at"], settings.timezone),
-                "expires": fmt_dt(i["expires_at"], settings.timezone), "creator": i["creator"],
+                "expires": None if i["expires_at"] == accounts.NEVER else fmt_dt(i["expires_at"], settings.timezone),
+                "creator": i["creator"],
                 "note": i["note"], "uses": accounts.uses_text(i["uses"], i["max_uses"])}
                for i in accounts.open_invites()]
     return render(request, "admin_users.html", rows=rows, error=None, server_count=len(names), invites=invites,
