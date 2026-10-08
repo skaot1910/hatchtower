@@ -42,7 +42,7 @@ class Settings:
     timezone: str = "Europe/Berlin"
     default_timezone: str = "Europe/Berlin"
     node_overrides: dict = field(default_factory=dict)
-    poll_interval: int = 15
+    poll_interval: int = 10
     sync_interval: int = 300
     session_idle_minutes: int = 30
     session_max_hours: int = 12

@@ -48,8 +48,10 @@
         <td data-label="{{ _("Vorwarnung") }}">{% if x.s.warn_minutes %}{{ _("{n} Min. vorher", n=x.s.warn_minutes) }}<div class="mono faint small">{{ x.s.warn_command }}</div>{% else %}<span class="faint">–</span>{% endif %}</td>
         <td class="faint small" data-label="{{ _("Zuletzt") }}">{{ x.s.last_result or '–' }}</td>
         <td class="num row-actions">
+          {% if x.editable %}
           <form method="post" action="/admin/automation/schedules/{{ x.s.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-ghost" type="submit">{{ _("Pausieren") if x.s.enabled else _("Aktivieren") }}</button></form>
           <form method="post" action="/admin/automation/schedules/{{ x.s.id }}/delete" data-confirm="{{ _("Zeitplan „{name}“ löschen?", name=x.s.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button></form>
+          {% endif %}
         </td>
       </tr>
     {% endfor %}
@@ -65,9 +67,9 @@
       <div class="form-grid">
         <label>{{ _("Name") }}<input name="name" required maxlength="80" placeholder="{{ _("Nächtlicher Neustart") }}"></label>
         <label>{{ _("Server") }}
-          <select name="identifier" required>
+          <select name="identifier" required id="sched-server">
             <option value="">– {{ _("wählen") }} –</option>
-            {% for s in servers %}<option value="{{ s.identifier }}">{{ s.name }}</option>{% endfor %}
+            {% for s in servers %}<option value="{{ s.identifier }}" data-actions="{{ allowed_actions[s.identifier] }}">{{ s.name }}</option>{% endfor %}
           </select>
         </label>
         <label>{{ _("Aktion") }}

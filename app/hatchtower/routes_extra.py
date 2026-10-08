@@ -27,7 +27,7 @@ from .main import (BACKUP_SUFFIX, SYSTEM_TABS, LoginRequired, app, apply_connect
                    current_user, file_action, files_back, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
 from .permissions import load_grants
-from .views import fmt_dt, monogram
+from .views import fmt_dt, is_stale, monogram
 
 
 
@@ -66,10 +66,7 @@ def prelogin_ok(request: Request, value: str) -> bool:
 def password_error(password: str, repeat: str, username: str) -> str | None:
     if password != repeat:
         return "Die Passwörter stimmen nicht überein."
-    problems = security.password_problems(password, username)
-    if problems:
-        return i18n.t("Das Passwort braucht {list}.", list=", ".join(i18n.t(x) for x in problems))
-    return None
+    return security.password_message(password, username)
 
 
 def optional_user(request: Request):
@@ -95,10 +92,10 @@ def owner_audit(request: Request, owner, action: str, **kw) -> None:
 STATUS_FIELDS = {"name": "Servername aus Pterodactyl", "ingame": "Ingame-Servername", "status": "Status",
                  "started": "Gestartet/Gestoppt (Uhrzeit)", "address": "Adresse (IP und Port)",
                  "password": "Serverpasswort",
-                 "uptime": "Verfügbarkeitsbalken (30 Tage)", "players": "Spielerverlauf (24 Stunden)",
+                 "uptime": "Verfügbarkeitsbalken (30 Tage)",
                  "incidents": "Störungs- und Wartungshistorie (30 Tage)"}
 STATUS_ORDER = {"running": 0, "starting": 1, "stopping": 2, "offline": 3, "suspended": 4, "unknown": 5}
-STATUS_DEFAULT = "name,status,address,uptime,players,incidents"
+STATUS_DEFAULT = "name,status,address,uptime,incidents"
 STATUS_DAYS = 30
 
 
@@ -114,14 +111,14 @@ def status_servers() -> list[dict]:
     with db.connect() as con:
         rows = con.execute(
             "SELECT s.identifier, s.name, s.egg, s.primary_port, s.suspended, s.startup_name, s.startup_password_enc,"
-            " st.state, st.query_name, st.last_started_at, st.last_stopped_at, m.logo_file, m.public_address,"
+            " st.state, st.updated_at, st.query_name, st.last_started_at, st.last_stopped_at, m.logo_file, m.public_address,"
             " m.ingame_name, m.password_enc"
             " FROM servers s LEFT JOIN server_state st ON st.identifier = s.identifier"
             " JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1 AND m.on_status = 1"
             " ORDER BY s.name COLLATE NOCASE").fetchall()
     result = []
     for r in rows:
-        state = "suspended" if r["suspended"] else (r["state"] or "unknown")
+        state = "suspended" if r["suspended"] else ("unknown" if is_stale(r["updated_at"]) else (r["state"] or "unknown"))
         running = state in ("running", "starting")
         item = {"identifier": r["identifier"], "egg": r["egg"] or "",
                 "monogram": monogram(r["name"] if "name" in fields else (r["egg"] or "?")),
@@ -178,35 +175,16 @@ def status_summary(servers: list[dict], fields: set[str]) -> dict | None:
     if "status" not in fields or not servers:
         return None
     online = sum(1 for s in servers if s.get("state") in ("running", "starting"))
-    return {"online": online, "total": len(servers), "all": online == len(servers)}
+    unknown = sum(1 for s in servers if s.get("state") == "unknown")
+    return {"online": online, "total": len(servers), "all": online == len(servers), "unknown": unknown == len(servers)}
 
 
 def add_status_history(servers: list[dict], fields: set[str]) -> None:
-    """Verfügbarkeitsbalken und Spielerverlauf je Server (nur, was eingeschaltet ist)."""
+    """Verfügbarkeitsbalken je Server (nur, wenn eingeschaltet)."""
     for s in servers:
         if "uptime" in fields:
-            days = extras.daily_availability(s["identifier"], STATUS_DAYS, settings.timezone)
-            fmt = i18n.date_format().split(",")[0]
-            bars = []
-            for d in days:
-                if d["pct"] is None:
-                    level, text = "none", i18n.t("keine Daten")
-                else:
-                    level = ("crash" if d["crashes"] else "full" if d["pct"] >= 99 else "high" if d["pct"] >= 50
-                             else "low" if d["pct"] > 0 else "off")
-                    text = i18n.t("{pct} % online", pct=i18n.decimal(f"{d['pct']:g}"))
-                    if d["crashes"]:
-                        text += " · " + i18n.t("{n} Absturz/Abstürze", n=d["crashes"])
-                bars.append({"level": level, "title": f"{d['date'].strftime(fmt)}: {text}"})
-            measured = [d["pct"] for d in days if d["pct"] is not None]
-            s["bars"] = bars
-            s["uptime_pct"] = i18n.decimal(f"{sum(measured) / len(measured):.1f}") if measured else None
-        if "players" in fields:
-            series = extras.player_series(s["identifier"])
-            if series and series["peak"] > 0:
-                s["players_lines"] = extras.sparkline(series["values"])
-                s["players_peak"] = series["peak"]
-                s["players_now"] = series["current"]
+            view = extras.uptime_bars(s["identifier"], STATUS_DAYS, settings.timezone)
+            s["bars"], s["uptime_pct"] = view["bars"], view["pct"]
 
 
 def status_incidents(servers: list[dict], fields: set[str]) -> list[dict]:
@@ -501,6 +479,8 @@ async def account_delete(request: Request, current: str = Form(""), confirm: str
     audit.record("user.self_delete", user_id=user.id, username=user.username, ip=ip_of(request),
                  detail={"user": user.username, "role": row["role"]})
     with db.connect() as con:
+        if row["role"] != "owner":
+            con.execute("DELETE FROM schedules WHERE created_by = ?", (user.id,))
         con.execute("DELETE FROM users WHERE id = ?", (user.id,))
     response = back("/login", "Dein Konto wurde gelöscht.")
     response.delete_cookie(security.SESSION_COOKIE)
@@ -709,7 +689,7 @@ async def admin_notify(request: Request):
 @app.post("/admin/notify")
 async def admin_notify_save(request: Request, webhook_url: str = Form(""), webhook_type: str = Form("discord"),
                             disk_pct: str = Form("90"), ram_pct: str = Form("90"), ram_minutes: str = Form("5"),
-                            remove_webhook: str = Form("")):
+                            cpu_pct: str = Form("90"), cpu_minutes: str = Form("5"), remove_webhook: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     form = await request.form()
@@ -717,7 +697,8 @@ async def admin_notify_save(request: Request, webhook_url: str = Form(""), webho
     if url and (not url.startswith(("https://", "http://")) or len(url) > 500 or any(c.isspace() for c in url)):
         return back("/admin/notify", "Bitte eine gültige Webhook-Adresse eingeben (https://…)")
     numbers = {}
-    for key, value, lo, hi in (("disk", disk_pct, 50, 99), ("ram", ram_pct, 50, 99), ("ram_minutes", ram_minutes, 1, 60)):
+    for key, value, lo, hi in (("disk", disk_pct, 50, 99), ("ram", ram_pct, 50, 99), ("ram_minutes", ram_minutes, 1, 60),
+                                 ("cpu", cpu_pct, 50, 100), ("cpu_minutes", cpu_minutes, 1, 60)):
         if not value.strip().isdigit() or not lo <= int(value) <= hi:
             return back("/admin/notify", i18n.t("Bitte prüfen: {list}", list=i18n.t("Schwellenwerte")))
         numbers[key] = value.strip()
@@ -730,6 +711,8 @@ async def admin_notify_save(request: Request, webhook_url: str = Form(""), webho
     db.set_setting("notify_disk_pct", numbers["disk"], owner.id)
     db.set_setting("notify_ram_pct", numbers["ram"], owner.id)
     db.set_setting("notify_ram_minutes", numbers["ram_minutes"], owner.id)
+    db.set_setting("notify_cpu_pct", numbers["cpu"], owner.id)
+    db.set_setting("notify_cpu_minutes", numbers["cpu_minutes"], owner.id)
     owner_audit(request, owner, "settings.notify", detail={"webhook": "neu" if url else ("entfernt" if remove_webhook else "unverändert"),
                                                             "type": webhook_type, **numbers})
     return back("/admin/notify", "Benachrichtigungen gespeichert")

@@ -48,7 +48,14 @@ PERMISSIONS: tuple[Permission, ...] = (
                requires=("server.view", "sftp.view")),
     Permission("sftp.delete", "Löschen", "Dateien", "Dateien und Ordner löschen.", write=True,
                requires=("server.view", "sftp.view")),
+    Permission("automation.manage", "Automationen verwalten", "Automationen",
+               "Zeitpläne für diesen Server anlegen, pausieren und löschen und den Neustart nach Absturz ein- oder"
+               " ausschalten. Als Aktion stehen nur die Steuerrechte zur Verfügung, die der Benutzer selbst hat.",
+               write=True, requires=("server.view",)),
 )
+
+# Welches Recht ein Zeitplan mit dieser Aktion voraussetzt
+AUTOMATION_NEEDS = {"start": "power.start", "stop": "power.stop", "restart": "power.restart", "command": "console.command"}
 
 BY_KEY = {p.key: p for p in PERMISSIONS}
 ALL_KEYS = tuple(BY_KEY)
@@ -94,8 +101,20 @@ class UserContext:
     def visible(self, identifier: str) -> bool:
         return self.can(identifier, "server.view")
 
+    @property
+    def can_automate(self) -> bool:
+        """Darf die Seite Automationen öffnen (Owner oder Recht für mindestens einen Server)."""
+        return self.is_owner or any("automation.manage" in keys for keys in self.grants.values())
 
-GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien")
+    def automation_servers(self, known) -> set[str]:
+        return {i for i in known if self.is_owner or self.can(i, "automation.manage")}
+
+    def schedule_allowed(self, identifier: str, action: str) -> bool:
+        need = AUTOMATION_NEEDS.get(action)
+        return need is not None and (self.is_owner or (self.can(identifier, "automation.manage") and self.can(identifier, need)))
+
+
+GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien", "Automationen")
 
 
 def grouped_permissions() -> list[tuple[str, list[Permission]]]:

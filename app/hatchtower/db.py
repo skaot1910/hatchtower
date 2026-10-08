@@ -303,6 +303,14 @@ MIGRATIONS: list[str] = [
     ALTER TABLE metrics ADD COLUMN players INTEGER;
     INSERT OR IGNORE INTO app_settings (key, value) VALUES ('community_discord', 'https://discord.gg/uQDCrtjdKG');
     """,
+    # 13: neue Meldungen (CPU dauerhaft hoch, Pterodactyl ausgefallen/wieder da) beim Webhook mit einschalten,
+    #     wenn dort schon eine Auswahl gespeichert ist; Spielerverlauf von der Statusseite entfernt
+    """
+    UPDATE app_settings SET value = value || ',cpu,panel_down,panel_up'
+        WHERE key = 'notify_webhook_events' AND value != '';
+    UPDATE app_settings SET value = replace(replace(value, ',players', ''), 'players,', '')
+        WHERE key = 'status_fields';
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

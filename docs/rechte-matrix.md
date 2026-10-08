@@ -1,0 +1,182 @@
+# Rechte-Matrix
+
+Welche Route unter welcher Bedingung erreichbar ist. Erzeugt aus `tests/routes.py` mit `python tests/routes.py`; `tests/test_rechte_matrix.py` prüft jede Zeile automatisch.
+
+Grundregeln:
+
+- Alles, was nicht ausdrücklich erlaubt ist, ist verboten. Owner dürfen alles.
+- Server-Routen verlangen immer zuerst **Sehen** (`server.view`), dann das genannte Recht. Ein fremder oder unbekannter Server liefert dieselbe Antwort (403) wie ein fehlendes Recht.
+- Rechte mit ✎ sind Schreibrechte: Im Read-Only-Modus hat sie niemand, auch kein Owner.
+- Jede verweigerte Aktion landet als `access.denied` im Audit-Log.
+- Zustandsändernde Anfragen brauchen ein CSRF-Token (Formularfeld oder Header `X-CSRF-Token`).
+
+## Rechte
+
+| Recht | Name | Schreibrecht | Setzt voraus | Routen |
+|---|---|---|---|---|
+| `server.view` | Sehen |  | – | `GET /api/servers/{ident}/metrics`<br>`GET /servers/{ident}`<br>`POST /api/servers/{ident}/favorite` |
+| `server.password` | Passwort sehen |  | `server.view` |  |
+| `server.manage` | Server verwalten |  | `server.view` | `GET /servers/{ident}/settings`<br>`POST /servers/{ident}/logo/delete`<br>`POST /servers/{ident}/logo`<br>`POST /servers/{ident}/settings` |
+| `power.start` | Start | ✎ | `server.view` | `POST /api/servers/{ident}/power` (start) |
+| `power.stop` | Stop | ✎ | `server.view` | `POST /api/servers/{ident}/power` (stop) |
+| `power.restart` | Restart | ✎ | `server.view` | `POST /api/servers/{ident}/power` (restart) |
+| `console.read` | Konsole lesen |  | `server.view` | `GET /api/servers/{ident}/logs`<br>`GET /servers/{ident}/console/stream`<br>`GET /servers/{ident}/logs.txt` |
+| `console.command` | Befehle senden | ✎ | `server.view`, `console.read` | `POST /api/servers/{ident}/command` |
+| `sftp.view` | Dateien ansehen |  | `server.view` | `GET /servers/{ident}/files` |
+| `sftp.download` | Herunterladen |  | `server.view`, `sftp.view` | `GET /servers/{ident}/files/download`<br>`POST /servers/{ident}/files/zip` |
+| `sftp.upload` | Hochladen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/upload` |
+| `sftp.edit` | Bearbeiten | ✎ | `server.view`, `sftp.view`, `sftp.download` | `GET /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/restore` |
+| `sftp.rename` | Umbenennen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/rename` |
+| `sftp.create_directory` | Ordner anlegen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/mkdir` |
+| `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete` |
+| `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |
+
+## Öffentlich
+
+| Methode | Pfad | CSRF | Zweck |
+|---|---|---|---|
+| GET | `/login` | – | Anmeldeseite |
+| POST | `/login` | Vorab-Token | Anmelden |
+| GET | `/lang/{code}` | – | Sprache umschalten (angemeldet: im Konto gespeichert) |
+| GET | `/status` | – | Öffentliche Statusseite (abschaltbar) |
+| GET | `/status.json` | – | Statusseite als JSON, nur freigegebene Angaben |
+| GET | `/status/logo/{ident}` | – | Logo eines Servers, nur wenn er auf der Statusseite steht |
+| GET | `/impressum` | – | Impressum (abschaltbar) |
+| GET | `/datenschutz` | – | Datenschutzerklärung (abschaltbar) |
+| GET | `/branding/{filename}` | – | Eigene Logos, nur die aktuell eingestellten Dateien |
+| GET | `/forgot` | – | Passwort vergessen (nur mit eingeschalteter E-Mail) |
+| POST | `/forgot` | Vorab-Token | Link zum Zurücksetzen anfordern |
+
+## Einmal-Link (ohne Anmeldung)
+
+| Methode | Pfad | CSRF | Zweck |
+|---|---|---|---|
+| GET | `/reset/{token}` | – | Neues Passwort setzen (Link aus der E-Mail) |
+| POST | `/reset/{token}` | Vorab-Token | Neues Passwort speichern |
+| GET | `/verify/{token}` | – | E-Mail-Adresse bestätigen |
+| GET | `/invite/{token}` | – | Einladung öffnen |
+| POST | `/invite/{token}` | Vorab-Token | Einladung annehmen, Konto anlegen |
+
+## Einrichtung (nur ohne Benutzer)
+
+| Methode | Pfad | CSRF | Zweck |
+|---|---|---|---|
+| POST | `/setup/owner` | Vorab-Token | Ersten Owner anlegen |
+| POST | `/setup/import` | Vorab-Token | Neue Instanz aus Datenumzug befüllen |
+
+## Angemeldet – nur eigenes Konto
+
+| Methode | Pfad | CSRF | Zweck |
+|---|---|---|---|
+| GET | `/` | – | Übersicht (nur sichtbare Server); ?als= nur für Owner |
+| GET | `/api/overview` | – | Live-Werte der Übersicht (nur sichtbare Server) |
+| GET | `/theme/{key}` | – | Theme umschalten |
+| POST | `/logout` | Formular | Abmelden |
+| GET | `/logos/{filename}` | – | Serverlogos |
+| GET | `/about` | – | Über Hatchtower, Paketliste |
+| GET | `/about/licenses.txt` | – | Lizenztexte |
+| GET | `/account` | – | Eigenes Konto |
+| POST | `/account/theme` | Formular | Eigenes Theme |
+| POST | `/account/language` | Formular | Eigene Sprache |
+| POST | `/account/password` | Formular | Eigenes Passwort ändern |
+| POST | `/account/email` | Formular | Eigene E-Mail-Adresse ändern oder entfernen |
+| POST | `/account/notify` | Formular | Eigene Benachrichtigungen |
+| POST | `/account/delete` | Formular | Eigenes Konto löschen (Passwort nötig) |
+| GET | `/account/export` | – | Eigene Daten herunterladen (Art. 15 DSGVO) |
+
+## Server – Recht pro Server
+
+| Methode | Pfad | Recht | CSRF | Pterodactyl | Zweck |
+|---|---|---|---|---|---|
+| GET | `/servers/{ident}` | `server.view` | – | liest | Serverdetails |
+| GET | `/api/servers/{ident}/metrics` | `server.view` | – | liest | Verlauf CPU, RAM, Netzwerk |
+| POST | `/api/servers/{ident}/favorite` | `server.view` | Header | liest | Favorit an/aus (nur eigene Liste) |
+| POST | `/api/servers/{ident}/power` | `power.start` | Header | schreibt | Server starten |
+| POST | `/api/servers/{ident}/power` | `power.stop` | Header | schreibt | Server stoppen |
+| POST | `/api/servers/{ident}/power` | `power.restart` | Header | schreibt | Server neu starten |
+| GET | `/servers/{ident}/console/stream` | `console.read` | – | liest | Live-Konsole |
+| GET | `/api/servers/{ident}/logs` | `console.read` | – | liest | Konsolen-Archiv durchsuchen |
+| GET | `/servers/{ident}/logs.txt` | `console.read` | – | liest | Konsolen-Archiv herunterladen |
+| POST | `/api/servers/{ident}/command` | `console.command` | Header | schreibt | Konsolenbefehl senden |
+| GET | `/servers/{ident}/files` | `sftp.view` | – | liest | Dateiliste |
+| GET | `/servers/{ident}/files/download` | `sftp.download` | – | liest | Datei herunterladen |
+| POST | `/servers/{ident}/files/zip` | `sftp.download` | Formular | liest | Auswahl als ZIP herunterladen |
+| POST | `/servers/{ident}/files/upload` | `sftp.upload` | Formular | schreibt | Dateien hochladen |
+| GET | `/servers/{ident}/files/edit` | `sftp.edit` | – | liest | Datei im Editor öffnen |
+| POST | `/servers/{ident}/files/edit` | `sftp.edit` | Formular | schreibt | Datei speichern (alte Fassung als .bak) |
+| POST | `/servers/{ident}/files/restore` | `sftp.edit` | Formular | schreibt | .bak wiederherstellen |
+| POST | `/servers/{ident}/files/rename` | `sftp.rename` | Formular | schreibt | Umbenennen |
+| POST | `/servers/{ident}/files/mkdir` | `sftp.create_directory` | Formular | schreibt | Ordner anlegen |
+| POST | `/servers/{ident}/files/delete` | `sftp.delete` | Formular | schreibt | Löschen |
+| GET | `/servers/{ident}/settings` | `server.manage` | – | liest | Serverangaben im Manager |
+| POST | `/servers/{ident}/settings` | `server.manage` | Formular | liest | Serverangaben speichern |
+| POST | `/servers/{ident}/logo` | `server.manage` | Formular | liest | Serverlogo hochladen |
+| POST | `/servers/{ident}/logo/delete` | `server.manage` | Formular | liest | Serverlogo entfernen |
+
+## Server – nur Owner
+
+| Methode | Pfad | CSRF | Zweck |
+|---|---|---|---|
+| POST | `/api/servers/{ident}/power` | Header | Server hart beenden |
+
+## Automationen – Owner oder Recht pro Server
+
+| Methode | Pfad | Recht | CSRF | Pterodactyl | Zweck |
+|---|---|---|---|---|---|
+| GET | `/admin/automation` | `automation.manage` | – | liest | Automationen (nur Server mit dem Recht) |
+| POST | `/admin/automation/crash` | `automation.manage` | Formular | liest | Neustart bei Absturz |
+| POST | `/admin/automation/schedules` | `automation.manage` | Formular | liest | Zeitplan anlegen (Aktion braucht das passende Steuerrecht) |
+| POST | `/admin/automation/schedules/{sched_id}/toggle` | `automation.manage` | Formular | liest | Zeitplan pausieren/aktivieren |
+| POST | `/admin/automation/schedules/{sched_id}/delete` | `automation.manage` | Formular | liest | Zeitplan löschen |
+
+## Nur Owner
+
+| Methode | Pfad | CSRF | Zweck |
+|---|---|---|---|
+| GET | `/setup` | – | Einrichtungsassistent (vor dem ersten Konto öffentlich) |
+| GET | `/admin/connection` | – | Verbindung zu Pterodactyl |
+| POST | `/admin/connection/panel` | Formular | Panel-Adresse und Application-Key |
+| POST | `/admin/connection/client` | Formular | Client-Key |
+| POST | `/admin/connection/nodes` | Formular | Abweichende Wings-Adressen |
+| POST | `/admin/connection/options` | Formular | Modus, öffentliche Adresse, Proxy, Zeitzone |
+| GET | `/admin/users` | – | Benutzerliste |
+| POST | `/admin/users` | Formular | Benutzer anlegen |
+| POST | `/admin/users/invite` | Formular | Einladungslink erstellen |
+| POST | `/admin/users/invites/{token_hash}/revoke` | Formular | Einladung zurückziehen |
+| GET | `/admin/users/{user_id}` | – | Benutzer bearbeiten |
+| GET | `/admin/users/{user_id}/export` | – | Daten eines Benutzers herunterladen |
+| POST | `/admin/users/{user_id}/permissions` | Formular | Rechte pro Server vergeben |
+| POST | `/admin/users/{user_id}/update` | Formular | Rolle und Aktiv-Status |
+| POST | `/admin/users/{user_id}/password` | Formular | Passwort eines Benutzers setzen |
+| POST | `/admin/users/{user_id}/delete` | Formular | Benutzer löschen |
+| GET | `/admin/groups` | – | Rechtegruppen |
+| POST | `/admin/groups` | Formular | Rechtegruppe speichern |
+| POST | `/admin/groups/{group_id}/delete` | Formular | Rechtegruppe löschen |
+| GET | `/admin/audit` | – | Audit-Log |
+| GET | `/admin/audit/export` | – | Audit-Log als CSV/TXT |
+| GET | `/admin/system` | – | System: Übersicht und Prüfungen |
+| POST | `/admin/branding` | Formular | Name, Standard-Theme, Standardsprache |
+| POST | `/admin/branding/logo/{kind}` | Formular | Eigenes Logo hochladen |
+| POST | `/admin/branding/logo/{kind}/delete` | Formular | Eigenes Logo entfernen |
+| GET | `/admin/mail` | – | E-Mail-Einstellungen |
+| POST | `/admin/mail` | Formular | E-Mail-Einstellungen speichern |
+| POST | `/admin/mail/password/delete` | Formular | SMTP-Passwort entfernen |
+| POST | `/admin/mail/test` | Formular | Testmail senden |
+| GET | `/admin/notify` | – | Benachrichtigungen |
+| POST | `/admin/notify` | Formular | Benachrichtigungen speichern |
+| POST | `/admin/notify/test` | Formular | Test-Webhook senden |
+| GET | `/admin/statuspage` | – | Statusseite einstellen |
+| POST | `/admin/statuspage` | Formular | Statusseite speichern |
+| GET | `/admin/announcements` | – | Ankündigungen |
+| POST | `/admin/announcements` | Formular | Ankündigung speichern |
+| POST | `/admin/announcements/{ann_id}/delete` | Formular | Ankündigung löschen |
+| GET | `/admin/privacy` | – | Datenschutz |
+| POST | `/admin/privacy/retention` | Formular | Aufbewahrungsfristen |
+| POST | `/admin/privacy/legal/{page}` | Formular | Impressum/Datenschutzerklärung |
+| GET | `/admin/transfer` | – | Datenumzug |
+| POST | `/admin/transfer/export` | Formular | Alle Daten verschlüsselt exportieren (Passwort nötig) |
+| POST | `/admin/transfer/import` | Formular | Daten importieren und ersetzen (Passwort nötig) |
+| POST | `/admin/system/update-check` | Formular | Nach Updates suchen |
+| POST | `/admin/system/update` | Formular | Update starten |
+| GET | `/admin/system/update` | – | Update-Fortschritt |
+| GET | `/api/system/update-status` | – | Update-Status |

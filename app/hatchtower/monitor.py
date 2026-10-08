@@ -39,9 +39,11 @@ def pick_startup_values(variables: dict[str, str]) -> tuple[str | None, str | No
 
 METRICS_KEEP_SECONDS = 73 * 3600   # 72 Stunden plus Puffer
 METRICS_MIN_GAP = 10              # höchstens ein Messpunkt pro 10 s und Server
+LIGHT_SYNC_INTERVAL = 30          # Serverliste mit Limits (CPU, RAM, Speicher): eine Anfrage je 100 Server
+PANEL_DOWN_AFTER = 2              # so viele Fehlversuche in Folge, bis Pterodactyl als ausgefallen gilt
 
 POLL_QUERY = (
-    "SELECT s.identifier, s.primary_ip, s.allocations, s.limit_memory, s.limit_disk, m.query_port AS fixed_port,"
+    "SELECT s.identifier, s.primary_ip, s.allocations, s.limit_memory, s.limit_disk, s.limit_cpu, m.query_port AS fixed_port,"
     " st.state AS prev_state FROM servers s"
     " LEFT JOIN server_meta m ON m.identifier = s.identifier"
     " LEFT JOIN server_state st ON st.identifier = s.identifier"
@@ -65,13 +67,20 @@ class Monitor:
         self._last_sample: dict[str, float] = {}
         self._follow_task: asyncio.Task | None = None
         self._next_sync = 0.0
+        self._next_light = 0.0
         self.watch = notify.ResourceWatch(vault)
         self._tracked: set[str] = set()
+        self.down_since: str | None = None      # seit wann Pterodactyl nicht antwortet
+        self._fails = 0
 
     def request_sync(self) -> None:
         """Serverliste beim nächsten Durchlauf neu aus Pterodactyl lesen (z. B. nach neuer Verbindung)."""
         self._next_sync = 0.0
         self.last_error = None
+
+    def request_light_sync(self) -> None:
+        """Limits beim nächsten Durchlauf neu lesen (z. B. nach einem Neustart, der geänderte Limits übernimmt)."""
+        self._next_light = 0.0
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name="hatchtower-monitor")
@@ -87,22 +96,31 @@ class Monitor:
 
     def follow(self, identifier: str, seconds: int = 90) -> None:
         """Nach einer Aktion den Server kurz eng beobachten, damit Zwischenstände wie
-        starting oder stopping sofort sichtbar werden (alle 2 Sekunden, nur dieser Server)."""
-        self._follow[identifier] = time.monotonic() + seconds
+        starting oder stopping sofort sichtbar werden: die ersten 30 Sekunden jede Sekunde,
+        danach alle 3 Sekunden – nur dieser Server."""
+        now = time.monotonic()
+        self._follow[identifier] = (now, now + seconds)
         if self._follow_task is None or self._follow_task.done():
             self._follow_task = asyncio.create_task(self._follow_loop(), name="hatchtower-follow")
 
     async def _follow_loop(self) -> None:
+        await asyncio.sleep(0.5)    # Wings braucht einen Moment, bis der neue Zustand gemeldet wird
+        last: dict[str, float] = {}
         while self._follow:
             now = time.monotonic()
-            for ident in [i for i, until in self._follow.items() if until < now]:
+            for ident in [i for i, (_, until) in self._follow.items() if until < now]:
                 self._follow.pop(ident, None)
-            for ident in list(self._follow):
+                last.pop(ident, None)
+            for ident, (started, _) in list(self._follow.items()):
+                gap = 1 if now - started < 30 else 3
+                if now - last.get(ident, 0) < gap:
+                    continue
+                last[ident] = now
                 try:
                     await self.refresh(ident)
                 except PteroError as exc:
                     log.info("Beobachtung von %s: %s", ident, exc)
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
 
     async def refresh(self, identifier: str) -> None:
         with db.connect() as con:
@@ -124,24 +142,52 @@ class Monitor:
                 if time.monotonic() >= self._next_sync:
                     await self.sync()
                     self._next_sync = time.monotonic() + self.sync_interval
+                    self._next_light = time.monotonic() + LIGHT_SYNC_INTERVAL
+                elif time.monotonic() >= self._next_light:
+                    await self.sync(full=False)
+                    self._next_light = time.monotonic() + LIGHT_SYNC_INTERVAL
                 await self.poll()
                 self.last_ok = db.utcnow()
                 self.last_error = None
+                self._panel_ok()
             except asyncio.CancelledError:
                 raise
             except PteroError as exc:
                 self.last_error = str(exc)
                 log.warning("Monitoring: %s", exc)
+                self._panel_failed(exc)
             except Exception as exc:
-                self.last_error = f"Interner Fehler: {exc.__class__.__name__}"
+                self.last_error = i18n.Msg("Interner Fehler: {typ}", typ=exc.__class__.__name__)
                 log.exception("Monitoring-Fehler")
             await asyncio.sleep(self.poll_interval)
 
-    async def sync(self) -> None:
-        await self.client.list_nodes()
+    def _panel_failed(self, exc: Exception) -> None:
+        self._fails += 1
+        if self._fails == PANEL_DOWN_AFTER and self.down_since is None:
+            self.down_since = db.utcnow()
+            i18n.use_default()
+            notify.emit(self.vault, "panel_down", None, i18n.t(
+                "Hatchtower bekommt von Pterodactyl keine Daten mehr ({grund}). Die angezeigten Zustände sind"
+                " nicht aktuell, bis das Panel wieder antwortet.", grund=exc))
+
+    def _panel_ok(self) -> None:
+        self._fails = 0
+        if self.down_since is not None:
+            since = datetime.fromisoformat(self.down_since)
+            minutes = max(1, round((datetime.now(timezone.utc) - since).total_seconds() / 60))
+            self.down_since = None
+            i18n.use_default()
+            notify.emit(self.vault, "panel_up", None, i18n.t(
+                "Pterodactyl antwortet wieder (Ausfall etwa {n} Minuten).", n=minutes))
+
+    async def sync(self, full: bool = True) -> None:
+        """Serverliste mit Limits aus Pterodactyl. full=False liest die Startvariablen
+        (eine Anfrage je Server) nicht neu – die bleiben dann unverändert."""
+        if full:
+            await self.client.list_nodes()
         servers = await self.client.list_servers()
         startup: dict[str, tuple[str | None, str | None]] = {}
-        if self.client.settings.client_key:
+        if full and self.client.settings.client_key:
             for server in servers:
                 try:
                     startup[server.identifier] = pick_startup_values(
@@ -178,8 +224,9 @@ class Monitor:
                     ),
                 )
         self.last_sync = now
-        with db.connect() as con:
-            con.execute("DELETE FROM metrics WHERE ts < ?", (int(time.time()) - METRICS_KEEP_SECONDS,))
+        if full:
+            with db.connect() as con:
+                con.execute("DELETE FROM metrics WHERE ts < ?", (int(time.time()) - METRICS_KEEP_SECONDS,))
 
     async def poll(self) -> None:
         if not self.client.settings.client_key:
@@ -217,7 +264,8 @@ class Monitor:
         try:
             i18n.use_default()
             self.watch.check(ident, state, res["memory_bytes"], (row["limit_memory"] or 0) * 1024 * 1024,
-                             res["disk_bytes"], (row["limit_disk"] or 0) * 1024 * 1024)
+                             res["disk_bytes"], (row["limit_disk"] or 0) * 1024 * 1024,
+                             res["cpu"] or 0.0, row["limit_cpu"] or 0)
         except Exception:
             log.exception("Ressourcen-Prüfung")
 

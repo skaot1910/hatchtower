@@ -26,6 +26,22 @@ WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 ACTIONS = {"start": "Start", "stop": "Stop", "restart": "Restart", "command": "Befehl"}
 
 
+def creator_allows(sched) -> bool:
+    """Zeitpläne von Benutzern (nicht Owner) laufen nur, solange der Ersteller die nötigen Rechte noch hat.
+    Zeitpläne gelöschter Benutzer werden beim Löschen entfernt; ohne Ersteller (ältere Einträge) gilt: erlaubt."""
+    from .permissions import AUTOMATION_NEEDS, load_grants
+    if not sched["created_by"]:
+        return True
+    with db.connect() as con:
+        creator = con.execute("SELECT role, is_active FROM users WHERE id = ?", (sched["created_by"],)).fetchone()
+    if creator is None or creator["role"] == "owner":
+        return True
+    need = {"automation.manage", AUTOMATION_NEEDS.get(sched["action"], "-")}
+    if sched["warn_command"]:
+        need.add("console.command")
+    return bool(creator["is_active"]) and need <= load_grants(sched["created_by"]).get(sched["identifier"], set())
+
+
 class Automation:
     def __init__(self, client: PteroClient, tz: str, vault=None):
         self.client = client
@@ -207,7 +223,7 @@ class Automation:
     async def _warn(self, sched, key: str) -> None:
         with db.connect() as con:
             con.execute("UPDATE schedules SET last_warn = ? WHERE id = ?", (key, sched["id"]))
-        if sched["state"] != "running":
+        if sched["state"] != "running" or not creator_allows(sched):
             return
         text = sched["warn_command"].replace("{minuten}", str(sched["warn_minutes"])).replace("{minutes}", str(sched["warn_minutes"]))
         try:
@@ -221,7 +237,9 @@ class Automation:
     async def _execute(self, sched, key: str) -> None:
         action, ident, state = sched["action"], sched["identifier"], sched["state"]
         result_flag = "ok"
-        if action == "start" and state in ("running", "starting"):
+        if not creator_allows(sched):
+            result, result_flag = i18n.t("übersprungen: dem Ersteller fehlt das Recht dafür"), "denied"
+        elif action == "start" and state in ("running", "starting"):
             result = i18n.t("übersprungen: läuft bereits")
         elif action != "start" and sched["only_if_running"] and state != "running":
             result = i18n.t("übersprungen: Server ist nicht gestartet")

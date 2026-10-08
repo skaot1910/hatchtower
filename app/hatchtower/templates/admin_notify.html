@@ -33,7 +33,10 @@
       <label>{{ _("Speicher voll ab (% des Limits)") }}<input name="disk_pct" inputmode="numeric" value="{{ limits.disk }}"></label>
       <label>{{ _("RAM hoch ab (% des Limits)") }}<input name="ram_pct" inputmode="numeric" value="{{ limits.ram }}"></label>
       <label>{{ _("RAM hoch für mindestens (Minuten)") }}<input name="ram_minutes" inputmode="numeric" value="{{ limits.ram_minutes }}"></label>
+      <label>{{ _("CPU hoch ab (% des Limits)") }}<input name="cpu_pct" inputmode="numeric" value="{{ limits.cpu }}"></label>
+      <label>{{ _("CPU hoch für mindestens (Minuten)") }}<input name="cpu_minutes" inputmode="numeric" value="{{ limits.cpu_minutes }}"></label>
     </div>
+    <p class="faint small">{{ _("CPU wird nur bei Servern mit CPU-Limit in Pterodactyl geprüft (z. B. 400 % = 4 Kerne). 100 % heißt: das Limit ist voll ausgeschöpft.") }}</p>
     <h2 class="card-h">{{ _("E-Mail") }}</h2>
     {% if mail_ready %}
     <p class="muted small">{{ _("Jeder Benutzer schaltet E-Mail-Benachrichtigungen unter „Konto“ selbst ein und bekommt nur Meldungen zu Servern, die er sehen darf.") }}</p>

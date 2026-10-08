@@ -19,7 +19,7 @@ from pathlib import Path
 
 import httpx
 
-from . import __version__
+from . import __version__, i18n
 
 log = logging.getLogger("hatchtower.updates")
 
@@ -82,9 +82,9 @@ class UpdateCheck:
             elif r.status_code == 401:
                 self.error = "GitHub-Token abgelehnt – neu setzen mit: hatchtower github-token"
             else:
-                self.error = f"GitHub antwortet mit HTTP {r.status_code}"
+                self.error = i18n.Msg("GitHub antwortet mit HTTP {code}", code=r.status_code)
         except httpx.HTTPError as exc:
-            self.error = f"GitHub nicht erreichbar: {exc.__class__.__name__}"
+            self.error = i18n.Msg("GitHub nicht erreichbar: {typ}", typ=exc.__class__.__name__)
         self.checked_at = db.utcnow()
 
     async def _loop(self) -> None:

@@ -33,7 +33,7 @@
         <td class="mono faint" data-label="{{ _("IP") }}">{{ e.ip }}</td>
         <td data-label="{{ _("Aktion") }}">{{ e.action }}</td>
         <td data-label="{{ _("Server") }}">{{ e.server }}</td>
-        <td class="detail mono">{{ e.detail }}</td>
+        <td class="detail mono">{{ _(e.detail) if e.detail }}</td>
         <td data-label="{{ _("Ergebnis") }}"><span class="result result-{{ e.result }}">{{ e.result }}</span></td>
       </tr>
     {% else %}

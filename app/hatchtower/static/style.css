@@ -942,12 +942,12 @@ a.file-link:hover { color: var(--violet-3); }
 .legal-text a { color: var(--violet-3); }
 
 /* Öffentliche Statusseite */
-.status-wrap { max-width: 900px; margin: 4vh auto 0; display: grid; gap: 16px; }
+.status-wrap { max-width: 1040px; margin: 4vh auto 0; display: grid; gap: 16px; }
 .status-head { display: flex; gap: 14px; align-items: center; }
 .status-head h1 { font-size: 24px; margin: 0; }
 .status-head p { margin: 2px 0 0; }
 .status-head .lang-switch-corner { margin: 0 0 0 auto; }
-.status-list { display: grid; gap: 10px; }
+.status-list { display: grid; gap: 8px; }
 .status-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center; padding: 14px 16px;
   background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--line); border-radius: 14px; }
 .status-row.state-running { box-shadow: inset 4px 0 0 var(--green); }
@@ -1015,7 +1015,7 @@ a.file-link:hover { color: var(--violet-3); }
 /* ==== 0.15: Statusseite mit Verlauf, Discord-Link ==== */
 .status-head-tools { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .status-head .lang-switch-corner { margin: 0; }
-.status-card { padding: 14px 16px; background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--line); border-radius: 14px; display: grid; gap: 12px; }
+.status-card { padding: 10px 14px; background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--line); border-radius: 12px; }
 .status-card.state-running { box-shadow: inset 4px 0 0 var(--green); }
 .status-card.state-offline { box-shadow: inset 4px 0 0 var(--red); }
 .status-card.state-starting, .status-card.state-stopping { box-shadow: inset 4px 0 0 var(--amber); }
@@ -1028,10 +1028,13 @@ a.file-link:hover { color: var(--violet-3); }
 .status-summary.is-all .status-summary-dot { background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 25%, transparent); }
 .status-summary.is-none .status-summary-dot { background: var(--red); }
 
-.status-history { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; padding-top: 10px; border-top: 1px solid var(--line); }
-.uptime-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
-.uptime-bars { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; height: 28px; }
-.ub { display: inline-block; border-radius: 3px; background: var(--bar-bg); min-width: 4px; }
+/* Kompakt: Verfügbarkeit in derselben Zeile zwischen Name und Adresse */
+.status-card .status-row { gap: 12px; }
+.status-card .status-row .logo { width: 38px; height: 38px; border-radius: 10px; font-size: 14px; }
+.status-row.has-uptime { grid-template-columns: auto minmax(130px, 1fr) minmax(150px, 230px) auto auto; }
+.uptime { min-width: 0; }
+.uptime-bars { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 2px; height: 18px; }
+.ub { display: inline-block; border-radius: 2px; background: var(--bar-bg); min-width: 4px; }
 .uptime-bars .ub { height: 100%; }
 .ub-full { background: var(--green); }
 .ub-high { background: color-mix(in srgb, var(--green) 60%, var(--bar-bg)); }
@@ -1039,11 +1042,9 @@ a.file-link:hover { color: var(--violet-3); }
 .ub-off { background: color-mix(in srgb, var(--faint) 35%, var(--bar-bg)); }
 .ub-crash { background: var(--red); }
 .ub-none { background: var(--bar-bg); opacity: .5; }
-.uptime-foot { display: flex; justify-content: space-between; margin-top: 4px; }
+.uptime-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 3px; font-size: 11.5px; white-space: nowrap; }
 .uptime-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 2px 0 0; }
 .uptime-legend .ub { width: 10px; height: 10px; vertical-align: middle; margin-right: -8px; }
-.sparkline { width: 100%; height: 44px; display: block; }
-.sparkline polyline { fill: none; stroke: var(--violet-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 
 .status-incidents h2 { font-size: 17px; margin: 10px 0 10px; }
 .incident-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -1056,11 +1057,13 @@ a.file-link:hover { color: var(--violet-3); }
 .discord-link:hover { border-color: #5865f2; }
 .icon-chat { width: 16px; height: 16px; flex: none; }
 @media (max-width: 720px) {
-  .status-history { grid-template-columns: 1fr; }
+  .status-row.has-uptime { grid-template-columns: auto 1fr; }
+  .status-row.has-uptime .uptime { grid-column: 1 / -1; }
   .status-head { flex-wrap: wrap; }
   .status-head-tools { width: 100%; justify-content: flex-start; margin-left: 0; }
 }
 @media (max-width: 1100px) { .account .discord-link span { display: none; } }
 @media (max-width: 720px), (pointer: coarse) and (max-height: 540px) { .account .discord-link span { display: inline; } }
-.uptime-head { flex-wrap: wrap; row-gap: 2px; }
-.uptime-head > span { white-space: nowrap; }
+.status-summary.is-unknown .status-summary-dot { background: var(--blue); }
+.uptime-detail { margin: -2px 0 6px; }
+.uptime-detail .uptime-bars { height: 14px; }

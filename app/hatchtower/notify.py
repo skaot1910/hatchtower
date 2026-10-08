@@ -25,12 +25,17 @@ EVENTS = {
     "restart_failed": "Neustart nach Absturz fehlgeschlagen",
     "disk": "Speicher fast voll",
     "ram": "RAM-Auslastung dauerhaft hoch",
+    "cpu": "CPU-Auslastung dauerhaft hoch",
     "schedule_failed": "Zeitplan fehlgeschlagen",
+    "panel_down": "Pterodactyl nicht erreichbar",
+    "panel_up": "Pterodactyl wieder erreichbar",
 }
-COOLDOWN = {"disk": 6 * 3600, "ram": 3600}
+PANEL_EVENTS = {"panel_down", "panel_up"}      # betreffen keinen einzelnen Server: E-Mail nur an Owner
+COOLDOWN = {"disk": 6 * 3600, "ram": 3600, "cpu": 3600, "panel_down": 0, "panel_up": 0}
 DEFAULT_COOLDOWN = 120
 COLORS = {"crash": 0xE11D48, "restart_failed": 0xE11D48, "restarted": 0x10B981, "disk": 0xF59E0B,
-          "ram": 0xF59E0B, "schedule_failed": 0xF59E0B, "test": 0x8B5CF6}
+          "ram": 0xF59E0B, "cpu": 0xF59E0B, "schedule_failed": 0xF59E0B, "panel_down": 0xE11D48,
+          "panel_up": 0x10B981, "test": 0x8B5CF6}
 WEBHOOK_TYPES = ("discord", "generic")
 
 
@@ -41,7 +46,8 @@ def thresholds() -> dict[str, int]:
         except ValueError:
             return default
     return {"disk": num("notify_disk_pct", 90, 50, 99), "ram": num("notify_ram_pct", 90, 50, 99),
-            "ram_minutes": num("notify_ram_minutes", 5, 1, 60)}
+            "ram_minutes": num("notify_ram_minutes", 5, 1, 60), "cpu": num("notify_cpu_pct", 90, 50, 100),
+            "cpu_minutes": num("notify_cpu_minutes", 5, 1, 60)}
 
 
 def webhook_events() -> set[str]:
@@ -78,6 +84,8 @@ def _email_recipients(event: str, ident: str | None) -> list[str]:
         wanted = set((r["notify_events"] or ",".join(EVENTS)).split(","))
         if event not in wanted and event != "test":
             continue
+        if event in PANEL_EVENTS and r["role"] != "owner":
+            continue
         if ident and r["role"] != "owner" and "server.view" not in load_grants(r["id"]).get(ident, set()):
             continue
         result.append(r["email"])
@@ -96,12 +104,20 @@ async def _post_webhook(url: str, kind: str, event: str, title: str, text: str, 
     async with httpx.AsyncClient(timeout=10) as http:
         response = await http.post(url, json=payload)
     if response.status_code >= 400:
-        raise RuntimeError(f"Webhook antwortet mit HTTP {response.status_code}")
+        raise RuntimeError(i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code))
 
 
 async def deliver(vault, event: str, ident: str | None, detail: str = "", *, only: str | None = None) -> list[str]:
     """Verschickt eine Meldung sofort. only = 'webhook' oder 'mail' für Testnachrichten."""
+    previous = i18n.current()
     i18n.use_default()
+    try:
+        return await _deliver(vault, event, ident, detail, only=only)
+    finally:
+        i18n.set_language(previous)    # bei einer Testnachricht läuft danach die Anfrage weiter
+
+
+async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: str | None) -> list[str]:
     name = _server_name(ident)
     title = i18n.t(EVENTS.get(event, "Testnachricht"))
     if name:
@@ -141,13 +157,15 @@ def emit(vault, event: str, ident: str | None, detail: str = "") -> None:
 
 
 class ResourceWatch:
-    """Prüft bei jeder Abfrage Speicher und RAM gegen die Schwellen."""
+    """Prüft bei jeder Abfrage Speicher, RAM und CPU gegen die Schwellen."""
 
     def __init__(self, vault):
         self.vault = vault
         self._ram_since: dict[str, float] = {}
+        self._cpu_since: dict[str, float] = {}
 
-    def check(self, ident: str, state: str, mem: int, mem_limit: int, disk: int, disk_limit: int) -> None:
+    def check(self, ident: str, state: str, mem: int, mem_limit: int, disk: int, disk_limit: int,
+              cpu: float = 0.0, cpu_limit: int = 0) -> None:
         t = thresholds()
         if disk_limit > 0 and disk / disk_limit * 100 >= t["disk"]:
             emit(self.vault, "disk", ident, i18n.t("Speicher bei {pct} % des Limits ({used} von {limit} GB).",
@@ -161,3 +179,12 @@ class ResourceWatch:
                                                      limit=round(mem_limit / 1e9, 2)))
         else:
             self._ram_since.pop(ident, None)
+        # CPU: Pterodactyl zählt 100 % je Kern, das Limit ebenso (400 = 4 Kerne). Ohne Limit keine Prüfung.
+        if state == "running" and cpu_limit > 0 and cpu / cpu_limit * 100 >= t["cpu"]:
+            since = self._cpu_since.setdefault(ident, time.monotonic())
+            if time.monotonic() - since >= t["cpu_minutes"] * 60:
+                emit(self.vault, "cpu", ident, i18n.t("CPU seit {m} Minuten über {pct} % des Limits ({used} % von {limit} %).",
+                                                     m=t["cpu_minutes"], pct=t["cpu"], used=round(cpu),
+                                                     limit=cpu_limit))
+        else:
+            self._cpu_since.pop(ident, None)

@@ -41,9 +41,19 @@ def password_problems(password: str, username: str = "") -> list[str]:
         problems.append("eine Zahl")
     if not re.search(r"[^A-Za-z0-9]", password):
         problems.append("ein Sonderzeichen")
-    if username and username.lower() in password.lower():
-        problems.append("nicht den Benutzernamen enthalten")
     return problems
+
+
+def password_message(password: str, username: str = "") -> str | None:
+    """Fertige, übersetzte Fehlermeldung oder None, wenn das Passwort passt."""
+    from .i18n import t
+    parts = []
+    problems = password_problems(password, username)
+    if problems:
+        parts.append(t("Das Passwort braucht {list}.", list=", ".join(t(x) for x in problems)))
+    if username and username.lower() in password.lower():
+        parts.append(t("Das Passwort darf den Benutzernamen nicht enthalten."))
+    return " ".join(parts) or None
 
 
 def hash_password(password: str) -> str:
@@ -94,8 +104,10 @@ def create_session(user_id: int, ip: str, user_agent: str) -> tuple[str, str]:
     return token, csrf
 
 
-def load_session(token: str | None, settings: Settings):
-    """Gibt (Session, Benutzer) zurück oder None, wenn abgelaufen/ungültig."""
+def load_session(token: str | None, settings: Settings, touch: bool = True):
+    """Gibt (Session, Benutzer) zurück oder None, wenn abgelaufen/ungültig.
+
+    touch=False prüft nur und zählt nicht als Aktivität (für offene Konsolen-Verbindungen)."""
     if not token:
         return None
     th = _token_hash(token)
@@ -118,7 +130,7 @@ def load_session(token: str | None, settings: Settings):
         if expired:
             con.execute("DELETE FROM sessions WHERE token_hash = ?", (th,))
             return None
-        if (now - last_seen).total_seconds() > 30:
+        if touch and (now - last_seen).total_seconds() > 30:
             con.execute("UPDATE sessions SET last_seen = ? WHERE token_hash = ?", (db.utcnow(), th))
         return row
 

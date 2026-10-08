@@ -95,7 +95,7 @@ def toggle_favorite(user_id: int, ident: str) -> bool:
     return True
 
 
-# -- Statusseite: Verfügbarkeit pro Tag, Spielerverlauf, Störungen --------------------
+# -- Statusseite: Verfügbarkeit pro Tag --------------------
 
 def daily_availability(ident: str, days: int, tz: str) -> list[dict]:
     """Pro Tag (in der Zeitzone von Hatchtower): Anteil online, Abstürze, ob Daten vorliegen.
@@ -141,39 +141,21 @@ def daily_availability(ident: str, days: int, tz: str) -> list[dict]:
     return result
 
 
-def player_series(ident: str, hours: int = 24, buckets: int = 48) -> dict | None:
-    """Spielerzahl der letzten Stunden, auf feste Abschnitte verdichtet (Maximum je Abschnitt)."""
-    now = int(time.time())
-    start = now - hours * 3600
-    with db.connect() as con:
-        rows = con.execute("SELECT ts, players FROM metrics WHERE identifier = ? AND ts >= ? AND players IS NOT NULL ORDER BY ts",
-                           (ident, start)).fetchall()
-    if not rows:
-        return None
-    size = hours * 3600 / buckets
-    values: list[int | None] = [None] * buckets
-    for r in rows:
-        i = min(int((r["ts"] - start) / size), buckets - 1)
-        values[i] = max(values[i] or 0, r["players"])
-    peak = max(v for v in values if v is not None)
-    return {"values": values, "peak": peak, "current": rows[-1]["players"] if rows else None}
-
-
-def sparkline(values: list[int | None], width: int = 240, height: int = 36) -> list[str]:
-    """SVG-Punktfolgen (eine je zusammenhängendem Abschnitt) für eine kleine Liniengrafik."""
-    peak = max([v for v in values if v is not None] or [0]) or 1
-    step = width / max(len(values) - 1, 1)
-    lines, current = [], []
-    for i, v in enumerate(values):
-        if v is None:
-            if len(current) > 1:
-                lines.append(" ".join(current))
-            current = []
-            continue
-        current.append(f"{i * step:.1f},{height - 2 - v / peak * (height - 4):.1f}")
-    if len(current) > 1:
-        lines.append(" ".join(current))
-    elif len(current) == 1:
-        x, y = current[0].split(",")
-        lines.append(f"{float(x) - 1:.1f},{y} {float(x) + 1:.1f},{y}")
-    return lines
+def uptime_bars(ident: str, days: int, tz: str) -> dict:
+    """Balken je Tag für die Anzeige (Statusseite und Serverdetails) und der Durchschnitt."""
+    from . import i18n
+    fmt = i18n.date_format().split(",")[0]
+    bars = []
+    result = daily_availability(ident, days, tz)
+    for d in result:
+        if d["pct"] is None:
+            level, text = "none", i18n.t("keine Daten")
+        else:
+            level = ("crash" if d["crashes"] else "full" if d["pct"] >= 99 else "high" if d["pct"] >= 50
+                     else "low" if d["pct"] > 0 else "off")
+            text = i18n.t("{pct} % online", pct=i18n.decimal(f"{d['pct']:g}"))
+            if d["crashes"]:
+                text += " · " + i18n.t("{n} Absturz/Abstürze", n=d["crashes"])
+        bars.append({"level": level, "title": f"{d['date'].strftime(fmt)}: {text}"})
+    measured = [d["pct"] for d in result if d["pct"] is not None]
+    return {"bars": bars, "pct": i18n.decimal(f"{sum(measured) / len(measured):.1f}") if measured else None}

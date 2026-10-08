@@ -3,6 +3,19 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.16.0 – 2026-10-08
+
+- **Neues Recht „Automationen verwalten“** (pro Server): Benutzer können Zeitpläne und den Neustart nach Absturz für ihre Server selbst pflegen – nur mit Aktionen, die sie auch selbst ausführen dürfen. Fehlt dem Ersteller später das Recht, läuft der Zeitplan nicht mehr.
+- **Pterodactyl-Ausfall wird erkannt:** Hinweis in der Übersicht, Server zeigen „keine aktuellen Daten“ statt „online“, Statusseite meldet, dass der Status gerade nicht abfragbar ist; Benachrichtigung „Pterodactyl nicht erreichbar“ / „wieder erreichbar“
+- **CPU dauerhaft hoch** als neue Benachrichtigung (Schwelle in % des Limits und Dauer einstellbar)
+- **Geänderte Limits** (CPU, RAM, Speicher) aus Pterodactyl kommen nach spätestens 30 Sekunden an (vorher 5 Minuten) und sofort nach einem Start oder Neustart
+- **Schnellere Statusanzeige:** nach Start/Stopp/Neustart sekündlich, Abstürze laufender Server sofort; Übersicht aktualisiert alle 5 Sekunden
+- **Statusseite kompakter:** Verfügbarkeitsbalken in derselben Zeile wie Name und Adresse; Spielerverlauf entfernt
+- Verfügbarkeitsbalken (30 Tage) auch in den Serverdetails
+- Passwort-Fehlermeldung verständlicher formuliert („Das Passwort darf den Benutzernamen nicht enthalten.“)
+- **Sicherheit:** Live-Konsole endet, sobald das Recht entzogen oder die Sitzung ungültig wird; Uploads werden erst nach der Rechteprüfung angenommen; Serverpasswort in den Servereinstellungen nur noch mit dem Recht „Passwort sehen“ sichtbar
+- Automatische Tests der Rechte-Matrix (`tests/`) und Dokumentation `docs/rechte-matrix.md`
+
 ## 0.15.0 – 2026-10-07
 
 - **Statusseite ausgebaut:**

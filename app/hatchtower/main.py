@@ -7,7 +7,7 @@ import logging
 import posixpath
 import re
 import time
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -98,6 +98,7 @@ async def lifespan(app: FastAPI):
     app.state.automation = automation.Automation(app.state.ptero, settings.timezone, vault)
     app.state.logarchive = logarchive.LogArchive(app.state.ptero)
     app.state.monitor.on_offline = app.state.automation.on_offline
+    app.state.logarchive.on_status = lambda ident: app.state.monitor.follow(ident, 20)
     app.state.monitor.start()
     app.state.automation.start()
     app.state.logarchive.start()
@@ -505,9 +506,9 @@ async def setup_owner(request: Request, token: str = Form(""), username: str = F
         return fail("Benutzername: 1–32 Zeichen, nur Buchstaben, Zahlen, - _ .")
     if password != repeat:
         return fail("Die Passwörter stimmen nicht überein.")
-    problems = security.password_problems(password, username)
-    if problems:
-        return fail(i18n.t("Das Passwort braucht {list}.", list=", ".join(i18n.t(x) for x in problems)))
+    problem = security.password_message(password, username)
+    if problem:
+        return fail(problem)
     with db.connect() as con:
         user_id = con.execute(
             "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, 'owner', ?)",
@@ -694,7 +695,9 @@ async def dashboard(request: Request, als: int | None = None):
         audit.record("preview.as_user", user_id=user.id, username=user.username, ip=ip_of(request),
                      detail=target["username"])
     servers = load_servers(view_user)
-    return render(request, "dashboard.html", servers=servers, preview=preview)
+    down = app.state.monitor.down_since
+    return render(request, "dashboard.html", servers=servers, preview=preview,
+                  fmt_down_since=fmt_dt(down, settings.timezone) if down else None)
 
 
 @app.get("/api/overview")
@@ -703,7 +706,9 @@ async def api_overview(request: Request):
     m = app.state.monitor
     return {
         "servers": load_servers(user),
-        "monitor": {"healthy": m.healthy, "error": i18n.t(m.last_error) if m.last_error else None,"last_ok": fmt_dt(m.last_ok, settings.timezone)},
+        "monitor": {"healthy": m.healthy, "error": i18n.t(m.last_error) if m.last_error else None,
+                    "last_ok": fmt_dt(m.last_ok, settings.timezone),
+                    "down_since": fmt_dt(m.down_since, settings.timezone) if m.down_since else None},
     }
 
 
@@ -772,7 +777,20 @@ async def server_detail(request: Request, ident: str):
     server = get_server_or_deny(request, user, ident)
     server["favorite"] = ident in extras.favorites(user.id)
     return render(request, "server.html", server=server, uptime=extras.availability(ident),
+                  uptime_bars=extras.uptime_bars(ident, 30, settings.timezone)["bars"],
                   archive_days=retention.console_days())
+
+
+CONSOLE_RECHECK_SECONDS = 15
+
+
+def session_still_allows(token: str | None, ident: str, key: str) -> bool:
+    """Für lange offene Verbindungen: Sitzung und Recht erneut prüfen, ohne die Sitzung zu verlängern."""
+    row = security.load_session(token, settings, touch=False)
+    if row is None:
+        return False
+    user = UserContext(row["user_id"], row["username"], row["role"], settings.read_only, load_grants(row["user_id"]))
+    return load_server(user, ident) is not None and user.can(ident, key)
 
 
 @app.get("/servers/{ident}/console/stream")
@@ -781,11 +799,22 @@ async def console_sse(request: Request, ident: str):
     get_server_or_deny(request, user, ident)
     require(request, user, ident, "console.read")
     audit.record("console.open", user_id=user.id, username=user.username, ip=ip_of(request), server=ident)
+    token = request.cookies.get(security.SESSION_COOKIE)
+    revoked = {"type": "error", "text": i18n.t("Die Sitzung ist abgelaufen oder das Recht wurde entzogen.")}
 
     async def events():
+        # Die Verbindung bleibt lange offen: Entzogene Rechte, gesperrte Konten und
+        # abgelaufene Sitzungen beenden sie spätestens nach CONSOLE_RECHECK_SECONDS.
+        checked = time.monotonic()
         try:
-            async for item in console_stream(app.state.ptero, ident):
-                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+            async with aclosing(console_stream(app.state.ptero, ident)) as stream:
+                async for item in stream:
+                    if time.monotonic() - checked >= CONSOLE_RECHECK_SECONDS:
+                        if not session_still_allows(token, ident, "console.read"):
+                            yield f"data: {json.dumps(revoked, ensure_ascii=False)}\n\n"
+                            return
+                        checked = time.monotonic()
+                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
         except PteroError as exc:
             yield f"data: {json.dumps({'type': 'error', 'text': str(exc)}, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
@@ -899,6 +928,8 @@ async def api_power(request: Request, ident: str):
         return JSONResponse({"error": str(exc)}, status_code=502)
     app.state.automation.note_power(ident, signal)
     app.state.monitor.follow(ident)
+    if signal in ("start", "restart"):
+        app.state.monitor.request_light_sync()   # beim Start übernommene Limits gleich mitlesen
     audit.record(f"power.{signal}", user_id=user.id, username=user.username, ip=ip_of(request), server=ident)
     return {"ok": True, "message": i18n.t("{action} für {name} an Pterodactyl gesendet.", action=POWER_LABELS[signal], name=server["name"])}
 
@@ -960,6 +991,9 @@ async def file_action(request: Request, ident: str, directory: str, action: str,
 @app.post("/servers/{ident}/files/upload")
 async def files_upload(request: Request, ident: str, dir: str = "/"):
     user = current_user(request)
+    # Rechte vor dem Einlesen prüfen: Ohne Recht werden die (bis zu 200 MB) gar nicht erst angenommen
+    get_server_or_deny(request, user, ident)
+    require(request, user, ident, "sftp.upload")
     directory = clean_path(dir)
     length = int(request.headers.get("content-length") or 0)
     if not length or length > MAX_UPLOAD_BYTES:
@@ -967,8 +1001,6 @@ async def files_upload(request: Request, ident: str, dir: str = "/"):
     form = await request.form(max_files=20, max_fields=5)
     if not security.csrf_ok(getattr(request.state, "csrf", None), form.get("csrf")):
         raise Forbidden("Die Sitzung ist abgelaufen oder das Formular ist ungültig. Lade die Seite neu.")
-    get_server_or_deny(request, user, ident)
-    require(request, user, ident, "sftp.upload")
     uploads = [f for f in form.getlist("files") if isinstance(f, FormFile) and f.filename]
     names = [posixpath.basename(f.filename.replace("\\", "/")) for f in uploads]
     if not uploads or not all(valid_name(n) for n in names):
@@ -1123,7 +1155,11 @@ async def server_settings(request: Request, ident: str):
     with db.connect() as con:
         meta = con.execute("SELECT * FROM server_meta WHERE identifier = ?", (ident,)).fetchone()
     manual_password = vault.decrypt(meta["password_enc"]) if meta else None
-    return render(request, "server_settings.html", server=server, meta=meta, manual_password=manual_password,
+    # Verwalten heißt nicht Lesen: Klarschrift nur mit dem Recht „Passwort sehen“
+    can_see_password = user.can(ident, "server.password")
+    return render(request, "server_settings.html", server=server, meta=meta,
+                  manual_password=manual_password if can_see_password else None,
+                  password_hidden=bool(manual_password) and not can_see_password,
                   public_host=db.get_setting("public_host"),
                   error=None)
 
@@ -1139,7 +1175,7 @@ def upsert_meta(ident: str, user: UserContext, **fields) -> None:
 @app.post("/servers/{ident}/settings")
 async def server_settings_save(request: Request, ident: str, ingame_name: str = Form(""),
                                password: str = Form(""), public_address: str = Form(""),
-                               query_port: str = Form(""), tags: str = Form("")):
+                               query_port: str = Form(""), tags: str = Form(""), password_clear: str = Form("")):
     user = current_user(request)
     await check_csrf(request)
     get_server_or_deny(request, user, ident)
@@ -1149,10 +1185,16 @@ async def server_settings_save(request: Request, ident: str, ingame_name: str = 
         if not query_port.strip().isdigit() or not 1 <= int(query_port) <= 65535:
             return back(f"/servers/{ident}/settings", "Query-Port muss zwischen 1 und 65535 liegen")
         port = int(query_port)
+    # Wer das Passwort nicht sieht, bekommt ein leeres Feld: leer heißt dann „unverändert“
+    password_field = {}
+    if password:
+        password_field["password_enc"] = vault.encrypt(password)
+    elif password_clear or user.can(ident, "server.password"):
+        password_field["password_enc"] = None
     upsert_meta(
         ident, user,
         ingame_name=ingame_name.strip()[:120] or None,
-        password_enc=vault.encrypt(password) if password else None,
+        **password_field,
         public_address=public_address.strip()[:200] or None,
         query_port=port,
         tags=", ".join(extras.parse_tags(tags)) or None,
@@ -1160,6 +1202,7 @@ async def server_settings_save(request: Request, ident: str, ingame_name: str = 
     app.state.monitor.query.forget(ident)
     audit.record("server.meta.update", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
                  detail={"ingame_name": ingame_name.strip() or None, "password_set": bool(password),
+                         "password_removed": not password and password_field.get("password_enc", "") is None,
                          "public_address": public_address.strip() or None, "query_port": port,
                          "tags": extras.parse_tags(tags)})
     return back(f"/servers/{ident}/settings", "Gespeichert")
@@ -1270,9 +1313,9 @@ async def account_password(request: Request, current: str = Form(""), new: str =
         return render(request, "account.html", status=400, **account_context(user), error="Das aktuelle Passwort stimmt nicht.")
     if new != repeat:
         return render(request, "account.html", status=400, **account_context(user), error="Die neuen Passwörter stimmen nicht überein.")
-    problems = security.password_problems(new, user.username)
-    if problems:
-        return render(request, "account.html", status=400, **account_context(user), error=i18n.t("Das Passwort braucht {list}.", list=", ".join(i18n.t(x) for x in problems)))
+    problem = security.password_message(new, user.username)
+    if problem:
+        return render(request, "account.html", status=400, **account_context(user), error=problem)
     with db.connect() as con:
         con.execute("UPDATE users SET password_hash = ? WHERE id = ?", (security.hash_password(new), user.id))
     security.delete_user_sessions(user.id)
@@ -1320,9 +1363,9 @@ async def admin_user_create(request: Request, username: str = Form(""), password
     username = username.strip()
     if not username or len(username) > 32 or not all(c.isalnum() or c in "-_." for c in username):
         return back("/admin/users", "Benutzername: 1–32 Zeichen, nur Buchstaben, Zahlen, - _ .")
-    problems = security.password_problems(password, username)
-    if problems:
-        return back("/admin/users", i18n.t("Passwort braucht {list}", list=", ".join(i18n.t(x) for x in problems)))
+    problem = security.password_message(password, username)
+    if problem:
+        return back("/admin/users", problem)
     role = "owner" if role == "owner" else "user"
     try:
         with db.connect() as con:
@@ -1470,9 +1513,9 @@ async def admin_user_password(request: Request, user_id: int, password: str = Fo
     target = get_user_or_404(user_id)
     if target is None:
         return back("/admin/users")
-    problems = security.password_problems(password, target["username"])
-    if problems:
-        return back(f"/admin/users/{user_id}", i18n.t("Passwort braucht {list}", list=", ".join(i18n.t(x) for x in problems)))
+    problem = security.password_message(password, target["username"])
+    if problem:
+        return back(f"/admin/users/{user_id}", problem)
     with db.connect() as con:
         con.execute("UPDATE users SET password_hash = ?, failed_logins = 0, locked_until = NULL WHERE id = ?",
                     (security.hash_password(password), user_id))
@@ -1494,6 +1537,8 @@ async def admin_user_delete(request: Request, user_id: int):
     if target["role"] == "owner" and target["is_active"] and active_owner_count() <= 1:
         return back(f"/admin/users/{user_id}", "Es muss mindestens ein aktiver Owner bleiben")
     with db.connect() as con:
+        if target["role"] != "owner":
+            con.execute("DELETE FROM schedules WHERE created_by = ?", (user_id,))
         con.execute("DELETE FROM users WHERE id = ?", (user_id,))
     audit.record("user.delete", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"user": target["username"]})
@@ -1520,35 +1565,63 @@ async def admin_audit(request: Request, page: int = 1, action: str = "", usernam
                   export_query=f"action={quote(action)}&username={quote(username)}&server={quote(server)}")
 
 
+def require_automation(request: Request) -> tuple[UserContext, dict[str, str]]:
+    """Owner oder Benutzer mit dem Recht „Automationen verwalten“. Liefert die Server, die er verwalten darf."""
+    user = current_user(request)
+    if not user.can_automate:
+        deny(request, user, "automation.manage")
+    names = server_names()
+    allowed = user.automation_servers(names)
+    return user, {i: n for i, n in names.items() if i in allowed}
+
+
+def own_schedule(request: Request, user: UserContext, sched_id: int):
+    """Zeitplan laden; Benutzer dürfen nur Zeitpläne ändern, die sie auch selbst anlegen dürften."""
+    with db.connect() as con:
+        row = con.execute("SELECT * FROM schedules WHERE id = ?", (sched_id,)).fetchone()
+    if row is not None and not user.schedule_allowed(row["identifier"], row["action"]):
+        deny(request, user, "automation.manage", row["identifier"])
+    return row
+
+
 @app.get("/admin/automation", response_class=HTMLResponse)
 async def admin_automation(request: Request):
-    require_owner(request)
-    names = server_names()
+    user, names = require_automation(request)
+    marks = ",".join("?" * len(names)) or "NULL"
+    idents = tuple(names)
     with db.connect() as con:
         settings_rows = {r["identifier"]: r["crash_restart"] for r in con.execute("SELECT * FROM automation_settings")}
-        schedules = con.execute("SELECT * FROM schedules ORDER BY time, name").fetchall()
-        crashes = con.execute("SELECT * FROM crash_events ORDER BY id DESC LIMIT 20").fetchall()
-        servers = con.execute("SELECT identifier, name, egg FROM servers WHERE present = 1 ORDER BY name COLLATE NOCASE").fetchall()
+        schedules = con.execute(f"SELECT * FROM schedules WHERE identifier IN ({marks}) ORDER BY time, name",
+                                idents).fetchall()
+        crashes = con.execute(f"SELECT * FROM crash_events WHERE identifier IN ({marks}) ORDER BY id DESC LIMIT 20",
+                              idents).fetchall()
+        servers = [s for s in con.execute(
+            "SELECT identifier, name, egg FROM servers WHERE present = 1 ORDER BY name COLLATE NOCASE")
+            if s["identifier"] in names]
     sched_view = [{
         "s": s, "server": names.get(s["identifier"], s["identifier"]), "when": automation.describe(s),
         "action": i18n.t(automation.ACTIONS.get(s["action"], s["action"])),
+        "editable": user.schedule_allowed(s["identifier"], s["action"]),
     } for s in schedules]
     crash_view = [{"server": names.get(c["identifier"], c["identifier"]),
                    "at": fmt_dt(c["detected_at"], settings.timezone), "outcome": c["outcome"]} for c in crashes]
+    # Pro Server die Aktionen, die dieser Benutzer planen darf (blendet im Formular die übrigen aus)
+    allowed_actions = {s["identifier"]: " ".join(a for a in automation.ACTIONS if user.schedule_allowed(s["identifier"], a))
+                       for s in servers}
     return render(request, "admin_automation.html", servers=servers, crash=settings_rows, schedules=sched_view,
                   crashes=crash_view, weekdays=[i18n.t(d) for d in automation.WEEKDAYS],
-                  actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()})
+                  actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()}, allowed_actions=allowed_actions)
 
 
 @app.post("/admin/automation/crash")
 async def admin_automation_crash(request: Request):
-    owner = require_owner(request)
+    owner, known = require_automation(request)
     await check_csrf(request)
     form = await request.form()
     enabled = {k.split("__", 1)[1] for k in form.keys() if k.startswith("crash__")}
-    known = server_names()
     now = db.utcnow()
     with db.connect() as con:
+        # Nur Server, die dieser Benutzer verwalten darf – alle anderen bleiben unverändert
         for ident in known:
             con.execute(
                 "INSERT INTO automation_settings (identifier, crash_restart, updated_at, updated_by) VALUES (?, ?, ?, ?)"
@@ -1566,17 +1639,21 @@ async def admin_schedule_create(request: Request, identifier: str = Form(""), na
                                 action: str = Form(""), command: str = Form(""), time_: str = Form("", alias="time"),
                                 only_if_running: str = Form(""), warn_minutes: str = Form(""),
                                 warn_command: str = Form(""), repeat: str = Form("weekly"), date: str = Form("")):
-    owner = require_owner(request)
+    owner, known = require_automation(request)
     await check_csrf(request)
     form = await request.form()
     days = "".join(sorted(d for d in form.getlist("weekdays") if d in "0123456" and len(d) == 1))
     problems = []
-    if identifier not in server_names():
+    if identifier not in known:
         problems.append("Server wählen")
     if not name.strip() or len(name) > 80:
         problems.append("Name (1–80 Zeichen)")
     if action not in automation.ACTIONS:
         problems.append("Aktion wählen")
+    elif identifier in known and not owner.schedule_allowed(identifier, action):
+        problems.append("eine Aktion, für die du das Recht hast")
+    if warn_command.strip() and identifier in known and not owner.is_owner and not owner.can(identifier, "console.command"):
+        problems.append("Vorwarn-Befehl nur mit dem Recht „Befehle senden“")
     if action == "command" and (not command.strip() or len(command) > 500 or "\n" in command):
         problems.append("Befehl angeben")
     run_at = None
@@ -1623,12 +1700,12 @@ async def admin_schedule_create(request: Request, identifier: str = Form(""), na
 
 @app.post("/admin/automation/schedules/{sched_id}/toggle")
 async def admin_schedule_toggle(request: Request, sched_id: int):
-    owner = require_owner(request)
+    owner, _known = require_automation(request)
     await check_csrf(request)
+    row = own_schedule(request, owner, sched_id)
+    if row is None:
+        return back("/admin/automation")
     with db.connect() as con:
-        row = con.execute("SELECT * FROM schedules WHERE id = ?", (sched_id,)).fetchone()
-        if row is None:
-            return back("/admin/automation")
         con.execute("UPDATE schedules SET enabled = ? WHERE id = ?", (0 if row["enabled"] else 1, sched_id))
     audit.record("schedule.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  server=row["identifier"], detail={"name": row["name"], "enabled": not row["enabled"]})
@@ -1637,12 +1714,12 @@ async def admin_schedule_toggle(request: Request, sched_id: int):
 
 @app.post("/admin/automation/schedules/{sched_id}/delete")
 async def admin_schedule_delete(request: Request, sched_id: int):
-    owner = require_owner(request)
+    owner, _known = require_automation(request)
     await check_csrf(request)
+    row = own_schedule(request, owner, sched_id)
+    if row is None:
+        return back("/admin/automation")
     with db.connect() as con:
-        row = con.execute("SELECT * FROM schedules WHERE id = ?", (sched_id,)).fetchone()
-        if row is None:
-            return back("/admin/automation")
         con.execute("DELETE FROM schedules WHERE id = ?", (sched_id,))
     audit.record("schedule.delete", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  server=row["identifier"], detail={"name": row["name"]})

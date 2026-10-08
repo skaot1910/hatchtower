@@ -55,6 +55,18 @@ def current() -> str:
     return _current.get()
 
 
+class Msg(str):
+    """Deutscher Text mit Platzhaltern, der erst bei der Anzeige übersetzt wird.
+
+    Für Meldungen, die im Hintergrund entstehen und später in der Sprache des Betrachters
+    erscheinen: t(Msg("GitHub antwortet mit HTTP {code}", code=404)).
+    """
+    def __new__(cls, text: str, **values):
+        obj = super().__new__(cls, text.format(**values) if values else text)
+        obj.key, obj.values = text, values
+        return obj
+
+
 def t(text: str, **values) -> str:
     """Übersetzt einen deutschen Text in die aktuelle Sprache.
 
@@ -63,6 +75,8 @@ def t(text: str, **values) -> str:
     """
     if not text:
         return text
+    if isinstance(text, Msg):
+        return t(text.key, **text.values, **values)
     lang = _current.get()
     found = _catalogs.get(lang, {}).get(text) if lang != DEFAULT else None
     if found is None:

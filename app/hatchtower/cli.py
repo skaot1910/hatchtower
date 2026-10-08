@@ -23,9 +23,9 @@ from .ptero import PteroClient, PteroError, ReadOnlyViolation
 
 def _ask_password(username: str) -> str | None:
     password = getpass.getpass(t("Passwort: "))
-    problems = security.password_problems(password, username)
-    if problems:
-        print(t("Das Passwort braucht {list}.", list=", ".join(t(x) for x in problems)))
+    problem = security.password_message(password, username)
+    if problem:
+        print(problem)
         return None
     if getpass.getpass(t("Passwort wiederholen: ")) != password:
         print(t("Die Passwörter stimmen nicht überein."))
@@ -97,7 +97,7 @@ async def selftest(settings) -> int:
         except PteroError as exc:
             failed += 1
             nodes = []
-            print(f"  ✕ Application-API: {exc}")
+            print(t("  ✕ Application-API: ") + str(exc))
         try:
             servers = await client.list_servers()
             print("  ✓ " + t("Serverliste: {n} Server", n=len(servers)))
@@ -111,7 +111,7 @@ async def selftest(settings) -> int:
                 print("  ✓ " + t("Client-API: Status von „{name}“ = {state}", name=servers[0].name, state=res["state"]))
             except PteroError as exc:
                 failed += 1
-                print(f"  ✕ Client-API: {exc}")
+                print(t("  ✕ Client-API: ") + str(exc))
         for check in await setup.node_checks(client, settings.node_overrides) if nodes else []:
             ok = check["daemon_ok"] and check["sftp_ok"]
             failed += 0 if ok else 1

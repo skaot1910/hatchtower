@@ -25,6 +25,12 @@
     <div class="facts">{{ c.facts(server) }}
       <div class="kv kv-uptime"><span>{{ _("Online-Zeit ({n} Tage)", n=uptime.window) }}</span>
         <span>{% if uptime.pct is none %}<span class="faint">{{ _("noch keine Daten") }}</span>{% else %}{{ uptime.pct|string|replace('.', ',') if lang == 'de' else uptime.pct }} %{% if uptime.days < uptime.window %} <span class="faint small">({{ _("seit {n} Tagen gemessen", n=uptime.days|round|int) }})</span>{% endif %}{% endif %}</span></div>
+      <div class="uptime uptime-detail" title="{{ _("Verfügbarkeit der letzten {n} Tage", n=30) }}">
+        <div class="uptime-bars" role="img" aria-label="{{ _("Verfügbarkeit der letzten {n} Tage", n=30) }}">
+          {% for b in uptime_bars %}<span class="ub ub-{{ b.level }}" title="{{ b.title }}"></span>{% endfor %}
+        </div>
+        <div class="uptime-foot faint"><span>{{ _("vor {n} Tagen", n=30) }}</span><span>{{ _("heute") }}</span></div>
+      </div>
       <div class="kv kv-crashes"><span>{{ _("Abstürze ({n} Tage)", n=uptime.window) }}</span><span class="{% if uptime.crashes %}bad{% endif %}">{{ uptime.crashes }}</span></div>
     </div>
   </section>

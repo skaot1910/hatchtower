@@ -97,6 +97,11 @@
           });
           if (window.hatchtowerFilter) window.hatchtowerFilter();
           if (window.hatchtowerSort) window.hatchtowerSort();
+          var down = document.getElementById("panel-down");
+          if (down) {
+            down.hidden = !data.monitor.down_since;
+            if (data.monitor.down_since) document.getElementById("panel-down-since").textContent = data.monitor.down_since;
+          }
           if (status) {
             status.classList.toggle("is-bad", !data.monitor.healthy);
             status.textContent = data.monitor.healthy
@@ -107,7 +112,9 @@
         .catch(function () {});
     }
     window.hatchtowerRefresh = tick;
-    setInterval(tick, 10000);
+    // Liest nur die lokale Datenbank von Hatchtower, nicht Pterodactyl: alle 5 s ist günstig
+    setInterval(function () { if (!document.hidden) tick(); }, 5000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) tick(); });
   }
 
   // ---- Konsole --------------------------------------------------------------
@@ -272,7 +279,7 @@
           // Kurz eng nachverfolgen, damit starting/stopping sofort erscheint
           if (window.hatchtowerRefresh) {
             var n = 0;
-            var fast = setInterval(function () { window.hatchtowerRefresh(); if (++n >= 30) clearInterval(fast); }, 2000);
+            var fast = setInterval(function () { window.hatchtowerRefresh(); if (++n >= 45) clearInterval(fast); }, 1000);
           }
         });
     });
@@ -360,6 +367,24 @@
       var sync = function () { cmdField.hidden = action.value !== "command"; };
       action.addEventListener("change", sync);
       sync();
+      // Nur Aktionen anbieten, für die der Benutzer auf dem gewählten Server das Recht hat
+      var schedServer = document.getElementById("sched-server");
+      if (schedServer) {
+        var syncActions = function () {
+          var opt = schedServer.options[schedServer.selectedIndex];
+          var allowed = opt && opt.dataset.actions ? opt.dataset.actions.split(" ") : null;
+          Array.prototype.forEach.call(action.options, function (o) {
+            o.disabled = allowed !== null && allowed.indexOf(o.value) < 0;
+          });
+          if (action.selectedOptions[0] && action.selectedOptions[0].disabled) {
+            var first = Array.prototype.find.call(action.options, function (o) { return !o.disabled; });
+            if (first) action.value = first.value;
+          }
+          sync();
+        };
+        schedServer.addEventListener("change", syncActions);
+        syncActions();
+      }
     }
   }
 
@@ -967,7 +992,7 @@
           failed.forEach(function (f) { toast(f, false); });
           if (window.hatchtowerRefresh) {
             var n = 0;
-            var fast = setInterval(function () { window.hatchtowerRefresh(); if (++n >= 30) clearInterval(fast); }, 2000);
+            var fast = setInterval(function () { window.hatchtowerRefresh(); if (++n >= 45) clearInterval(fast); }, 1000);
           }
         });
       });

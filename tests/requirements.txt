@@ -1,0 +1,4 @@
+# Nur für die Tests (zusätzlich zu app/requirements.txt)
+pytest>=8
+# Zeitzonen-Daten für Windows; Debian bringt sie über das System mit
+tzdata

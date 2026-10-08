@@ -42,8 +42,15 @@
         <input name="ingame_name" maxlength="120" value="{{ meta.ingame_name if meta and meta.ingame_name else '' }}" placeholder="{{ _("leer = automatisch erkennen") }}">
       </label>
       <label>{{ _("Serverpasswort (Klarschrift)") }}
+        {% if password_hidden %}
+        <input name="password" type="text" autocomplete="off" spellcheck="false" value="" placeholder="{{ _("gesetzt – leer lassen = unverändert") }}">
+        {% else %}
         <input name="password" type="text" autocomplete="off" spellcheck="false" value="{{ manual_password or '' }}" placeholder="{{ _("leer = aus Pterodactyl übernehmen") }}">
+        {% endif %}
       </label>
+      {% if password_hidden %}
+      <label class="check"><input type="checkbox" name="password_clear" value="1"> {{ _("Manuelles Passwort entfernen (dann gilt das aus Pterodactyl)") }}</label>
+      {% endif %}
       <label>{{ _("Öffentliche Adresse") }}
         <input name="public_address" maxlength="200" value="{{ meta.public_address if meta and meta.public_address else '' }}" placeholder="{{ _("leer = {wert}", wert=(public_host ~ ':' ~ server.internal_address.split(':')[1]) if public_host and server.internal_address else _('automatisch')) }}">
       </label>

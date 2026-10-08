@@ -41,6 +41,8 @@ class LogArchive:
         self._tasks: dict[str, asyncio.Task] = {}
         self._seen: dict[str, deque[str]] = {}
         self._main: asyncio.Task | None = None
+        self.on_status = None        # Rückruf, wenn Wings einen neuen Zustand meldet (z. B. Absturz, Stopp im Spiel)
+        self._last_state: dict[str, str] = {}
 
     def start(self) -> None:
         self._main = asyncio.create_task(self._loop(), name="hatchtower-logarchive")
@@ -120,6 +122,11 @@ class LogArchive:
                 async for item in console_stream(self.client, ident):
                     if item["type"] == "line" and item.get("source") != "daemon error":
                         buffer.append(item["text"])
+                    elif item["type"] == "status":
+                        # Wings meldet Zustandswechsel sofort – dann nicht auf die nächste Abfrage warten
+                        if self._last_state.get(ident) not in (None, item["state"]) and self.on_status:
+                            self.on_status(ident)
+                        self._last_state[ident] = item["state"]
                     elif item["type"] == "error":
                         break
                     if buffer and (len(buffer) >= 50 or time.monotonic() - last_flush > 2):

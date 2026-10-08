@@ -19,9 +19,10 @@
   </div>
 
   {% if summary %}
-  <div class="status-summary {{ 'is-all' if summary.all else ('is-none' if summary.online == 0 else 'is-some') }}">
+  <div class="status-summary {{ 'is-unknown' if summary.unknown else ('is-all' if summary.all else ('is-none' if summary.online == 0 else 'is-some')) }}">
     <span class="status-summary-dot"></span>
-    {% if summary.all %}{{ _("Alle Server sind online") }}
+    {% if summary.unknown %}{{ _("Der Serverstatus kann gerade nicht abgefragt werden.") }}
+    {% elif summary.all %}{{ _("Alle Server sind online") }}
     {% else %}{{ _("{online} von {total} Servern online", online=summary.online, total=summary.total) }}{% endif %}
   </div>
   {% endif %}
@@ -34,13 +35,21 @@
   <div class="status-list" id="status-list" data-status-feed="/status.json">
     {% for s in servers %}
     <article class="status-card{% if s.state %} state-{{ s.state }}{% endif %}" data-ident="{{ s.identifier }}">
-      <div class="status-row">
+      <div class="status-row{% if s.bars %} has-uptime{% endif %}">
         {% if s.logo %}<img class="logo" src="{{ s.logo }}" alt="">{% else %}<span class="logo logo-mono" aria-hidden="true">{{ s.monogram }}</span>{% endif %}
         <div class="status-main">
           {% if s.name %}<h2>{{ s.name }}</h2>{% elif s.ingame %}<h2>{{ s.ingame }}</h2>{% else %}<h2>{{ s.egg }}</h2>{% endif %}
           {% if s.name and s.ingame %}<span class="status-ingame" data-f="ingame">{{ s.ingame }}</span>{% endif %}
           <span class="faint small">{{ s.egg }}</span>
         </div>
+        {% if s.bars %}
+        <div class="uptime" title="{{ _("Verfügbarkeit der letzten {n} Tage", n=history_days) }}">
+          <div class="uptime-bars" role="img" aria-label="{{ _("Verfügbarkeit der letzten {n} Tage", n=history_days) }}">
+            {% for b in s.bars %}<span class="ub ub-{{ b.level }}" title="{{ b.title }}"></span>{% endfor %}
+          </div>
+          <div class="uptime-foot faint"><span>{{ _("{n} Tage", n=history_days) }}</span>{% if s.uptime_pct %}<span>{{ _("{pct} % online", pct=s.uptime_pct) }}</span>{% endif %}</div>
+        </div>
+        {% endif %}
         <div class="status-address">
           {% if s.address %}<span class="mono copyable" data-copy="{{ s.address }}">{{ s.address }}</span>{% endif %}
           {% if 'started' in s %}<span class="faint small" data-f="started">{{ s.started or '' }}</span>{% endif %}
@@ -48,34 +57,6 @@
         </div>
         {% if s.state %}<span class="pill state-{{ s.state }}" data-f="state"><span class="dot"></span><span data-f="state_label">{{ s.state_label }}</span></span>{% else %}<span></span>{% endif %}
       </div>
-
-      {% if s.bars or s.players_lines %}
-      <div class="status-history">
-        {% if s.bars %}
-        <div class="uptime">
-          <div class="uptime-head">
-            <span class="faint small">{{ _("Letzte {n} Tage", n=history_days) }}</span>
-            {% if s.uptime_pct %}<span class="small">{{ _("{pct} % online", pct=s.uptime_pct) }}</span>{% endif %}
-          </div>
-          <div class="uptime-bars" role="img" aria-label="{{ _("Verfügbarkeit der letzten {n} Tage", n=history_days) }}">
-            {% for b in s.bars %}<span class="ub ub-{{ b.level }}" title="{{ b.title }}"></span>{% endfor %}
-          </div>
-          <div class="uptime-foot faint small"><span>{{ _("vor {n} Tagen", n=history_days) }}</span><span>{{ _("heute") }}</span></div>
-        </div>
-        {% endif %}
-        {% if s.players_lines %}
-        <div class="players-graph">
-          <div class="uptime-head">
-            <span class="faint small">{{ _("Spieler, letzte 24 Stunden") }}</span>
-            <span class="small">{{ _("Höchststand {n}", n=s.players_peak) }}{% if s.players_now is not none and s.state == 'running' %} · {{ _("jetzt {n}", n=s.players_now) }}{% endif %}</span>
-          </div>
-          <svg class="sparkline" viewBox="0 0 240 36" preserveAspectRatio="none" role="img" aria-label="{{ _("Spielerverlauf") }}">
-            {% for line in s.players_lines %}<polyline points="{{ line }}"/>{% endfor %}
-          </svg>
-        </div>
-        {% endif %}
-      </div>
-      {% endif %}
     </article>
     {% endfor %}
   </div>

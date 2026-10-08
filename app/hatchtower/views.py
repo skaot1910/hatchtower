@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from .extras import parse_tags
@@ -18,6 +18,20 @@ STATE_LABELS = {
     "offline": "offline",
     "unknown": "unbekannt",
 }
+
+
+STALE_SECONDS = 60     # ältere Zustände gelten als unbekannt (Pterodactyl oder Wings antwortet nicht)
+
+
+def is_stale(updated_at: str | None) -> bool:
+    """True, wenn der gespeicherte Zustand zu alt ist, um ihn noch als aktuell anzuzeigen."""
+    if not updated_at:
+        return False
+    try:
+        age = datetime.now(timezone.utc) - datetime.fromisoformat(updated_at)
+    except ValueError:
+        return False
+    return age.total_seconds() > STALE_SECONDS
 
 
 def monogram(name: str) -> str:
@@ -87,8 +101,12 @@ def cpu_view(cpu: float, limit: int) -> dict:
 def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str = "") -> dict:
     ident = row["identifier"]
     state = row["state"] or "unknown"
+    stale = is_stale(row["updated_at"])
     if row["suspended"]:
         state_label = t("gesperrt")
+    elif stale:
+        # Letzter bekannter Zustand ist veraltet: nicht so tun, als liefe alles
+        state, state_label = "unknown", t("keine aktuellen Daten")
     else:
         state_label = t(STATE_LABELS.get(state, state))
 
@@ -116,7 +134,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
             if startup:
                 password, password_source = startup, t("aus Pterodactyl")
 
-    running = state in ("running", "starting")
+    running = (row["state"] or "") in ("running", "starting")   # letzter bekannter Zustand
     if running:
         time_label, time_value = t("Gestartet"), fmt_dt(row["last_started_at"], tz)
     else:
@@ -155,6 +173,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
         "disk_text": fmt_gb(row["disk_bytes"]) + (" / " + fmt_gb(disk_limit) + " GB" if disk_limit else t(" GB / unbegrenzt")),
         "disk_pct": pct(row["disk_bytes"] or 0, disk_limit),
         "updated_at": fmt_dt(row["updated_at"], tz),
+        "stale": stale,
         "can_console": user.can(ident, "console.read"),
         "can_files": user.can(ident, "sftp.view"),
         "can_manage": user.can(ident, "server.manage"),
