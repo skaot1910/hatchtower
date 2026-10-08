@@ -20,7 +20,8 @@ from . import __version__, db
 
 MAGIC = b"HATCHTOWER-EXPORT-1\n"
 FORMAT = "hatchtower-export"
-SECRET_SETTINGS = ("conn_app_key", "conn_client_key", "mail_password_enc", "notify_webhook_url_enc")
+SECRET_SETTINGS = ("conn_app_key", "conn_client_key", "mail_password_enc", "notify_webhook_url_enc",
+                   "status_discord_url_enc")
 SKIP_SETTINGS = ("setup_token_hash", "setup_token_created")
 TABLES = ("users", "perm_groups", "perm_group_items", "user_server_permissions", "user_server_groups",
           "favorites", "server_meta", "automation_settings", "schedules", "announcements",

@@ -22,7 +22,7 @@ from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from . import (APP_NAME, __version__, accounts, audit, db, extras, i18n, legal, logarchive, mailer, notify, retention,
-               security, setup, transfer)
+               security, setup, statusfeed, transfer)
 from .main import (BACKUP_SUFFIX, SYSTEM_TABS, LoginRequired, app, apply_connection, back, check_csrf, check_csrf_header, clean_path,
                    current_user, file_action, files_back, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
@@ -97,6 +97,9 @@ STATUS_FIELDS = {"name": "Servername aus Pterodactyl", "ingame": "Ingame-Servern
 STATUS_ORDER = {"running": 0, "starting": 1, "stopping": 2, "offline": 3, "suspended": 4, "unknown": 5}
 STATUS_DEFAULT = "name,status,address,uptime,incidents"
 STATUS_DAYS = 30
+# In Discord eigene Auswahl; Verfügbarkeit und Störungshistorie gibt es dort nicht
+DISCORD_FIELDS = {k: v for k, v in STATUS_FIELDS.items() if k not in ("incidents", "uptime")}
+DISCORD_DEFAULT = "name,status,address"
 
 
 def status_fields() -> set[str]:
@@ -104,15 +107,15 @@ def status_fields() -> set[str]:
     return {f for f in raw.split(",") if f in STATUS_FIELDS}
 
 
-def status_servers() -> list[dict]:
-    """Nur die eingeschalteten Angaben verlassen den Server – auch in status.json."""
+def status_servers(fields: set[str] | None = None) -> list[dict]:
+    """Nur die eingeschalteten Angaben verlassen den Server – auch in status.json und Discord."""
     host = db.get_setting("public_host")
-    fields = status_fields()
+    fields = status_fields() if fields is None else fields
     with db.connect() as con:
         rows = con.execute(
             "SELECT s.identifier, s.name, s.egg, s.primary_port, s.suspended, s.startup_name, s.startup_password_enc,"
             " st.state, st.updated_at, st.query_name, st.last_started_at, st.last_stopped_at, m.logo_file, m.public_address,"
-            " m.ingame_name, m.password_enc"
+            " m.ingame_name, m.game_name, m.password_enc"
             " FROM servers s LEFT JOIN server_state st ON st.identifier = s.identifier"
             " JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1 AND m.on_status = 1"
             " ORDER BY s.name COLLATE NOCASE").fetchall()
@@ -120,8 +123,9 @@ def status_servers() -> list[dict]:
     for r in rows:
         state = "suspended" if r["suspended"] else ("unknown" if is_stale(r["updated_at"]) else (r["state"] or "unknown"))
         running = state in ("running", "starting")
-        item = {"identifier": r["identifier"], "egg": r["egg"] or "",
-                "monogram": monogram(r["name"] if "name" in fields else (r["egg"] or "?")),
+        game = r["game_name"] or r["egg"] or ""
+        item = {"identifier": r["identifier"], "egg": game,
+                "monogram": monogram(r["name"] if "name" in fields else (game or "?")),
                 "logo": f"/status/logo/{r['identifier']}" if r["logo_file"] else None}
         if "name" in fields:
             item["name"] = r["name"]
@@ -143,6 +147,11 @@ def status_servers() -> list[dict]:
     # Sortierung: erst nach Onlinestatus, dann nach Name (auch wenn der Status ausgeblendet ist)
     result.sort(key=lambda x: x.pop("_sort"))
     return result
+
+
+def discord_fields() -> set[str]:
+    raw = db.get_setting("status_discord_fields", DISCORD_DEFAULT)
+    return {f for f in raw.split(",") if f in DISCORD_FIELDS}
 
 
 def status_enabled() -> bool:
@@ -223,6 +232,17 @@ def status_incidents(servers: list[dict], fields: set[str]) -> list[dict]:
                                                                     if a["ends_at"] else "")})
     items.sort(key=lambda x: x["sort"], reverse=True)
     return items[:30]
+
+
+def discord_status_view() -> tuple[str, list[dict], set[str], str, str]:
+    """Dieselben Angaben wie auf der Statusseite, für die Nachricht in Discord, dazu die Links
+    zur Statusseite (nur wenn eingeschaltet) und zur Übersicht der Verwaltung."""
+    fields = discord_fields()
+    servers = status_servers(fields)
+    base = db.get_setting("status_discord_link").removesuffix("/status")    # beim Speichern gemerkt
+    link = f"{base}/status" if base and status_enabled() else ""
+    return (db.get_setting("status_title") or load_brand()["name"], servers, fields, link,
+            f"{base}/" if base else "")
 
 
 @app.get("/status.json")
@@ -738,16 +758,25 @@ async def admin_notify_test(request: Request):
 async def admin_statuspage(request: Request):
     require_owner(request)
     with db.connect() as con:
-        servers = con.execute("SELECT s.identifier, s.name, s.egg, COALESCE(m.on_status, 0) AS on_status FROM servers s"
+        servers = con.execute("SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg, COALESCE(m.on_status, 0) AS on_status FROM servers s"
                               " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
                               " ORDER BY s.name COLLATE NOCASE").fetchall()
+    discord_url = vault.decrypt(db.get_setting("status_discord_url_enc")) or ""
+    feed = request.app.state.statusfeed
     return render(request, "admin_statuspage.html", servers=servers, enabled=status_enabled(),
                   fields=STATUS_FIELDS, active_fields=status_fields(),
-                  status_title=db.get_setting("status_title"), status_url=f"{link_base(request)}/status")
+                  status_title=db.get_setting("status_title"), status_url=f"{link_base(request)}/status",
+                  discord_enabled=statusfeed.enabled(), discord_field_names=DISCORD_FIELDS,
+                  discord_active=discord_fields(), discord_set=bool(discord_url),
+                  discord_hint=(discord_url[:45] + "…") if discord_url else "",
+                  discord_ok=fmt_dt(feed.last_ok, settings.timezone, seconds=True) if feed.last_ok else None,
+                  discord_error=feed.last_error)
 
 
 @app.post("/admin/statuspage")
-async def admin_statuspage_save(request: Request, enabled: str = Form(""), title: str = Form("")):
+async def admin_statuspage_save(request: Request, enabled: str = Form(""), title: str = Form(""),
+                                discord_enabled: str = Form(""), discord_url: str = Form(""),
+                                discord_remove: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     form = await request.form()
@@ -760,10 +789,25 @@ async def admin_statuspage_save(request: Request, enabled: str = Form(""), title
     fields = [f for f in STATUS_FIELDS if form.get(f"field__{f}")]
     if "password" in fields and not form.get("password_confirm"):
         return back("/admin/statuspage", "Passwörter wurden nicht freigegeben: Bitte bestätige ausdrücklich, dass sie öffentlich sichtbar werden.")
+    discord_url = discord_url.strip()
+    if discord_url and not statusfeed.valid_url(discord_url):
+        return back("/admin/statuspage", "Bitte eine Discord-Webhook-Adresse eingeben (https://discord.com/api/webhooks/…)")
+    dfields = [f for f in DISCORD_FIELDS if form.get(f"discord_field__{f}")]
+    if "password" in dfields and not form.get("discord_password_confirm"):
+        return back("/admin/statuspage", "Passwörter wurden nicht freigegeben: Bitte bestätige ausdrücklich, dass sie im Discord-Kanal sichtbar werden.")
     db.set_setting("status_enabled", "1" if enabled else "0", owner.id)
     db.set_setting("status_title", " ".join(title.split())[:60], owner.id)
     db.set_setting("status_fields", ",".join(fields), owner.id)
+    if discord_url or discord_remove:
+        db.set_setting("status_discord_url_enc", vault.encrypt(discord_url) if discord_url else "", owner.id)
+        db.set_setting("status_discord_msg", "", owner.id)       # neuer Webhook: neue Nachricht posten
+    db.set_setting("status_discord_enabled", "1" if discord_enabled else "0", owner.id)
+    db.set_setting("status_discord_fields", ",".join(dfields), owner.id)
+    db.set_setting("status_discord_link", f"{link_base(request)}/status", owner.id)
+    request.app.state.statusfeed.request_update(reset=bool(discord_url or discord_remove))
     owner_audit(request, owner, "settings.status", detail={"enabled": bool(enabled), "angaben": fields,
+                                                            "discord": bool(discord_enabled), "discord_angaben": dfields,
+                                                            "webhook": "neu" if discord_url else ("entfernt" if discord_remove else "unverändert"),
                                                             "servers": sorted(known[i] for i in chosen if i in known)})
     return back("/admin/statuspage", "Statusseite gespeichert")
 

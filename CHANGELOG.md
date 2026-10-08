@@ -3,6 +3,15 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.18.0 – 2026-10-08
+
+- **Status in Discord:** Hatchtower postet die Server der Statusseite über einen Discord-Webhook in einen Kanal und hält die Nachricht aktuell (Prüfung jede Minute, bearbeitet nur bei Änderungen)
+  - Eigene Auswahl der Angaben für Discord (Servername, Ingame-Servername, Status, Start-/Stoppzeit, Adresse, Passwort – Passwort nur mit ausdrücklicher Bestätigung, im Kanal als Spoiler)
+  - Kompakte Darstellung: drei Server pro Reihe mit Trennlinien, oben „X von Y Servern online“ mit farbigen Kästchen und Links zur Statusseite und zur Serververwaltung
+  - Viele Server: automatisch auf mehrere Nachrichten verteilt (bis etwa 150 Server); gelöschte Nachrichten werden neu gepostet, überzählige entfernt
+  - Einstellungen unter System → Statusseite; der Webhook wird verschlüsselt gespeichert und beim Datenumzug mitgenommen
+- **Angezeigtes Spiel überschreibbar:** in den Servereinstellungen („Angezeigtes Spiel“); leer bleibt der Egg-Name aus Pterodactyl. Gilt für Übersicht, Serverseite, Statusseite, Discord und die Serverlisten der Verwaltung
+
 ## 0.17.0 – 2026-10-08
 
 - **„Alle Server, auch künftige“** pro Benutzer: eine Rechtegruppe gilt für jeden Server ohne eigene Einstellung – auch für Server, die später in Pterodactyl dazukommen

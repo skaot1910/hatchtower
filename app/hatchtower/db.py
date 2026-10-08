@@ -322,6 +322,10 @@ MIGRATIONS: list[str] = [
     UPDATE app_settings SET value = value || ',new_server'
         WHERE key = 'notify_webhook_events' AND value != '';
     """,
+    # 15: angezeigtes Spiel pro Server überschreibbar (sonst Egg-Name aus Pterodactyl)
+    """
+    ALTER TABLE server_meta ADD COLUMN game_name TEXT;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

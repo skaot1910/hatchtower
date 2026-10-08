@@ -41,6 +41,9 @@
       <label>{{ _("Ingame-Servername") }}
         <input name="ingame_name" maxlength="120" value="{{ meta.ingame_name if meta and meta.ingame_name else '' }}" placeholder="{{ _("leer = automatisch erkennen") }}">
       </label>
+      <label>{{ _("Angezeigtes Spiel") }}
+        <input name="game_name" maxlength="60" value="{{ meta.game_name if meta and meta.game_name else '' }}" placeholder="{{ _("leer = aus Pterodactyl: {egg}", egg=server.egg_ptero or '–') }}">
+      </label>
       <label>{{ _("Serverpasswort (Klarschrift)") }}
         {% if password_hidden %}
         <input name="password" type="text" autocomplete="off" spellcheck="false" value="" placeholder="{{ _("gesetzt – leer lassen = unverändert") }}">

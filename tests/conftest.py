@@ -220,6 +220,7 @@ def world(monkeypatch, tmp_path) -> World:
     main.app.state.automation = SimpleNamespace(client=ptero, note_power=noop, set_timezone=noop)
     main.app.state.logarchive = SimpleNamespace(client=ptero)
     main.app.state.updates = FakeUpdates()
+    main.app.state.statusfeed = SimpleNamespace(last_ok=None, last_error=None, request_update=noop)
     monkeypatch.setattr(main, "console_stream", fake_console)
     monkeypatch.setattr(main, "load_connection", noop)
     monkeypatch.setattr(main, "PteroClient", lambda settings: ptero)

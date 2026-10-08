@@ -134,7 +134,7 @@ ROUTES: tuple[Route, ...] = (
       form={"dir": "/", "name": "a.txt"}),
     R("GET", "/servers/{ident}/settings", "server", "Serverangaben im Manager", perm="server.manage"),
     R("POST", "/servers/{ident}/settings", "server", "Serverangaben speichern", perm="server.manage", csrf="form",
-      form={"ingame_name": "Gekapert", "public_address": "evil.example:1"}),
+      form={"ingame_name": "Gekapert", "game_name": "Gekapert", "public_address": "evil.example:1"}),
     R("POST", "/servers/{ident}/logo", "server", "Serverlogo hochladen", perm="server.manage", csrf="form",
       upload="logo"),
     R("POST", "/servers/{ident}/logo/delete", "server", "Serverlogo entfernen", perm="server.manage", csrf="form"),

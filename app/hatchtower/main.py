@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, db, extras, i18n, legal, logarchive, logos, retention, security,
-               notify, setup, themes, updates, zipdownload)
+               notify, setup, statusfeed, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, load_settings, parse_proxies
 from .monitor import Monitor
 from .permissions import (BY_KEY, PERMISSIONS, UserContext, describe_access, grouped_permissions, load_assignments,
@@ -104,6 +104,9 @@ async def lifespan(app: FastAPI):
     app.state.monitor.start()
     app.state.automation.start()
     app.state.logarchive.start()
+    # routes_extra ist am Dateiende schon importiert; dort steht, welche Angaben öffentlich sind
+    app.state.statusfeed = statusfeed.StatusFeed(vault, routes_extra.discord_status_view)
+    app.state.statusfeed.start()
     app.state.updates = updates.UpdateCheck()
     app.state.updates.start()
     record_finished_update()
@@ -112,6 +115,7 @@ async def lifespan(app: FastAPI):
              "Pterodactyl", settings.pterodactyl_url)
     yield
     cleanup_task.cancel()
+    await app.state.statusfeed.stop()
     await app.state.updates.stop()
     await app.state.logarchive.stop()
     await app.state.automation.stop()
@@ -1176,7 +1180,7 @@ def upsert_meta(ident: str, user: UserContext, **fields) -> None:
 
 
 @app.post("/servers/{ident}/settings")
-async def server_settings_save(request: Request, ident: str, ingame_name: str = Form(""),
+async def server_settings_save(request: Request, ident: str, ingame_name: str = Form(""), game_name: str = Form(""),
                                password: str = Form(""), public_address: str = Form(""),
                                query_port: str = Form(""), tags: str = Form(""), password_clear: str = Form("")):
     user = current_user(request)
@@ -1197,6 +1201,7 @@ async def server_settings_save(request: Request, ident: str, ingame_name: str = 
     upsert_meta(
         ident, user,
         ingame_name=ingame_name.strip()[:120] or None,
+        game_name=" ".join(game_name.split())[:60] or None,
         **password_field,
         public_address=public_address.strip()[:200] or None,
         query_port=port,
@@ -1204,7 +1209,8 @@ async def server_settings_save(request: Request, ident: str, ingame_name: str = 
     )
     app.state.monitor.query.forget(ident)
     audit.record("server.meta.update", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
-                 detail={"ingame_name": ingame_name.strip() or None, "password_set": bool(password),
+                 detail={"ingame_name": ingame_name.strip() or None, "game_name": game_name.strip() or None,
+                         "password_set": bool(password),
                          "password_removed": not password and password_field.get("password_enc", "") is None,
                          "public_address": public_address.strip() or None, "query_port": port,
                          "tags": extras.parse_tags(tags)})
@@ -1405,7 +1411,9 @@ async def admin_user_detail(request: Request, user_id: int):
     if target is None:
         return back("/admin/users")
     with db.connect() as con:
-        servers = con.execute("SELECT identifier, name, egg FROM servers WHERE present = 1 ORDER BY name COLLATE NOCASE").fetchall()
+        servers = con.execute("SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg FROM servers s"
+                              " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
+                              " ORDER BY s.name COLLATE NOCASE").fetchall()
     groups = load_groups()
     for g in groups:
         g["has_write"] = any(BY_KEY[k].write for k in g["keys"] if k in BY_KEY)
@@ -1481,8 +1489,9 @@ def announce_new_servers(idents: list[str]) -> None:
 
 def pending_reviews() -> list[dict]:
     with db.connect() as con:
-        rows = con.execute("SELECT identifier, name, egg FROM servers WHERE present = 1 AND review_pending = 1"
-                           " ORDER BY name COLLATE NOCASE").fetchall()
+        rows = con.execute("SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg FROM servers s"
+                           " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
+                           " AND s.review_pending = 1 ORDER BY s.name COLLATE NOCASE").fetchall()
     if not rows:
         return []
     who = ", ".join(u["username"] for u in users_with_default_access())
@@ -1660,7 +1669,9 @@ async def admin_automation(request: Request):
         crashes = con.execute(f"SELECT * FROM crash_events WHERE identifier IN ({marks}) ORDER BY id DESC LIMIT 20",
                               idents).fetchall()
         servers = [s for s in con.execute(
-            "SELECT identifier, name, egg FROM servers WHERE present = 1 ORDER BY name COLLATE NOCASE")
+            "SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg FROM servers s"
+            " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
+            " ORDER BY s.name COLLATE NOCASE")
             if s["identifier"] in names]
     sched_view = [{
         "s": s, "server": names.get(s["identifier"], s["identifier"]), "when": automation.describe(s),

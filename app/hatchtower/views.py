@@ -152,7 +152,8 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
     return {
         "identifier": ident,
         "name": row["name"],
-        "egg": row["egg"] or "",
+        "egg": row["game_name"] or row["egg"] or "",
+        "egg_ptero": row["egg"] or "",
         "logo": f"/logos/{row['logo_file']}" if row["logo_file"] else None,
         "monogram": monogram(row["name"]),
         "state": "suspended" if row["suspended"] else state,
@@ -193,7 +194,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
 SERVER_QUERY = """
 SELECT s.*, st.state, st.last_started_at, st.last_stopped_at, st.cpu, st.memory_bytes, st.disk_bytes,
        st.players, st.max_players, st.query_name, st.updated_at,
-       m.logo_file, m.ingame_name, m.password_enc, m.public_address, m.query_port, m.tags, m.on_status
+       m.logo_file, m.ingame_name, m.game_name, m.password_enc, m.public_address, m.query_port, m.tags, m.on_status
 FROM servers s
 LEFT JOIN server_state st ON st.identifier = s.identifier
 LEFT JOIN server_meta m ON m.identifier = s.identifier
