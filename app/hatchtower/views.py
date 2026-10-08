@@ -176,6 +176,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
         "updated_at": fmt_dt(row["updated_at"], tz),
         "stale": stale,
         "can_console": user.can(ident, "console.read"),
+        "can_archive": user.can(ident, "console.archive"),
         "can_files": user.can(ident, "sftp.view"),
         "can_manage": user.can(ident, "server.manage"),
         "can_start": user.can(ident, "power.start"),

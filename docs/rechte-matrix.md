@@ -20,8 +20,9 @@ Grundregeln:
 | `power.start` | Start | ✎ | `server.view` | `POST /api/servers/{ident}/power` (start) |
 | `power.stop` | Stop | ✎ | `server.view` | `POST /api/servers/{ident}/power` (stop) |
 | `power.restart` | Restart | ✎ | `server.view` | `POST /api/servers/{ident}/power` (restart) |
-| `console.read` | Konsole lesen |  | `server.view` | `GET /api/servers/{ident}/logs`<br>`GET /servers/{ident}/console/stream`<br>`GET /servers/{ident}/logs.txt` |
+| `console.read` | Konsole lesen |  | `server.view` | `GET /servers/{ident}/console/stream` |
 | `console.command` | Befehle senden | ✎ | `server.view`, `console.read` | `POST /api/servers/{ident}/command` |
+| `console.archive` | Konsolen-Archiv sehen |  | `server.view` | `GET /api/servers/{ident}/logs`<br>`GET /servers/{ident}/logs.txt` |
 | `sftp.view` | Dateien ansehen |  | `server.view` | `GET /servers/{ident}/files` |
 | `sftp.download` | Herunterladen |  | `server.view`, `sftp.view` | `GET /servers/{ident}/files/download`<br>`POST /servers/{ident}/files/zip` |
 | `sftp.upload` | Hochladen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/upload` |
@@ -95,8 +96,8 @@ Grundregeln:
 | POST | `/api/servers/{ident}/power` | `power.stop` | Header | schreibt | Server stoppen |
 | POST | `/api/servers/{ident}/power` | `power.restart` | Header | schreibt | Server neu starten |
 | GET | `/servers/{ident}/console/stream` | `console.read` | – | liest | Live-Konsole |
-| GET | `/api/servers/{ident}/logs` | `console.read` | – | liest | Konsolen-Archiv durchsuchen |
-| GET | `/servers/{ident}/logs.txt` | `console.read` | – | liest | Konsolen-Archiv herunterladen |
+| GET | `/api/servers/{ident}/logs` | `console.archive` | – | liest | Konsolen-Archiv durchsuchen |
+| GET | `/servers/{ident}/logs.txt` | `console.archive` | – | liest | Konsolen-Archiv herunterladen |
 | POST | `/api/servers/{ident}/command` | `console.command` | Header | schreibt | Konsolenbefehl senden |
 | GET | `/servers/{ident}/files` | `sftp.view` | – | liest | Dateiliste |
 | GET | `/servers/{ident}/files/download` | `sftp.download` | – | liest | Datei herunterladen |

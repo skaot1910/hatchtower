@@ -1360,11 +1360,14 @@ async def admin_users(request: Request):
     from . import accounts, mailer
     invites = [{"hash": i["token_hash"], "role": __import__("json").loads(i["data"] or "{}").get("role", "user"),
                 "email": i["email"], "created": fmt_dt(i["created_at"], settings.timezone),
-                "expires": fmt_dt(i["expires_at"], settings.timezone), "creator": i["creator"]}
+                "expires": fmt_dt(i["expires_at"], settings.timezone), "creator": i["creator"],
+                "note": i["note"], "uses": accounts.uses_text(i["uses"], i["max_uses"])}
                for i in accounts.open_invites()]
     return render(request, "admin_users.html", rows=rows, error=None, server_count=len(names), invites=invites,
                   invite_link=getattr(request.state, "invite_link", None),
                   invite_message=getattr(request.state, "invite_message", None),
+                  invite_valid=getattr(request.state, "invite_valid", None),
+                  invite_days=accounts.INVITE_DAYS, invite_uses=accounts.INVITE_USES,
                   mail_ready=mailer.load_config(vault).ready)
 
 
@@ -1559,7 +1562,8 @@ async def admin_group_delete(request: Request, group_id: int):
 
 
 @app.post("/admin/users/{user_id}/update")
-async def admin_user_update(request: Request, user_id: int, role: str = Form("user"), is_active: str = Form("")):
+async def admin_user_update(request: Request, user_id: int, role: str = Form("user"), is_active: str = Form(""),
+                            note: str | None = Form(None)):
     owner = require_owner(request)
     await check_csrf(request)
     target = get_user_or_404(user_id)
@@ -1570,12 +1574,15 @@ async def admin_user_update(request: Request, user_id: int, role: str = Form("us
     losing_owner = target["role"] == "owner" and target["is_active"] and (role != "owner" or not active)
     if losing_owner and active_owner_count() <= 1:
         return back(f"/admin/users/{user_id}", "Es muss mindestens ein aktiver Owner bleiben")
+    note = target["note"] if note is None else (note.strip()[:500] or None)
     with db.connect() as con:
-        con.execute("UPDATE users SET role = ?, is_active = ? WHERE id = ?", (role, active, user_id))
+        con.execute("UPDATE users SET role = ?, is_active = ?, note = ? WHERE id = ?", (role, active, note, user_id))
     if not active:
         security.delete_user_sessions(user_id)
-    audit.record("user.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
-                 detail={"user": target["username"], "role": role, "active": bool(active)})
+    detail = {"user": target["username"], "role": role, "active": bool(active)}
+    if note != target["note"]:
+        detail["note"] = note
+    audit.record("user.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail=detail)
     return back(f"/admin/users/{user_id}", "Benutzer gespeichert")
 
 

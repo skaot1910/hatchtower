@@ -3,7 +3,7 @@
 - Audit-Log (mit IP-Adressen und Benutzernamen): einstellbar 1–90 Tage, Standard 30
 - Konsolen-Archiv: einstellbar 1–90 Tage oder aus, Standard 3
 - Statuswechsel und Absturz-Ereignisse (ohne Personenbezug): 90 Tage
-- abgelaufene Sitzungen und Einmal-Links sofort
+- abgelaufene Sitzungen und Einmal-Links sofort (abgelaufene Einladungen werden im Audit-Log vermerkt)
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
-from . import db
+from . import accounts, db
 
 log = logging.getLogger("hatchtower.retention")
 
@@ -46,6 +46,7 @@ def cleanup() -> dict[str, int]:
     """Löscht alles, was älter als die Aufbewahrungsdauer ist. Gibt die Anzahl je Bereich zurück."""
     removed: dict[str, int] = {}
     now = int(time.time())
+    removed["invites"] = accounts.expire_invites()   # vor dem Löschen der Links, damit der Ablauf im Audit-Log steht
     with db.connect() as con:
         removed["audit"] = con.execute("DELETE FROM audit_log WHERE ts < ?", (_iso_before(audit_days()),)).rowcount
         keep = console_days()

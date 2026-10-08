@@ -12,12 +12,13 @@ Für jede Route wird nachgewiesen:
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.routing import APIRoute
 
 from conftest import PNG, World
-from hatchtower import db, main, security
+from hatchtower import accounts, db, main, retention, security
 from hatchtower.permissions import ALL_KEYS, BY_KEY, PERMISSIONS, with_dependencies
 from routes import DOC, ROUTES, Route, render_markdown
 
@@ -364,6 +365,51 @@ def test_einladung_gilt_nur_einmal(world):
         assert con.execute("SELECT 1 FROM users WHERE username = 'zweiter'").fetchone() is None
 
 
+def test_einladung_mit_mehreren_nutzungen_und_audit(world):
+    owner = world.client(world.ids["olga"])
+    r = owner.post("/admin/users/invite", data={"csrf": owner.csrf, "days": "3", "uses": "2", "note": "Clan Nord"})
+    assert r.status_code == 200
+    link = re.search(r'value="https?://[^"]*(/invite/[^"]+)"', r.text).group(1)
+    data = {"password": "Sehr-Langes-Passwort-123", "repeat": "Sehr-Langes-Passwort-123"}
+    for name in ("erster", "zweiter"):
+        c, prelogin = world.anonymous_with_prelogin()
+        assert c.post(link, data={**data, "username": name, "prelogin": prelogin}).headers["location"] == "/"
+    c, prelogin = world.anonymous_with_prelogin()
+    assert c.post(link, data={**data, "username": "dritter", "prelogin": prelogin}).headers["location"] == link
+    with db.connect() as con:
+        assert con.execute("SELECT 1 FROM users WHERE username = 'dritter'").fetchone() is None
+    accepts = world.audit("invite.accept")
+    assert [a["username"] for a in accepts] == ["erster", "zweiter"]
+    assert '"invite": "Clan Nord"' in accepts[1]["detail"] and '"uses": "2/2"' in accepts[1]["detail"]
+    assert '"created_by": "olga"' in accepts[0]["detail"]
+    assert len(world.audit("invite.used_up")) == 1
+
+
+def test_einladung_unbegrenzt_und_ablauf_im_audit(world):
+    raw = accounts.create("invite", data={"role": "user"}, created_by=world.ids["olga"], max_uses=0, note="Testlauf")
+    data = {"password": "Sehr-Langes-Passwort-123", "repeat": "Sehr-Langes-Passwort-123"}
+    for i in range(12):
+        c, prelogin = world.anonymous_with_prelogin()
+        assert c.post(f"/invite/{raw}", data={**data, "username": f"gast{i}", "prelogin": prelogin}
+                      ).headers["location"] == "/"
+    with db.connect() as con:
+        con.execute("UPDATE tokens SET expires_at = '2000-01-01T00:00:00+00:00' WHERE purpose = 'invite'")
+    retention.cleanup()
+    expired = [e["detail"] for e in world.audit("invite.expire")]
+    assert any('"invite": "Testlauf"' in d and '"uses": "12/∞"' in d for d in expired)
+    with db.connect() as con:
+        assert con.execute("SELECT COUNT(*) FROM tokens WHERE purpose = 'invite'").fetchone()[0] == 0
+
+
+def test_einladung_ungueltige_auswahl_wird_ersetzt(world):
+    owner = world.client(world.ids["olga"])
+    owner.post("/admin/users/invite", data={"csrf": owner.csrf, "days": "365", "uses": "1000"})
+    with db.connect() as con:
+        row = con.execute("SELECT * FROM tokens WHERE purpose = 'invite' ORDER BY created_at DESC, rowid DESC").fetchone()
+    assert row["max_uses"] == 1
+    assert row["expires_at"] < (datetime.now(timezone.utc) + timedelta(days=8)).isoformat()
+
+
 def test_passwort_link_gilt_nur_fuer_sein_konto_und_einmal(world):
     c, prelogin = world.anonymous_with_prelogin()
     path = f"/reset/{world.args['@reset']}"
@@ -476,6 +522,27 @@ def test_konsole_endet_wenn_recht_entzogen_wird(world, monkeypatch):
     body = world.client(uid).get("/servers/srv-a/console/stream").text
     assert "erste Zeile" in body
     assert "geheime Zeile" not in body
+
+
+def test_konsolen_archiv_braucht_eigenes_recht(world):
+    nur_live = world.user("live", grants={"srv-a": {"console.read"}})
+    nur_archiv = world.user("archiv", grants={"srv-a": {"console.archive"}})
+    assert world.client(nur_live).get("/api/servers/srv-a/logs").status_code == 403
+    assert world.client(nur_archiv).get("/api/servers/srv-a/logs").status_code == 200
+    page = world.client(nur_live).get("/servers/srv-a").text
+    assert 'id="log-archiv"' not in page
+    assert 'id="log-archiv"' in world.client(nur_archiv).get("/servers/srv-a").text
+
+
+def test_notiz_zum_benutzer(world):
+    owner = world.client(world.ids["olga"])
+    uid = world.ids["victim"]
+    owner.post(f"/admin/users/{uid}/update", data={"csrf": owner.csrf, "role": "user", "is_active": "1",
+                                                   "note": "Max aus dem Discord"})
+    assert "Max aus dem Discord" in owner.get("/admin/users").text
+    owner.post(f"/admin/users/{uid}/update", data={"csrf": owner.csrf, "role": "user", "is_active": "1"})
+    with db.connect() as con:
+        assert con.execute("SELECT note FROM users WHERE id = ?", (uid,)).fetchone()["note"] == "Max aus dem Discord"
 
 
 def test_konsole_endet_wenn_konto_deaktiviert_wird(world, monkeypatch):

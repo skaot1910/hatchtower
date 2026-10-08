@@ -11,7 +11,7 @@
     <tbody>
     {% for r in rows %}
       <tr class="{% if not r.u.is_active %}row-off{% endif %}">
-        <td><strong>{{ r.u.username }}</strong>{% if not r.u.is_active %} <span class="badge">{{ _("deaktiviert") }}</span>{% endif %}</td>
+        <td><strong>{{ r.u.username }}</strong>{% if not r.u.is_active %} <span class="badge">{{ _("deaktiviert") }}</span>{% endif %}{% if r.u.note %}<div class="faint small">{{ r.u.note }}</div>{% endif %}</td>
         <td data-label="{{ _("Rolle") }}">{% if r.u.role == 'owner' %}<span class="badge badge-ro">{{ _("Owner") }}</span>{% else %}{{ _("Rolle|Benutzer") }}{% endif %}</td>
         <td class="summary" data-label="{{ _("Zugriff") }}">
           {% if r.u.role == 'owner' %}<span class="faint">{{ _("alle Server, alle Rechte") }}</span>
@@ -32,7 +32,7 @@
   <h2 class="card-h">{{ _("Per Einladungslink") }}</h2>
   {% if invite_link %}
   <div class="flash" role="status">{{ invite_message }}</div>
-  <label>{{ _("Einladungslink (gilt 7 Tage, nur einmal)") }}
+  <label>{% if invite_valid.uses == 1 %}{{ _("Einladungslink (gilt {n} Tage, nur einmal)", n=invite_valid.days) }}{% elif invite_valid.uses %}{{ _("Einladungslink (gilt {n} Tage, für {k} Konten)", n=invite_valid.days, k=invite_valid.uses) }}{% else %}{{ _("Einladungslink (gilt {n} Tage, beliebig oft)", n=invite_valid.days) }}{% endif %}
     <input class="mono copy-field" value="{{ invite_link }}" readonly data-select-on-focus>
   </label>
   {% endif %}
@@ -45,6 +45,19 @@
         <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
       </select>
     </label>
+    <div class="invite-limits">
+      <label>{{ _("Gültig für") }}
+        <select name="days">
+          {% for d in invite_days %}<option value="{{ d }}"{% if d == 7 %} selected{% endif %}>{{ _("1 Tag") if d == 1 else _("{n} Tage", n=d) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _("Nutzbar") }}
+        <select name="uses">
+          {% for n in invite_uses %}<option value="{{ n }}">{% if n == 0 %}{{ _("unbegrenzt") }}{% elif n == 1 %}{{ _("einmal") }}{% else %}{{ _("{n} Konten", n=n) }}{% endif %}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <label>{{ _("Beschreibung (optional, nur intern)") }}<input name="note" maxlength="200" autocomplete="off" placeholder="{{ _("z. B. für wen der Link ist") }}"></label>
     {% if mail_ready %}
     <label>{{ _("Per E-Mail schicken an (optional)") }}<input name="email" type="email" maxlength="254" autocomplete="off"></label>
     {% endif %}
@@ -55,7 +68,7 @@
   <ul class="plain-list">
     {% for i in invites %}
     <li class="invite-row">
-      <span>{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("erstellt {date}", date=i.created) }} · {{ _("gültig bis {date}", date=i.expires) }}</span></span>
+      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {{ _("gültig bis {date}", date=i.expires) }}</span></span>
       <form method="post" action="/admin/users/invites/{{ i.hash }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Zurückziehen") }}</button></form>
     </li>
     {% endfor %}

@@ -3,6 +3,14 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.19.0 – 2026-10-08
+
+- **Einladungslinks einstellbar:** gültig 1, 3, 7 oder 14 Tage; nutzbar einmal, 2–10, 25, 50, 100 Mal oder unbegrenzt
+  - Optionale interne Beschreibung (z. B. für wen der Link ist), sichtbar in den offenen Einladungen zusammen mit Nutzungen („2/5“) und Ersteller
+  - Audit-Log: jede Nutzung mit neuem Benutzer, Beschreibung, Ersteller und Zähler; dazu „Einladung aufgebraucht“ und „Einladung abgelaufen“
+- **Notiz pro Benutzer:** in den Benutzerdetails unter „Konto“, nur für Owner sichtbar, auch in der Benutzerliste
+- **Neues Recht „Konsolen-Archiv sehen“:** Archiv durchsuchen und herunterladen ist jetzt getrennt von „Konsole lesen“. Wer bisher die Konsole lesen durfte, bekommt das neue Recht beim Update automatisch dazu
+
 ## 0.18.0 – 2026-10-08
 
 - **Status in Discord:** Hatchtower postet die Server der Statusseite über einen Discord-Webhook in einen Kanal und hält die Nachricht aktuell (Prüfung jede Minute, bearbeitet nur bei Änderungen)

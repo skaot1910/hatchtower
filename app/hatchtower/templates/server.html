@@ -81,7 +81,7 @@
   {% elif settings.read_only %}<p class="faint small">{{ _("Read-only: Die Konsole kann nur mitgelesen werden.") }}</p>{% endif %}
 </section>
 {% endif %}
-{% if server.can_console %}
+{% if server.can_archive %}
 <section class="card" id="log-archiv" data-logs="/api/servers/{{ server.identifier }}/logs" data-download="/servers/{{ server.identifier }}/logs.txt">
   <div class="console-toolbar">
     <h2 class="card-h">{{ _("Log-Archiv") }}</h2>

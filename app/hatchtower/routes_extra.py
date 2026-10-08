@@ -528,14 +528,18 @@ async def admin_user_export(request: Request, user_id: int):
 # == Einladungen ===============================================================================
 
 @app.post("/admin/users/invite", response_class=HTMLResponse)
-async def admin_invite(request: Request, role: str = Form("user"), email: str = Form("")):
+async def admin_invite(request: Request, role: str = Form("user"), email: str = Form(""), days: int = Form(7),
+                       uses: int = Form(1), note: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     role = "owner" if role == "owner" else "user"
-    email = email.strip()
+    days = days if days in accounts.INVITE_DAYS else 7
+    uses = uses if uses in accounts.INVITE_USES else 1
+    email, note = email.strip(), " ".join(note.split())[:200]
     if email and not mailer.valid_email(email):
         return back("/admin/users#einladen", "Bitte eine gültige E-Mail-Adresse eingeben")
-    raw = accounts.create("invite", email=email or None, data={"role": role}, created_by=owner.id)
+    raw = accounts.create("invite", email=email or None, data={"role": role}, created_by=owner.id,
+                          hours=days * 24, max_uses=uses, note=note or None)
     link = f"{link_base(request)}/invite/{raw}"
     message = "Einladung erstellt. Kopiere den Link, er wird nur jetzt angezeigt."
     if email:
@@ -544,17 +548,20 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
             message = "Einladung erstellt. E-Mail ist nicht eingeschaltet, gib den Link selbst weiter."
         else:
             text = i18n.t("Hallo,\n\ndu wurdest zu {brand} eingeladen. Über diesen Link legst du dein Konto an "
-                          "(gilt 7 Tage):\n\n{link}", brand=load_brand()["name"], link=f"{cfg.base_url}/invite/{raw}")
+                          "(gilt {n} Tage):\n\n{link}", brand=load_brand()["name"], n=days,
+                          link=f"{cfg.base_url}/invite/{raw}")
             try:
                 await mailer.send(cfg, email, i18n.t("Einladung zu {brand}", brand=load_brand()["name"]),
                                   text + mailer.signature())
                 message = i18n.t("Einladung an {email} geschickt.", email=email)
             except mailer.MailError as exc:
                 message = i18n.t("E-Mail konnte nicht verschickt werden: {grund}", grund=exc)
-    owner_audit(request, owner, "user.invite", detail={"role": role, "email": email or None})
+    owner_audit(request, owner, "user.invite", detail={"role": role, "email": email or None, "invite": note or None,
+                                                       "days": days, "uses": uses or "∞"})
     from .main import admin_users
     request.state.invite_link = link
     request.state.invite_message = i18n.t(message)
+    request.state.invite_valid = {"days": days, "uses": uses}
     return await admin_users(request)
 
 
@@ -562,8 +569,10 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
 async def admin_invite_revoke(request: Request, token_hash: str):
     owner = require_owner(request)
     await check_csrf(request)
-    if accounts.revoke_invite(token_hash):
-        owner_audit(request, owner, "user.invite_revoke")
+    with db.connect() as con:
+        row = con.execute("SELECT * FROM tokens WHERE token_hash = ? AND purpose = 'invite'", (token_hash,)).fetchone()
+    if row is not None and accounts.revoke_invite(token_hash):
+        owner_audit(request, owner, "user.invite_revoke", detail=accounts.invite_info(row))
     return back("/admin/users#einladen", "Einladung zurückgezogen")
 
 
@@ -602,16 +611,21 @@ async def invite_accept(request: Request, token: str, username: str = Form(""), 
     if email and not mailer.valid_email(email):
         return fail("Bitte eine gültige E-Mail-Adresse eingeben")
     role = "owner" if json.loads(row["data"] or "{}").get("role") == "owner" else "user"
+    if not accounts.claim_invite(token):
+        return RedirectResponse(f"/invite/{quote(token)}", status_code=303)
     try:
         with db.connect() as con:
             user_id = con.execute("INSERT INTO users (username, password_hash, role, created_at, language)"
                                   " VALUES (?, ?, ?, ?, ?)",
                                   (username, security.hash_password(password), role, db.utcnow(), i18n.current())).lastrowid
     except Exception:
+        accounts.release_invite(token)
         throttle.record_failure(ip_of(request))
         return fail("Diesen Benutzernamen gibt es schon")
-    accounts.consume(token)
-    audit.record("invite.accept", user_id=user_id, username=username, ip=ip_of(request), detail={"role": role})
+    info = accounts.invite_info({**dict(row), "uses": row["uses"] + 1})
+    audit.record("invite.accept", user_id=user_id, username=username, ip=ip_of(request), detail={"role": role, **info})
+    if accounts.finish_invite(token):
+        audit.record("invite.used_up", user_id=user_id, username=username, ip=ip_of(request), detail=info)
     target = "/"
     if email and ready:
         if await send_verify_mail(request, user_id, username, email) is None:
@@ -1046,7 +1060,7 @@ async def api_logs(request: Request, ident: str, q: str = "", level: str = "", r
                    before: int | None = None):
     user = current_user(request)
     get_server_or_deny(request, user, ident)
-    require(request, user, ident, "console.read")
+    require(request, user, ident, "console.archive")
     span = LOG_RANGES.get(range, 86400)
     rows = logarchive.search(ident, q.strip()[:200], level, int(time.time()) - span if span else 0, before, 300)
     return {"enabled": retention.console_days() > 0, "days": retention.console_days(),
@@ -1058,7 +1072,7 @@ async def api_logs(request: Request, ident: str, q: str = "", level: str = "", r
 async def logs_download(request: Request, ident: str, q: str = "", level: str = "", range: str = "24h"):
     user = current_user(request)
     server = get_server_or_deny(request, user, ident)
-    require(request, user, ident, "console.read")
+    require(request, user, ident, "console.archive")
     span = LOG_RANGES.get(range, 86400)
     rows = logarchive.search(ident, q.strip()[:200], level, int(time.time()) - span if span else 0, None, 100000)
     lines = [f"[{ts_text(r['ts'])}] {r['line']}"

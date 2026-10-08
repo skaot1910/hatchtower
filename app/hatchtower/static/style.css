@@ -899,6 +899,7 @@ a.file-link:hover { color: var(--violet-3); }
 .login-wrap .lang-switch-corner { display: flex; width: max-content; margin-left: auto; }
 .form-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .form-row select { flex: 1; min-width: 160px; }
+.invite-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
 @media (max-width: 720px), (pointer: coarse) and (max-height: 540px) {
   .lang-switch a { padding: 6px 12px; font-size: 14px; }
 }

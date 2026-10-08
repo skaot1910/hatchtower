@@ -35,6 +35,8 @@ PERMISSIONS: tuple[Permission, ...] = (
     Permission("console.read", "Konsole lesen", "Konsole", "Das Live-Log mitlesen.", requires=("server.view",)),
     Permission("console.command", "Befehle senden", "Konsole", "Befehle in die Konsole schreiben.",
                write=True, requires=("server.view", "console.read")),
+    Permission("console.archive", "Konsolen-Archiv sehen", "Konsole",
+               "Das mitgeschriebene Konsolen-Archiv durchsuchen und herunterladen.", requires=("server.view",)),
     Permission("sftp.view", "Dateien ansehen", "Dateien", "Ordner und Dateien auflisten.", requires=("server.view",)),
     Permission("sftp.download", "Herunterladen", "Dateien", "Dateien herunterladen.",
                requires=("server.view", "sftp.view")),

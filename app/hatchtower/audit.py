@@ -60,6 +60,8 @@ ACTION_LABELS = {
     "user.invite": "Einladung erstellt",
     "user.invite_revoke": "Einladung zurückgezogen",
     "invite.accept": "Einladung angenommen",
+    "invite.used_up": "Einladung aufgebraucht",
+    "invite.expire": "Einladung abgelaufen",
     "user.export": "Benutzerdaten exportiert",
     "password.reset_request": "Passwort-Link angefordert",
     "password.reset_mail": "Passwort per Link zurückgesetzt",

@@ -326,6 +326,18 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE server_meta ADD COLUMN game_name TEXT;
     """,
+    # 16: Einladungen mit Beschreibung und mehreren Nutzungen (0 = unbegrenzt), Notiz pro Benutzer,
+    #     eigenes Recht fürs Konsolen-Archiv (bekommt, wer bisher die Konsole lesen durfte)
+    """
+    ALTER TABLE tokens ADD COLUMN note TEXT;
+    ALTER TABLE tokens ADD COLUMN max_uses INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE tokens ADD COLUMN uses INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN note TEXT;
+    INSERT OR IGNORE INTO perm_group_items (group_id, permission)
+        SELECT group_id, 'console.archive' FROM perm_group_items WHERE permission = 'console.read';
+    INSERT OR IGNORE INTO user_server_permissions (user_id, identifier, permission)
+        SELECT user_id, identifier, 'console.archive' FROM user_server_permissions WHERE permission = 'console.read';
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

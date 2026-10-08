@@ -6,6 +6,7 @@
   <div>
     <h1>{{ target.username }}</h1>
     <p class="muted">{{ _("Owner") if target.role == 'owner' else _("Rolle|Benutzer") }}{% if not target.is_active %} · {{ _("deaktiviert") }}{% endif %}</p>
+    {% if target.note %}<p class="faint small">{{ target.note }}</p>{% endif %}
   </div>
   {% if target.role != 'owner' %}<a class="btn btn-ghost" href="/?als={{ target.id }}">{{ _("Vorschau als {name}", name=target.username) }}</a>{% endif %}
 </div>
@@ -99,6 +100,9 @@
         </select>
       </label>
       <label class="check"><input type="checkbox" name="is_active" value="1" {% if target.is_active %}checked{% endif %}> {{ _("Konto aktiv") }}</label>
+      <label>{{ _("Notiz (nur für Owner sichtbar)") }}
+        <textarea name="note" rows="2" maxlength="500" placeholder="{{ _("z. B. wer das ist oder woher das Konto kommt") }}">{{ target.note or '' }}</textarea>
+      </label>
       <button class="btn btn-ghost" type="submit">{{ _("Speichern") }}</button>
     </form>
   </section>

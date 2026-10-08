@@ -141,7 +141,7 @@ Auf dem Handy passt sich Hatchtower automatisch an.
 - Live-Konsole und Verlauf von CPU, RAM und Netzwerk (live bis 72 Stunden)
 - Favoriten und eigene Tags
 - Verfügbarkeit: Online-Zeit und Abstürze der letzten 30 Tage
-- Log-Archiv: Konsole laufender Server wird mitgeschrieben (1–90 Tage oder aus), durchsuchbar, Fehler farbig, Download als .txt
+- Log-Archiv: Konsole laufender Server wird mitgeschrieben (1–90 Tage oder aus), durchsuchbar, Fehler farbig, Download als .txt (eigenes Recht „Konsolen-Archiv sehen“)
 
 **Dateien**
 - Ansehen, herunterladen (auch mehrere als ZIP), hochladen, bearbeiten, umbenennen, löschen
@@ -149,7 +149,7 @@ Auf dem Handy passt sich Hatchtower automatisch an.
 
 **Benutzer und Sicherheit**
 - Eigene Benutzer und Rechte pro Server, selbst erstellte Rechtegruppen
-- Einladungslinks statt Startpasswort
+- Einladungslinks statt Startpasswort: 1–14 Tage gültig, einmal bis unbegrenzt nutzbar, mit interner Beschreibung; Nutzung und Ablauf stehen im Audit-Log
 - Optional E-Mail: eigene Adresse pro Benutzer mit Bestätigung, „Passwort vergessen“, Einladungen per Mail
 - Audit-Log, das sich nicht verändern lässt
 - Read-Only-Modus: Hatchtower kann komplett nur lesend betrieben werden
