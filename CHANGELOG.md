@@ -3,6 +3,21 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.20.0 – 2026-10-09
+
+- **Backups (neu):** Hatchtower sichert Server oder ausgewählte Dateien und Ordner (z. B. Spielstände) als ZIP – eine Datei pro Server und Lauf, mit den Pfaden ab dem Serverordner, damit sie sich woanders wieder einspielen lassen
+  - Backup-Jobs für einen, mehrere oder alle Server (auch künftige, nur Owner), mit Ausschlüssen (z. B. `logs/`, `*.log`)
+  - Im Datei-Explorer: Dateien und Ordner ankreuzen → „Zu Backup-Job hinzufügen“ (bestehender oder neuer Job); man bleibt im Ordner und kann weitere hinzufügen
+  - Ziele: Direktdownload im Browser (nur von Hand), Laufwerk im Hatchtower-Container (Auswahl der eingehängten Laufwerke unter /mnt, /media, /srv, z. B. Proxmox-Mountpoint, USB, NFS) oder SMB-Freigabe (Windows, NAS, Samba; Zugangsdaten verschlüsselt). Ergebnis und freier Platz der letzten Prüfung stehen beim Ziel
+  - Starten von Hand („Jetzt ausführen“, „Jetzt ausführen und herunterladen“) oder per Zeitplan; mehrere Backups laufen nacheinander, laufende lassen sich abbrechen; Fortschritt mit %, MB, Dateien und Geschwindigkeit
+  - Server vorher stoppen (mit Vorwarnung im Spiel) und danach wieder starten (nur wenn er lief) oder aus lassen; der Absturz-Neustart wertet das nicht als Absturz
+  - Aufbewahrung nach Anzahl oder Tagen, Platzprüfung vorab, Meldung per Webhook/E-Mail (nur bei Fehlern oder immer)
+  - Neue Rechte: „Backups sehen“, „Backups starten und herunterladen“, „Backup-Jobs verwalten“; Ziele verwalten nur Owner
+  - Schont das Anfragen-Limit von Pterodactyl: Backups lassen immer rund ein Drittel frei, damit Statusabfragen nicht ausfallen
+- **Discord-Status in mehreren Kanälen:** beliebig viele Webhooks, jeder mit eigener Server-Auswahl, eigenen Angaben und eigener Überschrift – unabhängig von der Statusseite. Ein bisher eingerichteter Webhook wird beim Update übernommen
+- **Behoben:** Meldungen nach dem Speichern auf Seiten mit Anker (z. B. System → Erscheinungsbild) wurden nicht angezeigt
+- Update: neue Abhängigkeit `smbprotocol`; der Dienst darf zusätzlich nach /mnt, /media und /srv schreiben (beides kommt mit `hatchtower update`)
+
 ## 0.19.2 – 2026-10-09
 
 - **Offene Einladungslinks wieder kopierbar:** In der Benutzerverwaltung lässt sich der Link einer offenen Einladung über „Link anzeigen“ erneut abrufen und kopieren (gilt für Einladungen ab dieser Version)

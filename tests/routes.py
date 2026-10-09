@@ -14,6 +14,7 @@ Zugriffsarten (access):
   server  Server muss sichtbar sein (server.view) und das Recht `perm` muss vorliegen
   kill    nur Owner, und nur im Read-Write-Modus
   automation  Owner oder Recht `automation.manage` – wirkt nur auf die Server, für die es vergeben ist
+  backup  Owner oder Backup-Recht `perm` für mindestens einen Server – Jobs nur, wenn es für alle ihre Server gilt
 """
 from __future__ import annotations
 
@@ -132,6 +133,8 @@ ROUTES: tuple[Route, ...] = (
       csrf="form", write=True, form={"dir": "/", "name": "neu"}),
     R("POST", "/servers/{ident}/files/delete", "server", "Löschen", perm="sftp.delete", csrf="form", write=True,
       form={"dir": "/", "name": "a.txt"}),
+    R("POST", "/servers/{ident}/files/backup", "server", "Auswahl zu einem Backup-Job hinzufügen", perm="backups.manage",
+      csrf="form", form={"dir": "/", "names": "a.txt", "job_id": "new"}),
     R("GET", "/servers/{ident}/settings", "server", "Serverangaben im Manager", perm="server.manage"),
     R("POST", "/servers/{ident}/settings", "server", "Serverangaben speichern", perm="server.manage", csrf="form",
       form={"ingame_name": "Gekapert", "game_name": "Gekapert", "public_address": "evil.example:1"}),
@@ -189,6 +192,40 @@ ROUTES: tuple[Route, ...] = (
     R("POST", "/admin/automation/schedules/{sched_id}/delete", "automation", "Zeitplan löschen",
       perm="automation.manage", csrf="form"),
 
+    # -- Backups --------------------------------------------------------------------------------
+    R("GET", "/admin/backups", "backup", "Backups: Jobs, laufende und gespeicherte Backups (nur Server mit dem Recht)",
+      perm="backups.view"),
+    R("GET", "/api/backups/status", "backup", "Fortschritt laufender Backups", perm="backups.view"),
+    R("POST", "/admin/backups/jobs", "backup", "Backup-Job anlegen", perm="backups.manage", csrf="form",
+      form={"name": "Nachts", "target_id": ""}),
+    R("GET", "/admin/backups/jobs/{job_id}", "backup", "Backup-Job bearbeiten (Recht für alle Server des Jobs)",
+      perm="backups.manage"),
+    R("POST", "/admin/backups/jobs/{job_id}", "backup", "Backup-Job speichern (Stoppen nur mit den Steuerrechten)",
+      perm="backups.manage", csrf="form", form={"name": "Gekapert", "target_id": "", "stop_mode": "none",
+                                                "notify": "errors"}),
+    R("POST", "/admin/backups/jobs/{job_id}/delete", "backup", "Backup-Job löschen", perm="backups.manage",
+      csrf="form"),
+    R("POST", "/admin/backups/jobs/{job_id}/items", "backup", "Server/Pfad hinzufügen (Recht für diesen Server)",
+      perm="backups.manage", csrf="form", form={"identifier": "srv-a", "path": "/world"}),
+    R("POST", "/admin/backups/jobs/{job_id}/items/remove", "backup", "Server/Pfad entfernen", perm="backups.manage",
+      csrf="form", form={"identifier": "srv-a", "path": "/"}),
+    R("POST", "/admin/backups/jobs/{job_id}/run", "backup", "Backup-Job in die Warteschlange stellen",
+      perm="backups.run", csrf="form"),
+    R("POST", "/admin/backups/jobs/{job_id}/download", "backup", "Backup-Job ausführen und direkt herunterladen",
+      perm="backups.run", csrf="form"),
+    R("GET", "/admin/backups/runs/{run_id}/download", "backup", "Gespeichertes Backup herunterladen",
+      perm="backups.run"),
+    R("POST", "/api/backups/runs/{run_id}/cancel", "backup", "Laufendes Backup abbrechen", perm="backups.run",
+      csrf="header", json={}),
+    R("POST", "/admin/backups/runs/{run_id}/delete", "backup", "Gespeichertes Backup löschen",
+      perm="backups.manage", csrf="form"),
+    R("POST", "/admin/backups/targets", "owner", "Backup-Ziel anlegen (Laufwerk im Container oder SMB-Freigabe)",
+      csrf="form", form={"name": "Gekapert", "mount": "data", "subdir": "gekapert"}),
+    R("POST", "/admin/backups/targets/{target_id}", "owner", "Backup-Ziel ändern (SMB: Verbindung wird geprüft)",
+      csrf="form", form={"name": "Gekapert"}),
+    R("POST", "/admin/backups/targets/{target_id}/test", "owner", "Backup-Ziel testen", csrf="form"),
+    R("POST", "/admin/backups/targets/{target_id}/delete", "owner", "Backup-Ziel entfernen", csrf="form"),
+
     # -- Owner: System ----------------------------------------------------------------------
     R("GET", "/admin/system", "owner", "System: Übersicht und Prüfungen"),
     R("POST", "/admin/branding", "owner", "Name, Standard-Theme, Standardsprache", csrf="form",
@@ -208,6 +245,12 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/admin/statuspage", "owner", "Statusseite einstellen"),
     R("POST", "/admin/statuspage", "owner", "Statusseite speichern", csrf="form",
       form={"enabled": "1", "show__srv-a": "1", "field__password": "1", "password_confirm": "1"}),
+    R("POST", "/admin/statuspage/discord", "owner", "Discord-Kanal hinzufügen (eigene Server-Auswahl)", csrf="form",
+      form={"name": "Gekapert", "url": "https://discord.com/api/webhooks/123456789012345678/" + "e" * 68,
+            "show__srv-a": "1", "field__name": "1"}),
+    R("POST", "/admin/statuspage/discord/{feed_id}", "owner", "Discord-Kanal ändern", csrf="form",
+      form={"name": "Gekapert", "show__srv-b": "1", "field__password": "1", "password_confirm": "1"}),
+    R("POST", "/admin/statuspage/discord/{feed_id}/delete", "owner", "Discord-Kanal entfernen", csrf="form"),
     R("GET", "/admin/announcements", "owner", "Ankündigungen"),
     R("POST", "/admin/announcements", "owner", "Ankündigung speichern", csrf="form", form={"text": "Gekapert"}),
     R("POST", "/admin/announcements/{ann_id}/delete", "owner", "Ankündigung löschen", csrf="form"),
@@ -235,6 +278,7 @@ ACCESS_TITLES = {
     "server": "Server – Recht pro Server",
     "kill": "Server – nur Owner",
     "automation": "Automationen – Owner oder Recht pro Server",
+    "backup": "Backups – Owner oder Recht pro Server",
     "owner": "Nur Owner",
 }
 CSRF_TEXT = {"form": "Formular", "header": "Header", "prelogin": "Vorab-Token", None: "–"}
@@ -273,7 +317,7 @@ def render_markdown() -> str:
     for access, title in ACCESS_TITLES.items():
         rows = [r for r in ROUTES if r.access == access]
         out += ["", f"## {title}", ""]
-        if access in ("server", "automation"):
+        if access in ("server", "automation", "backup"):
             out += ["| Methode | Pfad | Recht | CSRF | Pterodactyl | Zweck |", "|---|---|---|---|---|---|"]
             for r in rows:
                 out.append(f"| {r.method} | `{r.path}` | `{r.perm}` | {CSRF_TEXT[r.csrf]} | "

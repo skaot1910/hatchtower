@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Backups") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Backups") }}</h1><p class="muted">{{ _("Hatchtower liest die Dateien über Pterodactyl und legt sie als ZIP ab – eine Datei pro Server und Lauf. Mehrere Backups laufen nacheinander.") }}</p></div>
+</div>
+{% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Backups laufen trotzdem, nur Jobs, die den Server vorher stoppen, schlagen fehl.") }}</div>{% endif %}
+
+<section class="card" id="backup-active" data-status="/api/backups/status">
+  <h2 class="card-h">{{ _("Laufende Backups") }}</h2>
+  <script type="application/json" id="backup-active-data">{{ active|tojson }}</script>
+  <div id="backup-active-list" class="backup-active-list"></div>
+  <p class="faint" id="backup-active-empty" {% if active %}hidden{% endif %}>{{ _("Gerade läuft kein Backup.") }}</p>
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Backup-Jobs") }}</h2>
+  {% if jobs %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Server") }}</th><th>{{ _("Ziel") }}</th><th>{{ _("Wann") }}</th><th>{{ _("Zuletzt") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for x in jobs %}
+      <tr class="{% if not x.j.enabled and x.j.weekdays %}row-off{% endif %}">
+        <td><strong>{{ x.j.name }}</strong>{% if x.active %} <span class="badge badge-ok">{{ _("läuft") }}</span>{% endif %}
+          {% if x.j.stop_mode != 'none' %}<div class="faint small">{{ x.stop }}</div>{% endif %}</td>
+        <td data-label="{{ _("Server") }}">{{ x.servers|join(", ") if x.servers else "–" }}{% if x.paths and not x.j.all_servers %}<div class="faint small">{{ _("{n} Eintrag/Einträge", n=x.paths) }}</div>{% endif %}</td>
+        <td data-label="{{ _("Ziel") }}">{{ x.target }}</td>
+        <td class="nowrap" data-label="{{ _("Wann") }}">{{ x.when }}{% if x.j.weekdays and x.j.target_id and not x.j.enabled %} <span class="badge">{{ _("pausiert") }}</span>{% endif %}</td>
+        <td class="faint small" data-label="{{ _("Zuletzt") }}">{{ x.j.last_result or '–' }}</td>
+        <td class="num row-actions">
+          {% if x.can_edit %}<a class="chip chip-sm" href="/admin/backups/jobs/{{ x.j.id }}">{{ _("Bearbeiten") }}</a>{% endif %}
+          {% if x.can_run and not x.active %}
+            {% if x.j.target_id %}
+            <form method="post" action="/admin/backups/jobs/{{ x.j.id }}/run"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm" type="submit">{{ _("Jetzt ausführen") }}</button></form>
+            {% endif %}
+            <form method="post" action="/admin/backups/jobs/{{ x.j.id }}/download" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm {% if x.j.target_id %}chip-ghost{% endif %}" type="submit">{{ _("Jetzt ausführen und herunterladen") if x.j.target_id else _("Starten und herunterladen") }}</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="faint">{{ _("Noch keine Backup-Jobs.") }}</p>{% endif %}
+
+  {% if can_create %}
+  <details class="legend" {% if not jobs %}open{% endif %}>
+    <summary>{{ _("Neuen Backup-Job anlegen") }}</summary>
+    <form method="post" action="/admin/backups/jobs" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="form-grid">
+        <label>{{ _("Name") }}<input name="name" required maxlength="80" placeholder="{{ _("Spielstände nachts") }}"></label>
+        <label>{{ _("Ziel") }}
+          <select name="target_id">
+            <option value="">{{ _("Direktdownload im Browser (nur von Hand)") }}</option>
+            {% for t in targets %}<option value="{{ t.id }}">{{ t.name }} ({{ t.path }})</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <p class="faint small">{{ _("Danach wählst du Server, Ordner und Dateien, Zeitplan und ob der Server vorher gestoppt wird. Dateien und Ordner kannst du auch direkt im Datei-Explorer eines Servers auswählen und zu einem Job hinzufügen.") }}{% if not targets %} {{ _("Für automatische Backups legt ein Owner zuerst ein Backup-Ziel an.") }}{% endif %}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Anlegen") }}</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Gespeicherte und letzte Backups") }}</h2>
+  {% if runs %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Wann") }}</th><th>{{ _("Job") }}</th><th>{{ _("Server") }}</th><th>{{ _("Ergebnis") }}</th><th class="num">{{ _("Größe") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for x in runs %}
+      <tr>
+        <td class="nowrap faint small">{{ x.at }}</td>
+        <td data-label="{{ _("Job") }}">{{ x.r.job_name }}{% if x.r.kind == 'download' %}<div class="faint small">{{ _("Direktdownload") }}{% if x.r.started_name %} · {{ x.r.started_name }}{% endif %}</div>{% elif x.r.trigger == 'schedule' %}<div class="faint small">{{ _("Zeitplan") }}</div>{% elif x.r.started_name %}<div class="faint small">{{ x.r.started_name }}</div>{% endif %}</td>
+        <td data-label="{{ _("Server") }}">{{ x.r.server_name or x.r.identifier }}</td>
+        <td data-label="{{ _("Ergebnis") }}"><span class="backup-status backup-status-{{ x.r.status }}">{{ x.status }}</span>{% if x.r.detail %}<div class="faint small backup-detail">{{ x.r.detail }}</div>{% endif %}</td>
+        <td class="num nowrap" data-label="{{ _("Größe") }}">{{ x.size or x.data or "–" }}{% if x.r.files %}<div class="faint small">{{ _("{n} Dateien", n=x.r.files) }}</div>{% endif %}</td>
+        <td class="num row-actions">
+          {% if x.can_download %}<a class="chip chip-sm" href="/admin/backups/runs/{{ x.r.id }}/download">{{ _("Herunterladen") }}</a>{% endif %}
+          {% if x.can_delete %}<form method="post" action="/admin/backups/runs/{{ x.r.id }}/delete" data-confirm="{{ _("Dieses Backup wirklich löschen? Die Datei wird vom Ziel entfernt.") }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button></form>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="faint">{{ _("Noch keine Backups gelaufen.") }}</p>{% endif %}
+</section>
+
+{% if user.is_owner %}
+<section class="card" id="ziele">
+  <h2 class="card-h">{{ _("Backup-Ziele") }}</h2>
+  <p class="faint small">{{ _("Wohin automatische Backups geschrieben werden: ein Laufwerk im Hatchtower-Container oder eine SMB-Freigabe im Netz. Nur Owner sehen und ändern die Ziele.") }}</p>
+  {% if targets_view %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Ort") }}</th><th class="num">{{ _("Frei") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for x in targets_view %}
+      <tr>
+        <td><strong>{{ x.t.name }}</strong>{% if x.jobs %}<div class="faint small">{{ _("{n} Job(s)", n=x.jobs) }}</div>{% endif %}</td>
+        <td data-label="{{ _("Ort") }}"><span class="badge">{{ "SMB" if x.t.kind == "smb" else _("Laufwerk") }}</span> <span class="mono">{{ x.where }}</span>{% if x.system_disk %} <span class="badge badge-warn" title="{{ _("Backups auf derselben Platte wie Hatchtower selbst schützen nicht vor einem Plattendefekt und können sie volllaufen lassen.") }}">{{ _("Systemplatte") }}</span>{% endif %}
+          {% if x.t.kind == "smb" %}<div class="faint small">{{ _("Benutzer: {user}", user=x.t.smb_user or _("Gast")) }}{% if x.has_password %} · {{ _("Passwort gespeichert") }}{% endif %}</div>{% endif %}
+          {% if x.checked %}
+          <div class="small target-check">{{ _("Letzte Prüfung: {zeit}", zeit=x.checked) }} ·
+            {% if x.t.check_ok %}<span class="good">{{ _("Schreiben und Löschen klappt") }}</span>{% if x.t.check_free is not none %} · {{ _("{free} frei", free=x.free) }}{% endif %}
+            {% else %}<span class="bad">{{ _("fehlgeschlagen: {grund}", grund=x.t.check_error or "?") }}</span>{% endif %}
+          </div>
+          {% else %}<div class="faint small">{{ _("Noch nicht geprüft – „Testen“ klicken.") }}</div>{% endif %}
+          <details class="target-edit">
+            <summary class="small">{{ _("Bearbeiten") }}</summary>
+            <form method="post" action="/admin/backups/targets/{{ x.t.id }}" class="form">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <label>{{ _("Name") }}<input name="name" required maxlength="60" value="{{ x.t.name }}"></label>
+              {% if x.t.kind == "smb" %}
+              <div class="form-grid">
+                <label>{{ _("Server (Name oder IP)") }}<input name="smb_host" required maxlength="253" value="{{ x.t.smb_host }}" spellcheck="false"></label>
+                <label>{{ _("Freigabe") }}<input name="smb_share" required maxlength="80" value="{{ x.t.smb_share }}" spellcheck="false"></label>
+                <label>{{ _("Unterordner (optional)") }}<input name="subdir" maxlength="200" value="{{ x.t.path }}" spellcheck="false"></label>
+                <label>{{ _("SMB|Benutzer") }}<input name="smb_user" maxlength="120" value="{{ x.t.smb_user or '' }}" autocomplete="off" spellcheck="false"></label>
+                <label>{{ _("Passwort") }}<input name="smb_password" type="password" maxlength="256" autocomplete="new-password" placeholder="{{ _("leer lassen = unverändert") }}"></label>
+              </div>
+              {% if x.has_password %}<label class="check"><input type="checkbox" name="smb_password_clear" value="1"> {{ _("Gespeichertes Passwort entfernen") }}</label>{% endif %}
+              <p class="faint small">{{ _("Beim Speichern prüft Hatchtower die Verbindung (Ordner anlegen, Testdatei schreiben und löschen).") }}</p>
+              {% endif %}
+              <button class="btn btn-ghost btn-sm" type="submit">{{ _("Speichern") }}</button>
+            </form>
+          </details>
+        </td>
+        <td class="num nowrap" data-label="{{ _("Frei") }}">{{ x.free or ("–" if x.t.kind == "smb" else _("nicht erreichbar")) }}</td>
+        <td class="num row-actions">
+          <form method="post" action="/admin/backups/targets/{{ x.t.id }}/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-ghost" type="submit">{{ _("Testen") }}</button></form>
+          {% if not x.jobs %}<form method="post" action="/admin/backups/targets/{{ x.t.id }}/delete" data-confirm="{{ _("Ziel „{name}“ entfernen? Die Dateien darin bleiben erhalten.", name=x.t.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Entfernen") }}</button></form>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+
+  <details class="legend" {% if not targets_view %}open{% endif %}>
+    <summary>{{ _("Neues Ziel anlegen") }}</summary>
+    <form method="post" action="/admin/backups/targets" class="form" id="target-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <fieldset class="perm-group">
+        <legend>{{ _("Art") }}</legend>
+        <label class="check"><input type="radio" name="kind" value="local" checked> {{ _("Laufwerk im Hatchtower-Container (Proxmox-Mountpoint, USB, NFS)") }}</label>
+        <label class="check"><input type="radio" name="kind" value="smb"> {{ _("SMB-Freigabe im Netz (Windows, NAS, Samba)") }}</label>
+      </fieldset>
+      <div class="form-grid">
+        <label>{{ _("Name") }}<input name="name" required maxlength="60" placeholder="{{ _("USB-Platte") }}"></label>
+        <label data-kind="local">{{ _("Speicherort") }}
+          <select name="mount">
+            {% for m in mounts %}<option value="{{ m.path }}">{{ m.path }} – {{ m.fstype }}{% if m.free_text %}, {{ _("{free} frei", free=m.free_text) }}{% endif %}</option>{% endfor %}
+            <option value="data">{{ _("Systemplatte von Hatchtower ({path})", path=data_dir) }}</option>
+          </select>
+        </label>
+        <label data-kind="smb" hidden>{{ _("Server (Name oder IP)") }}<input name="smb_host" maxlength="253" placeholder="192.168.178.20" spellcheck="false"></label>
+        <label data-kind="smb" hidden>{{ _("Freigabe") }}<input name="smb_share" maxlength="80" placeholder="backup" spellcheck="false"></label>
+        <label>{{ _("Unterordner (optional)") }}<input name="subdir" maxlength="200" placeholder="hatchtower" spellcheck="false"></label>
+        <label data-kind="smb" hidden>{{ _("SMB|Benutzer") }}<input name="smb_user" maxlength="120" autocomplete="off" spellcheck="false" placeholder="{{ _("leer = Gast") }}"></label>
+        <label data-kind="smb" hidden>{{ _("Passwort") }}<input name="smb_password" type="password" maxlength="256" autocomplete="new-password"></label>
+      </div>
+      <p class="faint small" data-kind="smb" hidden>{{ _("Das Passwort wird verschlüsselt gespeichert. Am besten ein eigenes Konto auf dem NAS anlegen, das nur in diese Freigabe schreiben darf. Beim Anlegen prüft Hatchtower die Verbindung.") }}</p>
+      {% if not mounts %}<p class="faint small" data-kind="local">{{ _("Es ist noch kein zusätzliches Laufwerk eingehängt. Ohne Laufwerk landen die Backups auf der Systemplatte von Hatchtower – das schützt nicht vor einem Plattendefekt und kann sie volllaufen lassen.") }}</p>{% endif %}
+      <button class="btn btn-primary" type="submit">{{ _("Ziel anlegen") }}</button>
+    </form>
+    <details class="legend">
+      <summary>{{ _("Laufwerk, NFS oder USB-Platte einhängen (Proxmox)") }}</summary>
+      <ol class="small muted backup-howto">
+        <li>{{ _("Auf dem Proxmox-Host das Laufwerk bzw. die NFS-Freigabe einhängen, z. B. unter /mnt/backup.") }}</li>
+        <li>{{ _("An den Hatchtower-Container durchreichen (Ziel muss unter /mnt, /media oder /srv liegen):") }} <code class="mono copyable">pct set &lt;CT-ID&gt; -mp0 /mnt/backup,mp=/mnt/backup</code></li>
+        <li>{{ _("Schreibrecht für den Hatchtower-Dienst geben (unprivilegierter Container):") }} <code class="mono copyable">chown -R {{ host_uid }}:{{ host_gid }} /mnt/backup</code></li>
+        <li>{{ _("Container neu starten und diese Seite neu laden – das Laufwerk erscheint dann oben in der Auswahl.") }}</li>
+      </ol>
+    </details>
+  </details>
+</section>
+{% endif %}
+{% endblock %}

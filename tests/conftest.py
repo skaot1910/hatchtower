@@ -29,10 +29,11 @@ os.environ["HATCHTOWER_DATA_DIR"] = str(_TMP / "unused")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from hatchtower import accounts, db, main, permissions, security, setup  # noqa: E402
+from hatchtower import accounts, backups, db, main, permissions, security, setup  # noqa: E402
 from hatchtower.ptero import READ_METHODS, PteroClient, ReadOnlyViolation  # noqa: E402
 
 PASSWORD = "Sehr-Langes-Passwort-123"
+FEED_URL = "https://discord.com/api/webhooks/123456789012345678/" + "f" * 68
 _HASH = security.hash_password(PASSWORD)   # einmal berechnen, Argon2 ist absichtlich langsam
 
 
@@ -220,7 +221,8 @@ def world(monkeypatch, tmp_path) -> World:
     main.app.state.automation = SimpleNamespace(client=ptero, note_power=noop, set_timezone=noop)
     main.app.state.logarchive = SimpleNamespace(client=ptero)
     main.app.state.updates = FakeUpdates()
-    main.app.state.statusfeed = SimpleNamespace(last_ok=None, last_error=None, request_update=noop)
+    main.app.state.statusfeed = SimpleNamespace(last_ok={}, last_error={}, request_update=noop, remove=noop)
+    main.app.state.backups = backups.BackupManager(main.app.state, main.vault, s)   # ohne Hintergrundaufgaben
     monkeypatch.setattr(main, "console_stream", fake_console)
     monkeypatch.setattr(main, "load_connection", noop)
     monkeypatch.setattr(main, "PteroClient", lambda settings: ptero)
@@ -243,6 +245,22 @@ def world(monkeypatch, tmp_path) -> World:
                           (db.utcnow(),)).lastrowid
         aid = con.execute("INSERT INTO announcements (text, level, created_by, created_at) VALUES"
                           " ('Wartung', 'info', 1, ?)", (db.utcnow(),)).lastrowid
+        # Backup: Ziel im Datenordner, Job „ganzer Server srv-a“, ein gespeichertes Backup
+        tid = con.execute("INSERT INTO backup_targets (name, kind, path, created_at) VALUES ('Platte', 'local', ?, ?)",
+                          (str(tmp_path / "bk"), db.utcnow())).lastrowid
+        jid = con.execute("INSERT INTO backup_jobs (name, target_id, created_by, created_at) VALUES ('Welt', ?, 1, ?)",
+                          (tid, db.utcnow())).lastrowid
+        con.execute("INSERT INTO backup_job_items (job_id, identifier, path) VALUES (?, 'srv-a', '/')", (jid,))
+        rid = con.execute("INSERT INTO backup_runs (batch, job_id, job_name, identifier, server_name, target_id, kind,"
+                          " file, size, status, queued_at, finished_at) VALUES ('b1', ?, 'Welt', 'srv-a', 'Server srv-a',"
+                          " ?, 'target', 'Welt/Server_srv-a/alt.zip', 22, 'ok', ?, ?)",
+                          (jid, tid, db.utcnow(), db.utcnow())).lastrowid
+    with db.connect() as con:
+        fid = con.execute("INSERT INTO status_feeds (name, url_enc, fields, created_at) VALUES ('Clan', ?, 'name,status', ?)",
+                          (main.vault.encrypt(FEED_URL), db.utcnow())).lastrowid
+        con.execute("INSERT INTO status_feed_servers (feed_id, identifier) VALUES (?, 'srv-a')", (fid,))
+    (tmp_path / "bk" / "Welt" / "Server_srv-a").mkdir(parents=True)
+    (tmp_path / "bk" / "Welt" / "Server_srv-a" / "alt.zip").write_bytes(b"PK\x05\x06" + b"\x00" * 18)
     for key, value in {"brand_logo_header": "f" * 32 + ".webp", "mail_password_enc": main.vault.encrypt("smtp"),
                        "status_enabled": "1", "legal_impressum_enabled": "1",
                        "legal_impressum_text": "Hallo"}.items():
@@ -251,6 +269,7 @@ def world(monkeypatch, tmp_path) -> World:
     invite = accounts.create("invite", data={"role": "user"}, created_by=1)
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
+        "job_id": str(jid), "feed_id": str(fid), "run_id": str(rid), "target_id": str(tid),
         "token_hash": accounts._hash(invite), "kind": "header", "page": "impressum", "key": "hell", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,

@@ -17,6 +17,8 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/var/lib/hatchtower
+# Backup-Ziele: durchgereichte Laufwerke (Proxmox-Mountpoints) unter /mnt, /media oder /srv
+ReadWritePaths=-/mnt -/media -/srv
 UMask=0027
 # Zusätzliche Abschottung: keine Sonderrechte, kein Zugriff auf Kernel-Einstellungen
 CapabilityBoundingSet=

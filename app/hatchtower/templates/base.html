@@ -40,6 +40,9 @@
     {% if user.can_automate %}
     <a href="/admin/automation" class="{% if request.url.path.startswith('/admin/automation') %}active{% endif %}">{{ _("Automationen") }}</a>
     {% endif %}
+    {% if user.can_backup %}
+    <a href="/admin/backups" class="{% if request.url.path.startswith('/admin/backups') %}active{% endif %}">{{ _("Backups") }}</a>
+    {% endif %}
     {% if user.is_owner %}
     <a href="/admin/audit" class="{% if request.url.path.startswith('/admin/audit') %}active{% endif %}">{{ _("Audit-Log") }}</a>
     <a href="/admin/system" class="{% if in_system %}active{% endif %}">{{ _("System") }}{% if update_available %} <span class="nav-dot" title="{{ _("Neue Version verfügbar") }}"></span>{% endif %}</a>

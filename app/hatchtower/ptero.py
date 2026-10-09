@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
 from urllib.parse import urlsplit, urlunsplit
@@ -51,6 +52,10 @@ class ServerInfo:
 
 
 class PteroClient:
+    # Zuletzt gemeldetes Rate-Limit des Panels: (Limit pro Minute, verbleibend, Zeitpunkt). Es gilt pro
+    # API-Key für alle Instanzen zusammen; Backups richten sich danach, damit das Monitoring Luft behält.
+    rate: tuple[int, int, float] | None = None
+
     def __init__(self, settings: Settings):
         self.settings = settings
         self._http = httpx.AsyncClient(
@@ -88,6 +93,9 @@ class PteroClient:
                 )
             except httpx.HTTPError as exc:
                 raise PteroError(t("Pterodactyl nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+            limit, remaining = response.headers.get("x-ratelimit-limit", ""), response.headers.get("x-ratelimit-remaining", "")
+            if limit.isdigit() and remaining.isdigit():
+                self.rate = (int(limit), int(remaining), time.monotonic())
             # Rate-Limit des Panels: lesende Anfragen kurz warten und wiederholen
             if response.status_code != 429 or method.upper() not in READ_METHODS or attempt == 3:
                 break

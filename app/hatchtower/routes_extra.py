@@ -107,18 +107,23 @@ def status_fields() -> set[str]:
     return {f for f in raw.split(",") if f in STATUS_FIELDS}
 
 
-def status_servers(fields: set[str] | None = None) -> list[dict]:
-    """Nur die eingeschalteten Angaben verlassen den Server – auch in status.json und Discord."""
+def status_servers(fields: set[str] | None = None, idents: set[str] | None = None) -> list[dict]:
+    """Nur die eingeschalteten Angaben verlassen den Server – auch in status.json und Discord.
+    Ohne idents: die Server der Statusseite, sonst genau diese (Auswahl eines Discord-Kanals)."""
     host = db.get_setting("public_host")
     fields = status_fields() if fields is None else fields
+    if idents is None:
+        where, params = "m.on_status = 1", ()
+    else:
+        where, params = f"s.identifier IN ({','.join('?' * len(idents)) or 'NULL'})", tuple(idents)
     with db.connect() as con:
         rows = con.execute(
             "SELECT s.identifier, s.name, s.egg, s.primary_port, s.suspended, s.startup_name, s.startup_password_enc,"
             " st.state, st.updated_at, st.query_name, st.last_started_at, st.last_stopped_at, m.logo_file, m.public_address,"
             " m.ingame_name, m.game_name, m.password_enc"
             " FROM servers s LEFT JOIN server_state st ON st.identifier = s.identifier"
-            " JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1 AND m.on_status = 1"
-            " ORDER BY s.name COLLATE NOCASE").fetchall()
+            f" LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1 AND {where}"
+            " ORDER BY s.name COLLATE NOCASE", params).fetchall()
     result = []
     for r in rows:
         state = "suspended" if r["suspended"] else ("unknown" if is_stale(r["updated_at"]) else (r["state"] or "unknown"))
@@ -149,9 +154,8 @@ def status_servers(fields: set[str] | None = None) -> list[dict]:
     return result
 
 
-def discord_fields() -> set[str]:
-    raw = db.get_setting("status_discord_fields", DISCORD_DEFAULT)
-    return {f for f in raw.split(",") if f in DISCORD_FIELDS}
+def feed_fields(feed) -> set[str]:
+    return {f for f in (feed["fields"] or "").split(",") if f in DISCORD_FIELDS}
 
 
 def status_enabled() -> bool:
@@ -234,15 +238,15 @@ def status_incidents(servers: list[dict], fields: set[str]) -> list[dict]:
     return items[:30]
 
 
-def discord_status_view() -> tuple[str, list[dict], set[str], str, str]:
-    """Dieselben Angaben wie auf der Statusseite, für die Nachricht in Discord, dazu die Links
-    zur Statusseite (nur wenn eingeschaltet) und zur Übersicht der Verwaltung."""
-    fields = discord_fields()
-    servers = status_servers(fields)
+def discord_status_view(feed) -> tuple[str, list[dict], set[str], str, str]:
+    """Die Nachricht eines Discord-Kanals: seine Server und Angaben, dazu die Links zur Statusseite
+    (nur wenn eingeschaltet) und zur Übersicht der Verwaltung."""
+    fields = feed_fields(feed)
+    servers = status_servers(fields, statusfeed.feed_servers(feed["id"]))
     base = db.get_setting("status_discord_link").removesuffix("/status")    # beim Speichern gemerkt
     link = f"{base}/status" if base and status_enabled() else ""
-    return (db.get_setting("status_title") or load_brand()["name"], servers, fields, link,
-            f"{base}/" if base else "")
+    title = feed["title"] or db.get_setting("status_title") or load_brand()["name"]
+    return title, servers, fields, link, f"{base}/" if base else ""
 
 
 @app.get("/status.json")
@@ -501,6 +505,7 @@ async def account_delete(request: Request, current: str = Form(""), confirm: str
     with db.connect() as con:
         if row["role"] != "owner":
             con.execute("DELETE FROM schedules WHERE created_by = ?", (user.id,))
+            con.execute("DELETE FROM backup_jobs WHERE created_by = ?", (user.id,))
         con.execute("DELETE FROM users WHERE id = ?", (user.id,))
     response = back("/login", "Dein Konto wurde gelöscht.")
     response.delete_cookie(security.SESSION_COOKIE)
@@ -767,64 +772,155 @@ async def admin_notify_test(request: Request):
     return back("/admin/notify", "Testnachricht verschickt")
 
 
-# == System: Statusseite ==============================================================================
+# == System: Statusseite und Discord ===================================================================
+
+STATUSPAGE = "/admin/statuspage"
+
+
+def present_servers() -> list:
+    with db.connect() as con:
+        return con.execute("SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg,"
+                           " COALESCE(m.on_status, 0) AS on_status FROM servers s"
+                           " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
+                           " ORDER BY s.name COLLATE NOCASE").fetchall()
+
 
 @app.get("/admin/statuspage", response_class=HTMLResponse)
 async def admin_statuspage(request: Request):
     require_owner(request)
-    with db.connect() as con:
-        servers = con.execute("SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg, COALESCE(m.on_status, 0) AS on_status FROM servers s"
-                              " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
-                              " ORDER BY s.name COLLATE NOCASE").fetchall()
-    discord_url = vault.decrypt(db.get_setting("status_discord_url_enc")) or ""
     feed = request.app.state.statusfeed
-    return render(request, "admin_statuspage.html", servers=servers, enabled=status_enabled(),
+    feeds = []
+    for f in statusfeed.load_feeds():
+        url = vault.decrypt(f["url_enc"]) or ""
+        feeds.append({"f": f, "servers": statusfeed.feed_servers(f["id"]), "fields": feed_fields(f),
+                      "hint": (url[:45] + "…") if url else "",
+                      "ok": fmt_dt(feed.last_ok[f["id"]], settings.timezone, seconds=True) if f["id"] in feed.last_ok else None,
+                      "error": feed.last_error.get(f["id"])})
+    return render(request, "admin_statuspage.html", servers=present_servers(), enabled=status_enabled(),
                   fields=STATUS_FIELDS, active_fields=status_fields(),
                   status_title=db.get_setting("status_title"), status_url=f"{link_base(request)}/status",
-                  discord_enabled=statusfeed.enabled(), discord_field_names=DISCORD_FIELDS,
-                  discord_active=discord_fields(), discord_set=bool(discord_url),
-                  discord_hint=(discord_url[:45] + "…") if discord_url else "",
-                  discord_ok=fmt_dt(feed.last_ok, settings.timezone, seconds=True) if feed.last_ok else None,
-                  discord_error=feed.last_error)
+                  feeds=feeds, discord_field_names=DISCORD_FIELDS, discord_default=set(DISCORD_DEFAULT.split(",")))
 
 
 @app.post("/admin/statuspage")
-async def admin_statuspage_save(request: Request, enabled: str = Form(""), title: str = Form(""),
-                                discord_enabled: str = Form(""), discord_url: str = Form(""),
-                                discord_remove: str = Form("")):
+async def admin_statuspage_save(request: Request, enabled: str = Form(""), title: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     form = await request.form()
     chosen = {k.split("__", 1)[1] for k in form.keys() if k.startswith("show__")}
     known = server_names()
+    fields = [f for f in STATUS_FIELDS if form.get(f"field__{f}")]
+    if "password" in fields and not form.get("password_confirm"):
+        return back(STATUSPAGE, "Passwörter wurden nicht freigegeben: Bitte bestätige ausdrücklich, dass sie öffentlich sichtbar werden.")
     with db.connect() as con:
         for ident in known:
             con.execute("INSERT OR IGNORE INTO server_meta (identifier) VALUES (?)", (ident,))
             con.execute("UPDATE server_meta SET on_status = ? WHERE identifier = ?", (1 if ident in chosen else 0, ident))
-    fields = [f for f in STATUS_FIELDS if form.get(f"field__{f}")]
-    if "password" in fields and not form.get("password_confirm"):
-        return back("/admin/statuspage", "Passwörter wurden nicht freigegeben: Bitte bestätige ausdrücklich, dass sie öffentlich sichtbar werden.")
-    discord_url = discord_url.strip()
-    if discord_url and not statusfeed.valid_url(discord_url):
-        return back("/admin/statuspage", "Bitte eine Discord-Webhook-Adresse eingeben (https://discord.com/api/webhooks/…)")
-    dfields = [f for f in DISCORD_FIELDS if form.get(f"discord_field__{f}")]
-    if "password" in dfields and not form.get("discord_password_confirm"):
-        return back("/admin/statuspage", "Passwörter wurden nicht freigegeben: Bitte bestätige ausdrücklich, dass sie im Discord-Kanal sichtbar werden.")
     db.set_setting("status_enabled", "1" if enabled else "0", owner.id)
     db.set_setting("status_title", " ".join(title.split())[:60], owner.id)
     db.set_setting("status_fields", ",".join(fields), owner.id)
-    if discord_url or discord_remove:
-        db.set_setting("status_discord_url_enc", vault.encrypt(discord_url) if discord_url else "", owner.id)
-        db.set_setting("status_discord_msg", "", owner.id)       # neuer Webhook: neue Nachricht posten
-    db.set_setting("status_discord_enabled", "1" if discord_enabled else "0", owner.id)
-    db.set_setting("status_discord_fields", ",".join(dfields), owner.id)
     db.set_setting("status_discord_link", f"{link_base(request)}/status", owner.id)
-    request.app.state.statusfeed.request_update(reset=bool(discord_url or discord_remove))
+    request.app.state.statusfeed.request_update()       # Link zur Statusseite in Discord an/aus
     owner_audit(request, owner, "settings.status", detail={"enabled": bool(enabled), "angaben": fields,
-                                                            "discord": bool(discord_enabled), "discord_angaben": dfields,
-                                                            "webhook": "neu" if discord_url else ("entfernt" if discord_remove else "unverändert"),
                                                             "servers": sorted(known[i] for i in chosen if i in known)})
-    return back("/admin/statuspage", "Statusseite gespeichert")
+    return back(STATUSPAGE, "Statusseite gespeichert")
+
+
+def feed_form(form, feed=None) -> tuple[dict | None, set[str], str | None]:
+    """Liest das Formular eines Discord-Kanals. Leere Webhook-Adresse behält beim Bearbeiten die gespeicherte."""
+    name = " ".join(str(form.get("name", "")).split())[:60]
+    url = str(form.get("url", "")).strip()
+    if not name:
+        return None, set(), "Bitte einen Namen für den Kanal angeben"
+    if url and not statusfeed.valid_url(url):
+        return None, set(), "Bitte eine Discord-Webhook-Adresse eingeben (https://discord.com/api/webhooks/…)"
+    if not url and feed is None:
+        return None, set(), "Bitte eine Discord-Webhook-Adresse eingeben (https://discord.com/api/webhooks/…)"
+    fields = [f for f in DISCORD_FIELDS if form.get(f"field__{f}")]
+    if "password" in fields and not form.get("password_confirm"):
+        return None, set(), "Passwörter wurden nicht freigegeben: Bitte bestätige ausdrücklich, dass sie im Discord-Kanal sichtbar werden."
+    known = server_names()
+    servers = {k.split("__", 1)[1] for k in form.keys() if k.startswith("show__")} & set(known)
+    values = {"name": name, "enabled": 1 if form.get("enabled") else 0,
+              "title": " ".join(str(form.get("title", "")).split())[:60] or None, "fields": ",".join(fields)}
+    if url:
+        values["url_enc"] = vault.encrypt(url)
+        values["msg_ids"] = ""          # neuer Webhook: neue Nachricht posten
+    return values, servers, None
+
+
+def save_feed_servers(con, feed_id: int, servers: set[str]) -> None:
+    con.execute("DELETE FROM status_feed_servers WHERE feed_id = ?", (feed_id,))
+    con.executemany("INSERT INTO status_feed_servers (feed_id, identifier) VALUES (?, ?)",
+                    [(feed_id, i) for i in sorted(servers)])
+
+
+@app.post("/admin/statuspage/discord")
+async def admin_feed_create(request: Request):
+    owner = require_owner(request)
+    await check_csrf(request)
+    values, servers, error = feed_form(await request.form())
+    if error:
+        return back(STATUSPAGE + "#discord", error)
+    values["created_at"] = values["updated_at"] = db.utcnow()
+    with db.connect() as con:
+        feed_id = con.execute(f"INSERT INTO status_feeds ({', '.join(values)}) VALUES ({', '.join('?' * len(values))})",
+                              tuple(values.values())).lastrowid
+        save_feed_servers(con, feed_id, servers)
+    db.set_setting("status_discord_link", f"{link_base(request)}/status", owner.id)
+    request.app.state.statusfeed.request_update(feed_id, reset=True)
+    known = server_names()
+    owner_audit(request, owner, "settings.status", detail={"discord_kanal": values["name"], "neu": True,
+                                                            "angaben": values["fields"].split(","),
+                                                            "servers": sorted(known[i] for i in servers)})
+    return back(STATUSPAGE + "#discord", i18n.t("Discord-Kanal „{name}“ angelegt", name=values["name"]))
+
+
+def load_feed(feed_id: int):
+    with db.connect() as con:
+        return con.execute("SELECT * FROM status_feeds WHERE id = ?", (feed_id,)).fetchone()
+
+
+@app.post("/admin/statuspage/discord/{feed_id}")
+async def admin_feed_update(request: Request, feed_id: int):
+    owner = require_owner(request)
+    await check_csrf(request)
+    feed = load_feed(feed_id)
+    if feed is None:
+        return back(STATUSPAGE + "#discord")
+    form = await request.form()
+    values, servers, error = feed_form(form, feed)
+    if error:
+        return back(STATUSPAGE + "#discord", error)
+    old_url = vault.decrypt(feed["url_enc"]) if "url_enc" in values else None
+    values["updated_at"] = db.utcnow()
+    with db.connect() as con:
+        con.execute(f"UPDATE status_feeds SET {', '.join(f'{k} = ?' for k in values)} WHERE id = ?",
+                    (*values.values(), feed_id))
+        save_feed_servers(con, feed_id, servers)
+    if old_url:                              # neuer Webhook: alte Nachrichten im alten Kanal aufräumen
+        request.app.state.statusfeed.remove(old_url, feed["msg_ids"])
+    db.set_setting("status_discord_link", f"{link_base(request)}/status", owner.id)
+    request.app.state.statusfeed.request_update(feed_id, reset="url_enc" in values)
+    known = server_names()
+    owner_audit(request, owner, "settings.status", detail={
+        "discord_kanal": values["name"], "aktiv": bool(values["enabled"]), "angaben": values["fields"].split(","),
+        "webhook": "neu" if "url_enc" in values else "unverändert", "servers": sorted(known[i] for i in servers)})
+    return back(STATUSPAGE + "#discord", i18n.t("Discord-Kanal „{name}“ gespeichert", name=values["name"]))
+
+
+@app.post("/admin/statuspage/discord/{feed_id}/delete")
+async def admin_feed_delete(request: Request, feed_id: int):
+    owner = require_owner(request)
+    await check_csrf(request)
+    feed = load_feed(feed_id)
+    if feed is None:
+        return back(STATUSPAGE + "#discord")
+    with db.connect() as con:
+        con.execute("DELETE FROM status_feeds WHERE id = ?", (feed_id,))
+    request.app.state.statusfeed.remove(vault.decrypt(feed["url_enc"]), feed["msg_ids"])
+    owner_audit(request, owner, "settings.status", detail={"discord_kanal": feed["name"], "geloescht": True})
+    return back(STATUSPAGE + "#discord", i18n.t("Discord-Kanal „{name}“ entfernt", name=feed["name"]))
 
 
 # == System: Ankündigungen ============================================================================

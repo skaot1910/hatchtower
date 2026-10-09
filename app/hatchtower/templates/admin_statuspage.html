@@ -27,35 +27,81 @@
     <p class="faint small">{{ _("Logo und Spiel werden immer angezeigt. Ohne Servernamen steht der Ingame-Servername als Überschrift.") }}</p>
   </section>
   <section class="card">
-    <h2 class="card-h">{{ _("Diese Server anzeigen") }}</h2>
+    <h2 class="card-h">{{ _("Diese Server auf der Statusseite") }}</h2>
     <p class="faint small">{{ _("Als Adresse erscheint die öffentliche Adresse. Die interne IP wird nie gezeigt.") }}</p>
     <div class="toggle-list">
       {% for s in servers %}<label class="check"><input type="checkbox" name="show__{{ s.identifier }}" value="1" {% if s.on_status %}checked{% endif %}> {{ s.name }} <span class="faint small">{{ s.egg }}</span></label>{% endfor %}
     </div>
   </section>
-  <section class="card">
-    <h2 class="card-h">{{ _("In Discord anzeigen") }}</h2>
-    <p class="faint small">{{ _("Hatchtower postet eine Nachricht in einen Discord-Kanal (bei vielen Servern mehrere) und hält sie aktuell (Prüfung jede Minute). Es erscheinen dieselben Server wie auf der Statusseite, die Angaben wählst du hier getrennt aus. Oben stehen Links zur Statusseite und zur Serververwaltung. Am besten einen eigenen Kanal nehmen, in dem nur Hatchtower schreibt.") }}</p>
-    <label class="check"><input type="checkbox" name="discord_enabled" value="1" {% if discord_enabled %}checked{% endif %}> {{ _("Status in Discord anzeigen") }}</label>
-    <label>{{ _("Webhook-Adresse") }}
-      <input name="discord_url" type="url" autocomplete="off" spellcheck="false" placeholder="{{ (_('gespeichert: {key} – leer lassen, um ihn zu behalten', key=discord_hint)) if discord_set else 'https://discord.com/api/webhooks/…' }}">
-    </label>
-    {% if discord_set %}<label class="check"><input type="checkbox" name="discord_remove" value="1"> {{ _("Gespeicherten Webhook entfernen") }}</label>{% endif %}
-    <p class="faint small">{{ _("Discord: Kanal-Einstellungen → Integrationen → Webhooks → Neuer Webhook → URL kopieren. Die Adresse wird verschlüsselt gespeichert.") }}</p>
-    {% if discord_enabled and discord_set %}
-      {% if discord_error %}<p class="small bad">{{ _("Letzter Versuch fehlgeschlagen: {grund}", grund=discord_error) }}</p>
-      {% elif discord_ok %}<p class="small good">{{ _("Zuletzt aktualisiert: {zeit}", zeit=discord_ok) }}</p>{% endif %}
-    {% endif %}
-    <h3 class="small">{{ _("Diese Angaben in Discord anzeigen") }}</h3>
-    <div class="toggle-list">
-      {% for key, label in discord_field_names.items() if key != 'password' %}<label class="check"><input type="checkbox" name="discord_field__{{ key }}" value="1" {% if key in discord_active %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
-    </div>
-    <div class="danger-box">
-      <label class="check"><input type="checkbox" name="discord_field__password" value="1" {% if 'password' in discord_active %}checked{% endif %}> {{ _("Serverpasswort anzeigen") }}</label>
-      <p class="small">{{ _("Jeder, der den Kanal sehen kann, kann dann die Passwörter der angezeigten Server lesen (als Spoiler versteckt).") }}</p>
-      <label class="check"><input type="checkbox" name="discord_password_confirm" value="1" {% if 'password' in discord_active %}checked{% endif %}> {{ _("Ich habe verstanden, dass die Passwörter im Kanal sichtbar sind.") }}</label>
-    </div>
-  </section>
-  <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  <button class="btn btn-primary" type="submit">{{ _("Statusseite speichern") }}</button>
 </form>
+
+{% macro feed_fields(prefix, f, servers, active, chosen) %}
+  <div class="form-grid">
+    <label>{{ _("Name (nur für dich)") }}<input name="name" required maxlength="60" value="{{ f.name if f else '' }}" placeholder="{{ _("Community-Discord") }}"></label>
+    <label>{{ _("Überschrift in Discord (optional)") }}<input name="title" maxlength="60" value="{{ (f.title or '') if f else '' }}" placeholder="{{ status_title or brand.name }}"></label>
+  </div>
+  <label>{{ _("Webhook-Adresse") }}
+    <input name="url" type="url" autocomplete="off" spellcheck="false" {% if not f %}required{% endif %} placeholder="{{ (_('gespeichert: {key} – leer lassen, um ihn zu behalten', key=prefix)) if f else 'https://discord.com/api/webhooks/…' }}">
+  </label>
+  <label class="check"><input type="checkbox" name="enabled" value="1" {% if not f or f.enabled %}checked{% endif %}> {{ _("Aktiv (Nachricht wird aktuell gehalten)") }}</label>
+  <div class="two-col feed-cols">
+    <fieldset class="perm-group">
+      <legend>{{ _("Diese Server") }}</legend>
+      <div class="toggle-list">
+        {% for s in servers %}<label class="check"><input type="checkbox" name="show__{{ s.identifier }}" value="1" {% if s.identifier in chosen %}checked{% endif %}> {{ s.name }} <span class="faint small">{{ s.egg }}</span></label>{% else %}<span class="faint">{{ _("Keine Server vorhanden.") }}</span>{% endfor %}
+      </div>
+    </fieldset>
+    <fieldset class="perm-group">
+      <legend>{{ _("Diese Angaben") }}</legend>
+      <div class="toggle-list">
+        {% for key, label in discord_field_names.items() if key != 'password' %}<label class="check"><input type="checkbox" name="field__{{ key }}" value="1" {% if key in active %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
+      </div>
+      <div class="danger-box">
+        <label class="check"><input type="checkbox" name="field__password" value="1" {% if 'password' in active %}checked{% endif %}> {{ _("Serverpasswort anzeigen") }}</label>
+        <p class="small">{{ _("Jeder, der den Kanal sehen kann, kann dann die Passwörter der angezeigten Server lesen (als Spoiler versteckt).") }}</p>
+        <label class="check"><input type="checkbox" name="password_confirm" value="1" {% if 'password' in active %}checked{% endif %}> {{ _("Ich habe verstanden, dass die Passwörter im Kanal sichtbar sind.") }}</label>
+      </div>
+    </fieldset>
+  </div>
+{% endmacro %}
+
+<section class="card" id="discord">
+  <h2 class="card-h">{{ _("In Discord anzeigen") }}</h2>
+  <p class="faint small">{{ _("Hatchtower postet in jeden Kanal eine Nachricht (bei vielen Servern mehrere) und hält sie aktuell (Prüfung jede Minute). Jeder Kanal hat seine eigene Server-Auswahl und eigene Angaben – unabhängig von der Statusseite. Oben stehen Links zur Statusseite (wenn eingeschaltet) und zur Serververwaltung. Am besten jeweils einen eigenen Kanal nehmen, in dem nur Hatchtower schreibt.") }}</p>
+  {% for x in feeds %}
+  <details class="feed" {% if feeds|length == 1 %}open{% endif %}>
+    <summary>
+      <strong>{{ x.f.name }}</strong>
+      {% if not x.f.enabled %}<span class="badge">{{ _("pausiert") }}</span>{% elif x.error %}<span class="badge badge-warn">{{ _("Fehler") }}</span>{% elif x.ok %}<span class="badge badge-ok">{{ _("aktuell") }}</span>{% endif %}
+      <span class="faint small">{{ _("{n} Server", n=x.servers|length) }}</span>
+    </summary>
+    {% if x.f.enabled %}
+      {% if x.error %}<p class="small bad">{{ _("Letzter Versuch fehlgeschlagen: {grund}", grund=x.error) }}</p>
+      {% elif x.ok %}<p class="small good">{{ _("Zuletzt aktualisiert: {zeit}", zeit=x.ok) }}</p>{% endif %}
+    {% endif %}
+    <form method="post" action="/admin/statuspage/discord/{{ x.f.id }}" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {{ feed_fields(x.hint, x.f, servers, x.fields, x.servers) }}
+      <div class="row-actions feed-actions">
+        <button class="btn btn-primary btn-sm" type="submit">{{ _("Kanal speichern") }}</button>
+      </div>
+    </form>
+    <form method="post" action="/admin/statuspage/discord/{{ x.f.id }}/delete" class="inline-form" data-confirm="{{ _("Discord-Kanal „{name}“ entfernen? Die Nachricht im Kanal wird gelöscht.", name=x.f.name) }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn btn-ghost btn-sm chip-danger" type="submit">{{ _("Kanal entfernen") }}</button>
+    </form>
+  </details>
+  {% endfor %}
+
+  <details class="legend" {% if not feeds %}open{% endif %}>
+    <summary>{{ _("Discord-Kanal hinzufügen") }}</summary>
+    <form method="post" action="/admin/statuspage/discord" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {{ feed_fields("", none, servers, discord_default, []) }}
+      <p class="faint small">{{ _("Discord: Kanal-Einstellungen → Integrationen → Webhooks → Neuer Webhook → URL kopieren. Die Adresse wird verschlüsselt gespeichert.") }}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Kanal hinzufügen") }}</button>
+    </form>
+  </details>
+</section>
 {% endblock %}

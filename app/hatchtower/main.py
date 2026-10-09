@@ -19,8 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
-from . import (APP_NAME, __version__, audit, automation, db, extras, i18n, legal, logarchive, logos, retention, security,
-               notify, setup, statusfeed, themes, updates, zipdownload)
+from . import (APP_NAME, __version__, audit, automation, backups, db, extras, i18n, legal, logarchive, logos, retention,
+               security, notify, setup, statusfeed, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, load_settings, parse_proxies
 from .monitor import Monitor
 from .permissions import (BY_KEY, PERMISSIONS, UserContext, describe_access, grouped_permissions, load_assignments,
@@ -109,12 +109,15 @@ async def lifespan(app: FastAPI):
     app.state.statusfeed.start()
     app.state.updates = updates.UpdateCheck()
     app.state.updates.start()
+    app.state.backups = backups.BackupManager(app.state, vault, settings)
+    app.state.backups.start()
     record_finished_update()
     cleanup_task = asyncio.create_task(retention.run_forever(), name="hatchtower-retention")
     log.info("%s %s gestartet (Modus: %s, Ziel: %s %s)", APP_NAME, __version__, settings.manager_mode,
              "Pterodactyl", settings.pterodactyl_url)
     yield
     cleanup_task.cancel()
+    await app.state.backups.stop()
     await app.state.statusfeed.stop()
     await app.state.updates.stop()
     await app.state.logarchive.stop()
@@ -311,7 +314,8 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
 def back(url: str, message: str | None = None) -> RedirectResponse:
     if message:
         message = i18n.t(message)
-        url += ("&" if "?" in url else "?") + "ok=" + quote(message)
+        url, hash_, anchor = url.partition("#")      # Meldung vor den Anker, sonst kommt sie nicht an
+        url += ("&" if "?" in url else "?") + "ok=" + quote(message) + hash_ + anchor
     return RedirectResponse(url, status_code=303)
 
 
@@ -861,7 +865,9 @@ async def files_page(request: Request, ident: str, dir: str = "/"):
                   parent=posixpath.dirname(directory) if directory != "/" else None, error=error,
                   can_download=user.can(ident, "sftp.download"), can_upload=user.can(ident, "sftp.upload"),
                   can_mkdir=user.can(ident, "sftp.create_directory"), can_rename=user.can(ident, "sftp.rename"),
-                  can_delete=user.can(ident, "sftp.delete"), can_edit=user.can(ident, "sftp.edit"))
+                  can_delete=user.can(ident, "sftp.delete"), can_edit=user.can(ident, "sftp.edit"),
+                  can_backup=user.can(ident, "backups.manage"),
+                  backup_jobs=routes_backup.jobs_for_explorer(user, ident))
 
 
 @app.get("/servers/{ident}/files/download")
@@ -1627,6 +1633,7 @@ async def admin_user_delete(request: Request, user_id: int):
     with db.connect() as con:
         if target["role"] != "owner":
             con.execute("DELETE FROM schedules WHERE created_by = ?", (user_id,))
+            con.execute("DELETE FROM backup_jobs WHERE created_by = ?", (user_id,))
         con.execute("DELETE FROM users WHERE id = ?", (user_id,))
     audit.record("user.delete", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"user": target["username"]})
@@ -1941,3 +1948,4 @@ async def admin_system(request: Request):
 
 # Weitere Seiten (Statusseite, E-Mail, Einladungen, Datenumzug, ...)
 from . import routes_extra  # noqa: E402,F401
+from . import routes_backup  # noqa: E402,F401

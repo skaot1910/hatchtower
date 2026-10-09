@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}{{ job.name }} · {{ _("Backups") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<a class="backlink" href="/admin/backups">← {{ _("Backups") }}</a>
+<div class="page-head">
+  <div><h1>{{ job.name }}</h1><p class="muted">{{ _("Backup-Job") }}{% if job.last_result %} · {{ _("zuletzt: {ergebnis}", ergebnis=job.last_result) }}{% endif %}</p></div>
+  {% if can_run and not active %}
+  <div class="row-actions">
+    {% if job.target_id %}
+    <form method="post" action="/admin/backups/jobs/{{ job.id }}/run"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="job"><button class="btn btn-primary btn-sm" type="submit">{{ _("Jetzt ausführen") }}</button></form>
+    {% endif %}
+    <form method="post" action="/admin/backups/jobs/{{ job.id }}/download" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn {% if job.target_id %}btn-ghost{% else %}btn-primary{% endif %} btn-sm" type="submit">{{ _("Jetzt ausführen und herunterladen") if job.target_id else _("Starten und herunterladen") }}</button></form>
+  </div>
+  {% endif %}
+</div>
+{% if active %}<div class="flash">{{ _("Dieser Job läuft gerade. Den Fortschritt siehst du in der Backup-Übersicht.") }}</div>{% endif %}
+
+<div class="two-col">
+  <section class="card">
+    <h2 class="card-h">{{ _("Inhalt") }}</h2>
+    {% if job.all_servers %}
+    <p>{{ _("Alle Server, auch künftige – jeweils komplett.") }}</p>
+    {% else %}
+      {% for it in items %}
+      <div class="backup-item">
+        <strong>{{ it.server }}</strong>
+        <ul class="backup-paths">
+          {% for p in it.paths %}
+          <li>
+            <span class="mono">{{ _("ganzer Server") if p == "/" else p }}</span>
+            <form method="post" action="/admin/backups/jobs/{{ job.id }}/items/remove">
+              <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="identifier" value="{{ it.ident }}"><input type="hidden" name="path" value="{{ p }}">
+              <button class="chip chip-sm chip-ghost" type="submit" aria-label="{{ _("{path} entfernen", path=p) }}">{{ _("Entfernen") }}</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <p class="faint">{{ _("Noch nichts ausgewählt.") }}</p>
+      {% endfor %}
+      {% if servers %}
+      <form method="post" action="/admin/backups/jobs/{{ job.id }}/items" class="form backup-add">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="form-grid">
+          <label>{{ _("Server") }}
+            <select name="identifier" required>
+              {% for ident, name in servers %}<option value="{{ ident }}">{{ name }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>{{ _("Pfad („/“ = ganzer Server)") }}<input name="path" value="/" maxlength="500" spellcheck="false"></label>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="submit">{{ _("Hinzufügen") }}</button>
+      </form>
+      <p class="faint small">{{ _("Einfacher: im Datei-Explorer des Servers Dateien und Ordner ankreuzen und „Zu Backup-Job hinzufügen“ wählen. Im ZIP liegen die Dateien mit ihrem Pfad ab dem Serverordner, so lassen sie sich woanders wieder einspielen.") }}</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="card-h">{{ _("Einstellungen") }}</h2>
+    <form method="post" action="/admin/backups/jobs/{{ job.id }}" class="form" id="backup-job-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="form-grid">
+        <label>{{ _("Name") }}<input name="name" required maxlength="80" value="{{ job.name }}"></label>
+        <label>{{ _("Ziel") }}
+          <select name="target_id" id="job-target">
+            <option value="">{{ _("Direktdownload im Browser (nur von Hand)") }}</option>
+            {% for t in targets %}<option value="{{ t.id }}" {% if job.target_id == t.id %}selected{% endif %}>{{ t.name }} ({{ t.path }})</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      {% if user.is_owner %}
+      <label class="check"><input type="checkbox" name="all_servers" value="1" {% if job.all_servers %}checked{% endif %}> {{ _("Alle Server, auch künftige – jeweils komplett (die Auswahl links gilt dann nicht)") }}</label>
+      {% endif %}
+
+      <fieldset class="perm-group" id="job-schedule">
+        <legend>{{ _("Zeitplan") }}</legend>
+        <label class="check"><input type="checkbox" name="schedule" value="1" {% if job.weekdays %}checked{% endif %}> {{ _("Automatisch ausführen") }}</label>
+        <div class="weekdays-inline">
+          {% for d in weekdays %}<label class="check"><input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if not job.weekdays or (loop.index0|string) in job.weekdays %}checked{% endif %}> {{ d }}</label>{% endfor %}
+        </div>
+        <label>{{ _("Uhrzeit") }}<input name="time" type="time" value="{{ job.time or '03:00' }}"></label>
+        <label class="check"><input type="checkbox" name="enabled" value="1" {% if job.enabled %}checked{% endif %}> {{ _("Zeitplan aktiv (abwählen zum Pausieren)") }}</label>
+        <p class="faint small" id="job-schedule-hint">{{ _("Nur mit einem Ziel möglich – Direktdownloads laufen nur von Hand.") }}</p>
+      </fieldset>
+
+      <fieldset class="perm-group">
+        <legend>{{ _("Server vorher") }}</legend>
+        {% for key, label in stop_modes.items() %}<label class="check"><input type="radio" name="stop_mode" value="{{ key }}" {% if job.stop_mode == key %}checked{% endif %}> {{ label }}</label>{% endfor %}
+        <div class="form-grid" id="job-warn">
+          <label>{{ _("Vorwarnung (Minuten vorher)") }}<input name="warn_minutes" inputmode="numeric" placeholder="5" value="{{ job.warn_minutes or '' }}"></label>
+          <label>{{ _("Vorwarn-Befehl (optional)") }}<input name="warn_command" maxlength="300" placeholder="{{ _("say Backup – Server stoppt in {minuten} Minuten!") }}" value="{{ job.warn_command or '' }}"></label>
+        </div>
+        <p class="faint small">{{ _("Manche Spiele schreiben Spielstände erst beim Beenden sauber auf die Platte. Gestoppt wird erst nach der Vorwarnung; „wieder starten“ startet nur Server, die vorher liefen. {platzhalter} wird durch die Minutenzahl ersetzt.", platzhalter="{minuten}") }}</p>
+      </fieldset>
+
+      <div class="form-grid">
+        <label>{{ _("Aufbewahren: Anzahl pro Server") }}
+          <select name="keep_count">
+            <option value="">{{ _("unbegrenzt") }}</option>
+            {% for n in keep_counts %}<option value="{{ n }}" {% if job.keep_count == n %}selected{% endif %}>{{ _("die letzten {n}", n=n) }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ _("Aufbewahren: Tage") }}
+          <select name="keep_days">
+            <option value="">{{ _("unbegrenzt") }}</option>
+            {% for n in keep_days %}<option value="{{ n }}" {% if job.keep_days == n %}selected{% endif %}>{{ _("{n} Tage", n=n) }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ _("Meldung per Webhook/E-Mail") }}
+          <select name="notify">
+            {% for key, label in notify_modes.items() %}<option value="{{ key }}" {% if job.notify == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <p class="faint small">{{ _("Aufbewahrung gilt pro Server für die Backups auf dem Ziel; das neueste bleibt immer. Meldungen gehen an den Webhook (System → Benachrichtigungen) und per E-Mail an Owner.") }}</p>
+
+      <label class="check"><input type="checkbox" name="compress" value="1" {% if job.compress %}checked{% endif %}> {{ _("Komprimieren (kleiner, braucht mehr CPU im Hatchtower-Container; Spielstände sind oft schon komprimiert)") }}</label>
+
+      <label>{{ _("Ausschließen (ein Muster pro Zeile, z. B. logs/ oder *.log)") }}
+        <textarea name="excludes" rows="4" spellcheck="false" maxlength="4000">{{ job.excludes or '' }}</textarea>
+      </label>
+
+      <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Job löschen") }}</h2>
+  <form method="post" action="/admin/backups/jobs/{{ job.id }}/delete" class="inline-form" data-confirm="{{ _("Backup-Job „{name}“ löschen? Bereits gespeicherte Backups bleiben erhalten.", name=job.name) }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn btn-ghost btn-sm chip-danger" type="submit">{{ _("Job löschen") }}</button>
+    <span class="faint small">{{ _("Bereits gespeicherte Backups bleiben erhalten und lassen sich in der Übersicht einzeln löschen.") }}</span>
+  </form>
+</section>
+{% endblock %}

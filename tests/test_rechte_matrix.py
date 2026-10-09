@@ -18,15 +18,16 @@ import pytest
 from fastapi.routing import APIRoute
 
 from conftest import PNG, World
-from hatchtower import accounts, db, main, retention, security
+from hatchtower import accounts, backups, db, main, retention, security
 from hatchtower.permissions import ALL_KEYS, BY_KEY, PERMISSIONS, with_dependencies
 from routes import DOC, ROUTES, Route, render_markdown
 
 SERVER = [r for r in ROUTES if r.access in ("server", "kill")]
 SERVER_PERM = [r for r in SERVER if r.access == "server"]
 OWNER = [r for r in ROUTES if r.access == "owner"]
-PROTECTED = [r for r in ROUTES if r.access in ("login", "owner", "server", "kill", "automation")]
+PROTECTED = [r for r in ROUTES if r.access in ("login", "owner", "server", "kill", "automation", "backup")]
 AUTOMATION = [r for r in ROUTES if r.access == "automation"]
+BACKUP = [r for r in ROUTES if r.access == "backup"]
 CSRF = [r for r in ROUTES if r.csrf in ("form", "header")]
 PRELOGIN = [r for r in ROUTES if r.csrf == "prelogin"]
 WRITE = [r for r in SERVER if r.access == "kill" or BY_KEY[r.perm].write]
@@ -105,8 +106,8 @@ def test_katalog_enthaelt_jede_route():
 
 def test_katalog_nennt_nur_bekannte_rechte():
     for r in ROUTES:
-        assert (r.perm in BY_KEY) == (r.access in ("server", "automation")), r.id
-        assert r.access in ("public", "token", "setup", "login", "owner", "server", "kill", "automation"), r.id
+        assert (r.perm in BY_KEY) == (r.access in ("server", "automation", "backup")), r.id
+        assert r.access in ("public", "token", "setup", "login", "owner", "server", "kill", "automation", "backup"), r.id
 
 
 def test_jedes_recht_wird_von_einer_route_genutzt():
@@ -739,3 +740,108 @@ def test_neuer_server_wird_gemeldet_und_bleibt_bis_erledigt_sichtbar(world, monk
     assert "Neuer Server" not in world.client(uid).get("/").text      # nur Owner sehen den Hinweis
     assert_ok(o.post("/admin/servers/srv-neu/reviewed", data={"csrf": o.csrf}))
     assert "Neuer Server: Server srv-neu" not in o.get("/").text
+
+
+# == Backups =========================================================================================
+
+def backup_jobs() -> list:
+    with db.connect() as con:
+        return con.execute("SELECT * FROM backup_jobs ORDER BY id").fetchall()
+
+
+@pytest.mark.parametrize("route", BACKUP, ids=ids(BACKUP))
+def test_backups_ohne_recht_verweigert(world, route):
+    uid = world.user("fast-alles", grants={i: ALL - dependents(route.perm) for i in ("srv-a", "srv-b")})
+    before = world.snapshot()
+    assert_denied(world, send(world, world.client(uid), route), before, uid, route.perm)
+
+
+@pytest.mark.parametrize("route", BACKUP, ids=ids(BACKUP))
+def test_backups_mit_genau_diesem_recht(world, route):
+    uid = world.user("knapp", grants={"srv-a": with_dependencies({route.perm})})
+    response = send(world, world.client(uid), route)
+    assert_ok(response)
+    assert "Bitte%20pr" not in response.headers.get("location", ""), response.headers.get("location")
+    assert world.ptero.writes == []
+
+
+@pytest.mark.parametrize("route", BACKUP, ids=ids(BACKUP))
+def test_backups_fuer_owner(world, route):
+    assert_ok(send(world, world.client(world.ids["olga"]), route))
+
+
+def test_backup_job_mit_fremdem_server_bleibt_verborgen(world):
+    jid = world.args["job_id"]
+    with db.connect() as con:
+        con.execute("INSERT INTO backup_job_items (job_id, identifier, path) VALUES (?, 'srv-b', '/')", (jid,))
+    uid = world.user("nachbar", grants={"srv-a": ALL})
+    c = world.client(uid)
+    page = c.get("/admin/backups")
+    assert page.status_code == 200 and "Welt" not in page.text.split("Gespeicherte und letzte Backups")[0]
+    before = world.snapshot()
+    assert_denied(world, c.get(f"/admin/backups/jobs/{jid}"), before, uid, "backups.manage")
+    for action in ("run", "download", "delete"):
+        assert_denied(world, c.post(f"/admin/backups/jobs/{jid}/{action}", data={"csrf": c.csrf}), before, uid)
+    assert_denied(world, c.post(f"/admin/backups/jobs/{jid}/items", data={"csrf": c.csrf, "identifier": "srv-a",
+                                                                          "path": "/"}), before, uid)
+
+
+def test_backup_auswahl_nur_fuer_eigene_server(world):
+    uid = world.user("mod", grants={"srv-a": {"backups.manage"}, "srv-b": {"backups.view", "sftp.view"}})
+    c = world.client(uid)
+    jid = world.args["job_id"]
+    before = world.snapshot()
+    assert_denied(world, c.post(f"/admin/backups/jobs/{jid}/items", data={"csrf": c.csrf, "identifier": "srv-b",
+                                                                          "path": "/"}), before, uid)
+    assert_denied(world, c.post("/servers/srv-b/files/backup", data={"csrf": c.csrf, "dir": "/", "names": "a.txt",
+                                                                     "job_id": jid}), before, uid)
+    r = c.post("/servers/srv-a/files/backup", data={"csrf": c.csrf, "dir": "/plugins", "names": ["a.txt", "b"],
+                                                     "job_id": jid})
+    assert_ok(r)
+    assert r.headers["location"].startswith("/servers/srv-a/files?dir=/plugins&ok=")    # bleibt im Ordner
+    assert set(backups.job_items(int(jid))["srv-a"]) == {"/", "/plugins/a.txt", "/plugins/b"}
+
+
+def test_backup_stoppen_nur_mit_steuerrechten(world):
+    uid = world.user("sicherer", grants={"srv-a": {"backups.manage", "backups.run"}})
+    c = world.client(uid)
+    jid = world.args["job_id"]
+    form = {"csrf": c.csrf, "name": "Welt", "target_id": world.args["target_id"], "stop_mode": "restart",
+            "notify": "errors"}
+    r = c.post(f"/admin/backups/jobs/{jid}", data=form)
+    assert "Bitte%20pr" in r.headers["location"]
+    assert backup_jobs()[0]["stop_mode"] == "none"
+    world.grant(uid, {"srv-a": {"backups.manage", "backups.run", "power.stop", "power.start"}})
+    assert_ok(c.post(f"/admin/backups/jobs/{jid}", data=form))
+    assert backup_jobs()[0]["stop_mode"] == "restart"
+    # Wer nur starten darf, aber nicht stoppen, darf den Job nicht anstoßen
+    other = world.user("starter", grants={"srv-a": {"backups.run"}})
+    o = world.client(other)
+    r = o.post(f"/admin/backups/jobs/{jid}/run", data={"csrf": o.csrf})
+    assert "fehlt" in r.headers["location"] or "fehlt" in r.text
+    assert not main.app.state.backups.runs
+
+
+def test_alle_server_nur_fuer_owner(world):
+    uid = world.user("mod", grants={i: ALL for i in ("srv-a", "srv-b")})
+    c = world.client(uid)
+    jid = world.args["job_id"]
+    assert_ok(c.post(f"/admin/backups/jobs/{jid}", data={"csrf": c.csrf, "name": "Welt", "all_servers": "1",
+                                                         "stop_mode": "none", "notify": "errors"}))
+    assert backup_jobs()[0]["all_servers"] == 0
+    o = world.client(world.ids["olga"])
+    assert_ok(o.post(f"/admin/backups/jobs/{jid}", data={"csrf": o.csrf, "name": "Welt", "all_servers": "1",
+                                                         "stop_mode": "none", "notify": "errors"}))
+    assert backup_jobs()[0]["all_servers"] == 1
+    before = world.snapshot()
+    assert_denied(world, c.get(f"/admin/backups/jobs/{jid}"), before, uid)
+
+
+def test_backup_jobs_geloeschter_benutzer_verschwinden(world):
+    uid = world.user("planer", grants={"srv-a": {"backups.manage"}})
+    c = world.client(uid)
+    c.post("/admin/backups/jobs", data={"csrf": c.csrf, "name": "Meins", "target_id": ""})
+    assert any(j["created_by"] == uid for j in backup_jobs())
+    o = world.client(world.ids["olga"])
+    assert_ok(o.post(f"/admin/users/{uid}/delete", data={"csrf": o.csrf}))
+    assert all(j["created_by"] != uid for j in backup_jobs())

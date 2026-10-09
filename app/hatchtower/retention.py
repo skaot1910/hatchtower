@@ -4,6 +4,7 @@
 - Konsolen-Archiv: einstellbar 1–90 Tage oder aus, Standard 3
 - Statuswechsel und Absturz-Ereignisse (ohne Personenbezug): 90 Tage
 - abgelaufene Sitzungen und Einmal-Links sofort (abgelaufene Einladungen werden im Audit-Log vermerkt)
+- Liste gelaufener Backups: Einträge ohne gespeicherte Datei nach 90 Tagen
 """
 from __future__ import annotations
 
@@ -56,6 +57,9 @@ def cleanup() -> dict[str, int]:
         removed["crashes"] = con.execute("DELETE FROM crash_events WHERE detected_at < ?",
                                          (_iso_before(FIXED_DAYS),)).rowcount
         removed["tokens"] = con.execute("DELETE FROM tokens WHERE expires_at < ?", (db.utcnow(),)).rowcount
+        removed["backup_runs"] = con.execute(
+            "DELETE FROM backup_runs WHERE file IS NULL AND status NOT IN ('queued', 'running') AND queued_at < ?",
+            (_iso_before(FIXED_DAYS),)).rowcount
         removed["notify"] = con.execute("DELETE FROM notify_log WHERE sent_at < ?", (now - 7 * 86400,)).rowcount
         # Sitzungen: höchstens so alt wie die längste erlaubte Sitzung
         removed["sessions"] = con.execute("DELETE FROM sessions WHERE created_at < ?", (_iso_before(2),)).rowcount

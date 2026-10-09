@@ -1,9 +1,10 @@
 """Datenumzug: Export und Import aller Einstellungen einer Hatchtower-Instanz.
 
 Die Exportdatei enthält Benutzer (mit Passwort-Hashes), Rechte, Gruppen, Serverangaben,
-Logos, Zeitpläne, Ankündigungen und Einstellungen samt API-Keys. Sie wird deshalb immer
+Logos, Zeitpläne, Backup-Jobs und -Ziele, Ankündigungen und Einstellungen samt API-Keys. Sie wird deshalb immer
 mit einem Passwort verschlüsselt (scrypt + Fernet). Nicht exportiert werden Audit-Log,
-Sitzungen, Verlauf und Konsolen-Archiv; die Serverliste liest Hatchtower neu aus Pterodactyl.
+Sitzungen, Verlauf, Konsolen-Archiv und die Liste gelaufener Backups (die Backup-Dateien selbst liegen
+auf den Zielen); die Serverliste liest Hatchtower neu aus Pterodactyl.
 """
 from __future__ import annotations
 
@@ -20,12 +21,14 @@ from . import __version__, db
 
 MAGIC = b"HATCHTOWER-EXPORT-1\n"
 FORMAT = "hatchtower-export"
-SECRET_SETTINGS = ("conn_app_key", "conn_client_key", "mail_password_enc", "notify_webhook_url_enc",
-                   "status_discord_url_enc")
+SECRET_SETTINGS = ("conn_app_key", "conn_client_key", "mail_password_enc", "notify_webhook_url_enc")
 SKIP_SETTINGS = ("setup_token_hash", "setup_token_created")
+# Exporte älterer Versionen hatten genau einen Discord-Webhook in den Einstellungen
+LEGACY_DISCORD = ("status_discord_url_enc", "status_discord_enabled", "status_discord_fields", "status_discord_msg")
 TABLES = ("users", "perm_groups", "perm_group_items", "user_server_permissions", "user_server_groups",
           "favorites", "server_meta", "automation_settings", "schedules", "announcements",
-          "user_default_access")
+          "user_default_access", "backup_targets", "backup_jobs", "backup_job_items", "status_feeds",
+          "status_feed_servers")
 LOGO_NAME = re.compile(r"^[0-9a-f]{32}\.webp$")
 MAX_IMPORT_BYTES = 50 * 1024 * 1024
 
@@ -59,6 +62,12 @@ def build_export(vault, logo_dir: Path, passphrase: str) -> bytes:
             if table == "server_meta":
                 for row in rows:
                     row["password"] = vault.decrypt(row.pop("password_enc", None))
+            if table == "backup_targets":
+                for row in rows:
+                    row["smb_password"] = vault.decrypt(row.pop("smb_password_enc", None))
+            if table == "status_feeds":
+                for row in rows:
+                    row["url"] = vault.decrypt(row.pop("url_enc", None))
             data["tables"][table] = rows
         logo_names = {r["logo_file"] for r in con.execute("SELECT logo_file FROM server_meta WHERE logo_file IS NOT NULL")}
     logo_names |= {data["settings"].get("brand_logo_header"), data["settings"].get("brand_logo_login")}
@@ -116,6 +125,14 @@ def apply_import(data: dict, vault, logo_dir: Path) -> None:
                 if table == "server_meta":
                     password = row.pop("password", None)
                     row["password_enc"] = vault.encrypt(password) if password else None
+                if table == "backup_targets":
+                    password = row.pop("smb_password", None)
+                    row["smb_password_enc"] = vault.encrypt(password) if password else None
+                if table == "status_feeds":
+                    url = row.pop("url", None)
+                    if not url:
+                        continue
+                    row["url_enc"] = vault.encrypt(url)
                 keys = [k for k in row if k in cols]
                 if keys:
                     con.execute(f"INSERT INTO {table} ({', '.join(keys)}) VALUES ({', '.join('?' * len(keys))})",
@@ -124,8 +141,18 @@ def apply_import(data: dict, vault, logo_dir: Path) -> None:
         for key, plain in data.get("secrets", {}).items():
             if key in SECRET_SETTINGS:
                 values[key] = vault.encrypt(plain) if plain else ""
+        legacy_url = data.get("secrets", {}).get("status_discord_url_enc")
+        if legacy_url and "status_feeds" not in data["tables"]:
+            settings = data.get("settings", {})
+            feed_id = con.execute(
+                "INSERT INTO status_feeds (name, url_enc, enabled, fields, msg_ids, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                ("Discord", vault.encrypt(legacy_url), 1 if settings.get("status_discord_enabled") == "1" else 0,
+                 settings.get("status_discord_fields") or "name,status,address", settings.get("status_discord_msg") or "",
+                 db.utcnow())).lastrowid
+            con.execute("INSERT INTO status_feed_servers (feed_id, identifier)"
+                        " SELECT ?, identifier FROM server_meta WHERE on_status = 1", (feed_id,))
         for key, value in values.items():
-            if key in SKIP_SETTINGS:
+            if key in SKIP_SETTINGS or key in LEGACY_DISCORD:
                 continue
             con.execute("INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)"
                         " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",

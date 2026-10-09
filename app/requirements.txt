@@ -8,3 +8,4 @@ cryptography>=43
 python-multipart>=0.0.9
 pillow>=10
 python-a2s>=1.4,<2
+smbprotocol>=1.13,<2

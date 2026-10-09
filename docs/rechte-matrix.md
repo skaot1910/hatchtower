@@ -31,6 +31,9 @@ Grundregeln:
 | `sftp.create_directory` | Ordner anlegen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/mkdir` |
 | `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete` |
 | `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |
+| `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups`<br>`GET /api/backups/status` |
+| `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /api/backups/runs/{run_id}/cancel` |
+| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |
 
 ## Öffentlich
 
@@ -109,6 +112,7 @@ Grundregeln:
 | POST | `/servers/{ident}/files/rename` | `sftp.rename` | Formular | schreibt | Umbenennen |
 | POST | `/servers/{ident}/files/mkdir` | `sftp.create_directory` | Formular | schreibt | Ordner anlegen |
 | POST | `/servers/{ident}/files/delete` | `sftp.delete` | Formular | schreibt | Löschen |
+| POST | `/servers/{ident}/files/backup` | `backups.manage` | Formular | liest | Auswahl zu einem Backup-Job hinzufügen |
 | GET | `/servers/{ident}/settings` | `server.manage` | – | liest | Serverangaben im Manager |
 | POST | `/servers/{ident}/settings` | `server.manage` | Formular | liest | Serverangaben speichern |
 | POST | `/servers/{ident}/logo` | `server.manage` | Formular | liest | Serverlogo hochladen |
@@ -129,6 +133,24 @@ Grundregeln:
 | POST | `/admin/automation/schedules` | `automation.manage` | Formular | liest | Zeitplan anlegen (Aktion braucht das passende Steuerrecht) |
 | POST | `/admin/automation/schedules/{sched_id}/toggle` | `automation.manage` | Formular | liest | Zeitplan pausieren/aktivieren |
 | POST | `/admin/automation/schedules/{sched_id}/delete` | `automation.manage` | Formular | liest | Zeitplan löschen |
+
+## Backups – Owner oder Recht pro Server
+
+| Methode | Pfad | Recht | CSRF | Pterodactyl | Zweck |
+|---|---|---|---|---|---|
+| GET | `/admin/backups` | `backups.view` | – | liest | Backups: Jobs, laufende und gespeicherte Backups (nur Server mit dem Recht) |
+| GET | `/api/backups/status` | `backups.view` | – | liest | Fortschritt laufender Backups |
+| POST | `/admin/backups/jobs` | `backups.manage` | Formular | liest | Backup-Job anlegen |
+| GET | `/admin/backups/jobs/{job_id}` | `backups.manage` | – | liest | Backup-Job bearbeiten (Recht für alle Server des Jobs) |
+| POST | `/admin/backups/jobs/{job_id}` | `backups.manage` | Formular | liest | Backup-Job speichern (Stoppen nur mit den Steuerrechten) |
+| POST | `/admin/backups/jobs/{job_id}/delete` | `backups.manage` | Formular | liest | Backup-Job löschen |
+| POST | `/admin/backups/jobs/{job_id}/items` | `backups.manage` | Formular | liest | Server/Pfad hinzufügen (Recht für diesen Server) |
+| POST | `/admin/backups/jobs/{job_id}/items/remove` | `backups.manage` | Formular | liest | Server/Pfad entfernen |
+| POST | `/admin/backups/jobs/{job_id}/run` | `backups.run` | Formular | liest | Backup-Job in die Warteschlange stellen |
+| POST | `/admin/backups/jobs/{job_id}/download` | `backups.run` | Formular | liest | Backup-Job ausführen und direkt herunterladen |
+| GET | `/admin/backups/runs/{run_id}/download` | `backups.run` | – | liest | Gespeichertes Backup herunterladen |
+| POST | `/api/backups/runs/{run_id}/cancel` | `backups.run` | Header | liest | Laufendes Backup abbrechen |
+| POST | `/admin/backups/runs/{run_id}/delete` | `backups.manage` | Formular | liest | Gespeichertes Backup löschen |
 
 ## Nur Owner
 
@@ -156,6 +178,10 @@ Grundregeln:
 | POST | `/admin/groups/{group_id}/delete` | Formular | Rechtegruppe löschen |
 | GET | `/admin/audit` | – | Audit-Log |
 | GET | `/admin/audit/export` | – | Audit-Log als CSV/TXT |
+| POST | `/admin/backups/targets` | Formular | Backup-Ziel anlegen (Laufwerk im Container oder SMB-Freigabe) |
+| POST | `/admin/backups/targets/{target_id}` | Formular | Backup-Ziel ändern (SMB: Verbindung wird geprüft) |
+| POST | `/admin/backups/targets/{target_id}/test` | Formular | Backup-Ziel testen |
+| POST | `/admin/backups/targets/{target_id}/delete` | Formular | Backup-Ziel entfernen |
 | GET | `/admin/system` | – | System: Übersicht und Prüfungen |
 | POST | `/admin/branding` | Formular | Name, Standard-Theme, Standardsprache |
 | POST | `/admin/branding/logo/{kind}` | Formular | Eigenes Logo hochladen |
@@ -169,6 +195,9 @@ Grundregeln:
 | POST | `/admin/notify/test` | Formular | Test-Webhook senden |
 | GET | `/admin/statuspage` | – | Statusseite einstellen |
 | POST | `/admin/statuspage` | Formular | Statusseite speichern |
+| POST | `/admin/statuspage/discord` | Formular | Discord-Kanal hinzufügen (eigene Server-Auswahl) |
+| POST | `/admin/statuspage/discord/{feed_id}` | Formular | Discord-Kanal ändern |
+| POST | `/admin/statuspage/discord/{feed_id}/delete` | Formular | Discord-Kanal entfernen |
 | GET | `/admin/announcements` | – | Ankündigungen |
 | POST | `/admin/announcements` | Formular | Ankündigung speichern |
 | POST | `/admin/announcements/{ann_id}/delete` | Formular | Ankündigung löschen |

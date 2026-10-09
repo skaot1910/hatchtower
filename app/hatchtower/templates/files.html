@@ -39,27 +39,38 @@
 </div>
 {% endif %}
 
-{% if can_download %}
-<form method="post" action="/servers/{{ server.identifier }}/files/zip" id="zip-form" class="selection-bar" hidden>
+{% set can_select = can_download or can_backup %}
+{% if can_select %}
+<form method="post" action="/servers/{{ server.identifier }}/files/{{ 'zip' if can_download else 'backup' }}" id="zip-form" class="selection-bar" hidden>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="dir" value="{{ directory }}">
   <span id="selection-count">{{ _("0 ausgewählt") }}</span>
-  <button class="btn btn-primary btn-sm" type="submit">{{ _("Als ZIP herunterladen") }}</button>
+  {% if can_download %}<button class="btn btn-primary btn-sm" type="submit">{{ _("Als ZIP herunterladen") }}</button>{% endif %}
+  {% if can_backup %}
+  <span class="selection-backup">
+    <select name="job_id" aria-label="{{ _("Backup-Job") }}">
+      <option value="">{{ _("Backup-Job wählen …") }}</option>
+      {% for j in backup_jobs %}<option value="{{ j.id }}">{{ j.name }}</option>{% endfor %}
+      <option value="new">{{ _("+ neuer Backup-Job") }}</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" type="submit" formaction="/servers/{{ server.identifier }}/files/backup" data-backup-add>{{ _("Zu Backup-Job hinzufügen") }}</button>
+  </span>
+  {% endif %}
   <button class="btn btn-ghost btn-sm" type="button" id="selection-clear">{{ _("Auswahl aufheben") }}</button>
-  <span class="faint small">{{ _("Ordner werden mit Inhalt gepackt · max. 1000 Dateien bzw. 10 GB") }}</span>
+  {% if can_download %}<span class="faint small">{{ _("Ordner werden mit Inhalt gepackt · max. 1000 Dateien bzw. 10 GB") }}</span>{% endif %}
 </form>
 {% endif %}
 
 <div class="card table-card">
   <table class="table files-table stack-table">
-    <thead><tr>{% if can_download %}<th class="sel"><input type="checkbox" id="select-all" aria-label="{{ _("Alle auswählen") }}"></th>{% endif %}<th>{{ _("Name") }}</th><th class="num">{{ _("Größe") }}</th><th>{{ _("Geändert") }}</th><th></th></tr></thead>
+    <thead><tr>{% if can_select %}<th class="sel"><input type="checkbox" id="select-all" aria-label="{{ _("Alle auswählen") }}"></th>{% endif %}<th>{{ _("Name") }}</th><th class="num">{{ _("Größe") }}</th><th>{{ _("Geändert") }}</th><th></th></tr></thead>
     <tbody>
       {% if parent is not none %}
-      <tr>{% if can_download %}<td class="sel"></td>{% endif %}<td colspan="4"><a href="?dir={{ parent|urlencode }}" class="file-link">{{ icon_up() }} <span>{{ _("Zurück zu übergeordnetem Ordner") }}</span></a></td></tr>
+      <tr>{% if can_select %}<td class="sel"></td>{% endif %}<td colspan="4"><a href="?dir={{ parent|urlencode }}" class="file-link">{{ icon_up() }} <span>{{ _("Zurück zu übergeordnetem Ordner") }}</span></a></td></tr>
       {% endif %}
       {% for f in files %}
       <tr class="{{ 'is-file' if f.is_file else 'is-dir' }}">
-        {% if can_download %}<td class="sel"><input type="checkbox" name="names" value="{{ f.name }}" form="zip-form" aria-label="{{ _("{name} auswählen", name=f.name) }}"></td>{% endif %}
+        {% if can_select %}<td class="sel"><input type="checkbox" name="names" value="{{ f.name }}" form="zip-form" aria-label="{{ _("{name} auswählen", name=f.name) }}"></td>{% endif %}
         <td>
           {% if f.is_file %}<span class="file-link">{{ icon_file() }} <span>{{ f.name }}</span></span>
           {% else %}<a href="?dir={{ f.path|urlencode }}" class="file-link folder-link">{{ icon_folder() }} <span>{{ f.name }}</span></a>{% endif %}

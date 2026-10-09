@@ -1086,3 +1086,37 @@ a.file-link:hover { color: var(--violet-3); }
   border: 1px solid var(--accent-line); background: var(--violet-bg); border-radius: var(--radius-sm); }
 .new-server-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .new-server-actions form { margin: 0; }
+/* Backups */
+.backup-active-list { display: grid; gap: 14px; }
+.backup-run { display: grid; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--hair); }
+.backup-run:last-child { border-bottom: 0; padding-bottom: 0; }
+.backup-run-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.backup-bar { height: 8px; }
+.backup-item { padding: 8px 0; border-bottom: 1px solid var(--hair); }
+.backup-paths { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.backup-paths li { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.backup-paths form { margin: 0; }
+.backup-add { margin-top: 14px; }
+.backup-status { font-weight: 600; font-size: 13px; }
+.backup-status-ok { color: var(--green-fg); }
+.backup-status-partial, .backup-status-denied { color: var(--amber-fg); }
+.backup-status-error { color: var(--red-fg); }
+.backup-status-cancelled { color: var(--muted); }
+.backup-detail { max-width: 46ch; overflow-wrap: anywhere; }
+.selection-backup { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.selection-backup select { padding: 5px 8px; font-size: 13px; max-width: 220px; }
+.weekdays-inline { display: flex; gap: 12px; flex-wrap: wrap; }
+.weekdays-inline .check { display: flex; gap: 6px; align-items: center; color: var(--text); }
+.backup-howto { display: grid; gap: 8px; padding-left: 20px; margin: 10px 0 0; }
+.backup-howto code { display: inline-block; margin-top: 2px; overflow-wrap: anywhere; }
+.backup-add .btn { justify-self: start; }
+.target-edit { margin-top: 6px; }
+.target-edit summary { cursor: pointer; color: var(--violet-3); }
+.target-edit .form { margin-top: 10px; }
+.feed { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 12px; }
+.feed > summary { cursor: pointer; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.feed > .form { margin-top: 12px; }
+.feed .inline-form { margin-top: 10px; }
+.feed-cols { margin-bottom: 0; }
+.feed-actions { justify-content: flex-start; }
+.target-check { margin-top: 2px; }

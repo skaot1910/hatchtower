@@ -54,6 +54,17 @@ PERMISSIONS: tuple[Permission, ...] = (
                "Zeitpläne für diesen Server anlegen, pausieren und löschen und den Neustart nach Absturz ein- oder"
                " ausschalten. Als Aktion stehen nur die Steuerrechte zur Verfügung, die der Benutzer selbst hat.",
                write=True, requires=("server.view",)),
+    Permission("backups.view", "Backups sehen", "Backups",
+               "Backup-Jobs mit diesem Server, laufende Backups mit Fortschritt und gespeicherte Backups sehen.",
+               requires=("server.view",)),
+    Permission("backups.run", "Backups starten und herunterladen", "Backups",
+               "Backup-Jobs von Hand starten, laufende abbrechen und gespeicherte Backups herunterladen. Ein"
+               " Backup enthält die Dateien des Servers. Jobs, die den Server stoppen, nur mit den Steuerrechten dazu.",
+               requires=("server.view", "backups.view")),
+    Permission("backups.manage", "Backup-Jobs verwalten", "Backups",
+               "Backup-Jobs anlegen, ändern und löschen und im Datei-Explorer Dateien und Ordner hinzufügen."
+               " Jobs mit mehreren Servern nur, wenn das Recht für alle gilt; Stoppen vor dem Backup nur mit"
+               " den Steuerrechten dazu.", requires=("server.view", "backups.view", "sftp.view")),
 )
 
 # Welches Recht ein Zeitplan mit dieser Aktion voraussetzt
@@ -115,8 +126,19 @@ class UserContext:
         need = AUTOMATION_NEEDS.get(action)
         return need is not None and (self.is_owner or (self.can(identifier, "automation.manage") and self.can(identifier, need)))
 
+    @property
+    def can_backup(self) -> bool:
+        """Darf die Seite Backups öffnen (Owner oder Recht für mindestens einen Server)."""
+        return self.is_owner or any("backups.view" in keys for keys in self.grants.values())
 
-GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien", "Automationen")
+    def can_any(self, key: str) -> bool:
+        return self.is_owner or any(key in keys for keys in self.grants.values())
+
+
+# Welche Steuerrechte ein Backup-Job braucht, der den Server vorher stoppt
+BACKUP_STOP_NEEDS = {"none": (), "stop": ("power.stop",), "restart": ("power.stop", "power.start")}
+
+GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien", "Automationen", "Backups")
 
 
 def grouped_permissions() -> list[tuple[str, list[Permission]]]:

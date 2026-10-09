@@ -79,6 +79,18 @@ ACTION_LABELS = {
     "audit.export": "Audit-Log exportiert",
     "files.restore": "Datei wiederhergestellt",
     "console.archive_download": "Konsolen-Archiv heruntergeladen",
+    "backup.job.create": "Backup-Job angelegt",
+    "backup.job.update": "Backup-Job geändert",
+    "backup.job.delete": "Backup-Job gelöscht",
+    "backup.start": "Backup gestartet",
+    "backup.run": "Backup gelaufen",
+    "backup.warn": "Backup-Vorwarnung",
+    "backup.download": "Backup direkt heruntergeladen",
+    "backup.file_download": "Gespeichertes Backup heruntergeladen",
+    "backup.file_delete": "Gespeichertes Backup gelöscht",
+    "backup.cancel": "Backup abgebrochen",
+    "backup.target.save": "Backup-Ziel angelegt",
+    "backup.target.delete": "Backup-Ziel entfernt",
 }
 
 

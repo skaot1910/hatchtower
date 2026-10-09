@@ -30,13 +30,18 @@ EVENTS = {
     "panel_down": "Pterodactyl nicht erreichbar",
     "panel_up": "Pterodactyl wieder erreichbar",
     "new_server": "Neuer Server erkannt",
+    "backup_failed": "Backup fehlgeschlagen",
+    "backup_ok": "Backup erfolgreich",
 }
-PANEL_EVENTS = {"panel_down", "panel_up", "new_server"}      # Verwaltungsmeldungen: E-Mail nur an Owner
-COOLDOWN = {"disk": 6 * 3600, "ram": 3600, "cpu": 3600, "panel_down": 0, "panel_up": 0, "new_server": 0}
+# Verwaltungsmeldungen: E-Mail nur an Owner
+PANEL_EVENTS = {"panel_down", "panel_up", "new_server", "backup_failed", "backup_ok"}
+COOLDOWN = {"disk": 6 * 3600, "ram": 3600, "cpu": 3600, "panel_down": 0, "panel_up": 0, "new_server": 0,
+            "backup_failed": 0, "backup_ok": 0}
 DEFAULT_COOLDOWN = 120
 COLORS = {"crash": 0xE11D48, "restart_failed": 0xE11D48, "restarted": 0x10B981, "disk": 0xF59E0B,
           "ram": 0xF59E0B, "cpu": 0xF59E0B, "schedule_failed": 0xF59E0B, "panel_down": 0xE11D48,
-          "panel_up": 0x10B981, "new_server": 0x8B5CF6, "test": 0x8B5CF6}
+          "panel_up": 0x10B981, "new_server": 0x8B5CF6, "backup_failed": 0xE11D48, "backup_ok": 0x10B981,
+          "test": 0x8B5CF6}
 WEBHOOK_TYPES = ("discord", "generic")
 
 

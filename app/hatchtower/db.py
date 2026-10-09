@@ -342,6 +342,120 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE tokens ADD COLUMN token_enc TEXT;
     """,
+    # 18: Backups – Ziele (Ordner im Hatchtower-Container oder SMB-Freigabe), Jobs mit Servern und Pfaden,
+    #     Läufe (ein Eintrag pro Server und Lauf); neue Meldungen beim Webhook mit einschalten
+    """
+    CREATE TABLE backup_targets (
+        id                INTEGER PRIMARY KEY,
+        name              TEXT NOT NULL,
+        kind              TEXT NOT NULL DEFAULT 'local' CHECK (kind IN ('local', 'smb')),
+        path              TEXT NOT NULL DEFAULT '',
+        smb_host          TEXT,
+        smb_share         TEXT,
+        smb_user          TEXT,
+        smb_password_enc  TEXT,
+        created_at        TEXT NOT NULL,
+        updated_at        TEXT
+    );
+
+    -- target_id NULL = Direktdownload (nur manuell)
+    CREATE TABLE backup_jobs (
+        id            INTEGER PRIMARY KEY,
+        name          TEXT NOT NULL,
+        target_id     INTEGER REFERENCES backup_targets(id),
+        all_servers   INTEGER NOT NULL DEFAULT 0,
+        excludes      TEXT,
+        weekdays      TEXT NOT NULL DEFAULT '',
+        time          TEXT,
+        stop_mode     TEXT NOT NULL DEFAULT 'none' CHECK (stop_mode IN ('none', 'restart', 'stop')),
+        warn_minutes  INTEGER,
+        warn_command  TEXT,
+        keep_count    INTEGER,
+        keep_days     INTEGER,
+        compress      INTEGER NOT NULL DEFAULT 0,
+        notify        TEXT NOT NULL DEFAULT 'errors' CHECK (notify IN ('never', 'errors', 'always')),
+        enabled       INTEGER NOT NULL DEFAULT 1,
+        last_run      TEXT,
+        last_result   TEXT,
+        created_by    INTEGER,
+        created_at    TEXT NOT NULL,
+        updated_at    TEXT
+    );
+
+    -- path '/' = ganzer Server
+    CREATE TABLE backup_job_items (
+        job_id      INTEGER NOT NULL REFERENCES backup_jobs(id) ON DELETE CASCADE,
+        identifier  TEXT NOT NULL,
+        path        TEXT NOT NULL,
+        PRIMARY KEY (job_id, identifier, path)
+    );
+
+    CREATE TABLE backup_runs (
+        id             INTEGER PRIMARY KEY,
+        batch          TEXT NOT NULL,
+        job_id         INTEGER REFERENCES backup_jobs(id) ON DELETE SET NULL,
+        job_name       TEXT NOT NULL,
+        identifier     TEXT NOT NULL,
+        server_name    TEXT,
+        target_id      INTEGER,
+        kind           TEXT NOT NULL DEFAULT 'target' CHECK (kind IN ('target', 'download')),
+        file           TEXT,
+        size           INTEGER,
+        files          INTEGER,
+        data_bytes     INTEGER,
+        status         TEXT NOT NULL,
+        detail         TEXT,
+        trigger        TEXT,
+        started_by     INTEGER,
+        started_name   TEXT,
+        power_restore  INTEGER NOT NULL DEFAULT 0,
+        queued_at      TEXT NOT NULL,
+        started_at     TEXT,
+        finished_at    TEXT
+    );
+    CREATE INDEX backup_runs_job ON backup_runs(job_id, identifier);
+
+    UPDATE app_settings SET value = value || ',backup_failed,backup_ok'
+        WHERE key = 'notify_webhook_events' AND value != '';
+    """,
+    # 19: Mehrere Discord-Kanäle mit eigener Server-Auswahl (unabhängig von der Statusseite).
+    #     Ein bisher eingerichteter Webhook wird übernommen, mit den Servern, die er bisher gezeigt hat.
+    """
+    CREATE TABLE status_feeds (
+        id          INTEGER PRIMARY KEY,
+        name        TEXT NOT NULL,
+        url_enc     TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        title       TEXT,
+        fields      TEXT NOT NULL DEFAULT 'name,status,address',
+        msg_ids     TEXT NOT NULL DEFAULT '',
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT
+    );
+    CREATE TABLE status_feed_servers (
+        feed_id     INTEGER NOT NULL REFERENCES status_feeds(id) ON DELETE CASCADE,
+        identifier  TEXT NOT NULL,
+        PRIMARY KEY (feed_id, identifier)
+    );
+    INSERT INTO status_feeds (name, url_enc, enabled, fields, msg_ids, created_at)
+        SELECT 'Discord', u.value,
+               COALESCE((SELECT value FROM app_settings WHERE key = 'status_discord_enabled'), '0') = '1',
+               COALESCE((SELECT value FROM app_settings WHERE key = 'status_discord_fields'), 'name,status,address'),
+               COALESCE((SELECT value FROM app_settings WHERE key = 'status_discord_msg'), ''),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')
+        FROM app_settings u WHERE u.key = 'status_discord_url_enc' AND COALESCE(u.value, '') != '';
+    INSERT INTO status_feed_servers (feed_id, identifier)
+        SELECT f.id, m.identifier FROM status_feeds f, server_meta m WHERE m.on_status = 1;
+    DELETE FROM app_settings WHERE key IN ('status_discord_url_enc', 'status_discord_enabled', 'status_discord_fields',
+                                           'status_discord_msg');
+    """,
+    # 20: Ergebnis der letzten Prüfung eines Backup-Ziels (Test, Speichern oder Backup-Lauf)
+    """
+    ALTER TABLE backup_targets ADD COLUMN checked_at TEXT;
+    ALTER TABLE backup_targets ADD COLUMN check_ok INTEGER;
+    ALTER TABLE backup_targets ADD COLUMN check_free INTEGER;
+    ALTER TABLE backup_targets ADD COLUMN check_error TEXT;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

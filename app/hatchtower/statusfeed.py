@@ -1,8 +1,9 @@
-"""Statusseite als Discord-Nachricht(en).
+"""Serverstatus als Discord-Nachricht(en), auch in mehreren Kanälen.
 
-Hatchtower postet über einen Webhook Nachrichten in einen Discord-Kanal und bearbeitet danach
-immer dieselben Nachrichten. Es erscheinen die Server der Statusseite mit den eigens für Discord
-freigegebenen Angaben, je drei nebeneinander, zwischen den Reihen eine Trennlinie.
+Hatchtower postet über je einen Webhook Nachrichten in einen Discord-Kanal und bearbeitet danach
+immer dieselben Nachrichten. Jeder Kanal hat seine eigene Server-Auswahl, eigene Angaben und eine
+eigene Überschrift, unabhängig von der Statusseite. Je drei Server nebeneinander, zwischen den
+Reihen eine Trennlinie.
 
 Viele Server: pro Embed höchstens SERVERS_PER_EMBED Server (Discord: max. 25 Felder), die Embeds
 werden zu Nachrichten gepackt (Discord: max. 10 Embeds und rund 6000 Zeichen pro Nachricht).
@@ -51,8 +52,16 @@ def valid_url(url: str) -> bool:
     return bool(URL_RE.match(url))
 
 
-def enabled() -> bool:
-    return db.get_setting("status_discord_enabled") == "1"
+def load_feeds(only_enabled: bool = False) -> list:
+    with db.connect() as con:
+        return con.execute("SELECT * FROM status_feeds" + (" WHERE enabled = 1" if only_enabled else "")
+                           + " ORDER BY name COLLATE NOCASE, id").fetchall()
+
+
+def feed_servers(feed_id: int) -> set[str]:
+    with db.connect() as con:
+        return {r["identifier"] for r in con.execute(
+            "SELECT identifier FROM status_feed_servers WHERE feed_id = ?", (feed_id,))}
 
 
 def _label(s: dict) -> str:
@@ -110,10 +119,10 @@ def build(title: str, servers: list[dict], fields: set[str], link: str, manage_l
             squares = "".join(SQUARE.get(s.get("state"), "⬜") for s in servers)
             summary += [squares[i:i + 15] for i in range(0, len(squares), 15)]
     if not servers:
-        summary.append(i18n.t("Zurzeit sind keine Server für die Statusseite freigegeben."))
+        summary.append(i18n.t("Zurzeit sind keine Server für diesen Kanal ausgewählt."))
     limit = MAX_MESSAGES * EMBEDS_PER_MESSAGE * SERVERS_PER_EMBED
     if len(servers) > limit:
-        summary.append(i18n.t("Weitere {n} Server stehen auf der Statusseite.", n=len(servers) - limit))
+        summary.append(i18n.t("Weitere {n} Server passen nicht mehr in die Nachrichten.", n=len(servers) - limit))
         servers = servers[:limit]
 
     embeds = [{"color": color, "fields": _fields(servers[i:i + SERVERS_PER_EMBED], show_state)}
@@ -140,18 +149,19 @@ def build(title: str, servers: list[dict], fields: set[str], link: str, manage_l
 
 
 class StatusFeed:
-    """Hält die Discord-Nachrichten aktuell. provider() liefert (Titel, Server, Angaben, Link Statusseite,
-    Link Verwaltung)."""
+    """Hält die Discord-Nachrichten aller eingeschalteten Kanäle aktuell. provider(feed) liefert für einen
+    Kanal (Titel, Server, Angaben, Link Statusseite, Link Verwaltung)."""
 
-    def __init__(self, vault, provider: Callable[[], tuple[str, list[dict], set[str], str, str]]):
+    def __init__(self, vault, provider: Callable[[object], tuple[str, list[dict], set[str], str, str]]):
         self.vault = vault
         self.provider = provider
-        self.last_ok: str | None = None
-        self.last_error: str | None = None
+        self.last_ok: dict[int, str] = {}
+        self.last_error: dict[int, str] = {}
         self._task: asyncio.Task | None = None
         self._wake = asyncio.Event()
-        self._last_hash = ""
-        self._last_sent = 0.0
+        self._last_hash: dict[int, str] = {}
+        self._last_sent: dict[int, float] = {}
+        self._background: set[asyncio.Task] = set()
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name="hatchtower-statusfeed")
@@ -164,60 +174,89 @@ class StatusFeed:
             except asyncio.CancelledError:
                 pass
 
-    def request_update(self, reset: bool = False) -> None:
-        """Nach dem Speichern der Einstellungen sofort aktualisieren (reset: neue Nachrichten posten)."""
-        self._last_hash = ""
-        if reset:
-            self.last_ok = self.last_error = None
+    def request_update(self, feed_id: int | None = None, reset: bool = False) -> None:
+        """Nach dem Speichern sofort aktualisieren (reset: Status vergessen, z. B. bei neuem Webhook).
+        Ohne feed_id gilt es für alle Kanäle (z. B. geänderte Serverangaben)."""
+        ids = [feed_id] if feed_id is not None else list(self._last_hash)
+        for fid in ids:
+            self._last_hash.pop(fid, None)
+            if reset:
+                self.last_ok.pop(fid, None)
+                self.last_error.pop(fid, None)
         self._wake.set()
+
+    def remove(self, url: str | None, msg_ids: str) -> None:
+        """Gelöschter Kanal: seine Nachrichten im Hintergrund aus Discord entfernen."""
+        ids = [i for i in (msg_ids or "").split(",") if i.isdigit()]
+        if not url or not valid_url(url) or not ids:
+            return
+
+        async def go():
+            async with httpx.AsyncClient(timeout=10) as http:
+                for message_id in ids:
+                    await self._delete(http, url, message_id)
+        task = asyncio.get_running_loop().create_task(go())
+        self._background.add(task)
+        task.add_done_callback(self._background.discard)
 
     async def _run(self) -> None:
         while True:
-            try:
-                await self.update()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                self.last_error = i18n.t("Interner Fehler: {typ}", typ=exc.__class__.__name__)
-                log.exception("Discord-Statusanzeige")
+            for feed in load_feeds(only_enabled=True):
+                try:
+                    await self.update(feed)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    self.last_error[feed["id"]] = i18n.t("Interner Fehler: {typ}", typ=exc.__class__.__name__)
+                    log.exception("Discord-Statusanzeige %s", feed["id"])
             try:
                 await asyncio.wait_for(self._wake.wait(), CHECK_INTERVAL)
             except asyncio.TimeoutError:
                 pass
             self._wake.clear()
 
-    async def update(self) -> None:
-        if not enabled():
-            return
-        url = self.vault.decrypt(db.get_setting("status_discord_url_enc"))
+    async def update(self, feed) -> None:
+        fid = feed["id"]
+        url = self.vault.decrypt(feed["url_enc"])
         if not url or not valid_url(url):
             return
         previous = i18n.current()
         i18n.use_default()
         try:
-            payloads = build(*self.provider())
+            payloads = build(*self.provider(feed))
         finally:
             i18n.set_language(previous)
         digest = hashlib.sha256(json.dumps(payloads, sort_keys=True).encode()).hexdigest()
-        if digest == self._last_hash and time.monotonic() - self._last_sent < REFRESH:
+        if digest == self._last_hash.get(fid) and time.monotonic() - self._last_sent.get(fid, 0.0) < REFRESH:
             return
         payloads[-1]["embeds"][-1]["timestamp"] = datetime.now(timezone.utc).isoformat()
         async with httpx.AsyncClient(timeout=10) as http:
-            response = await self._sync(http, url, payloads)
+            response = await self._sync(http, url, payloads, fid)
         if response.status_code >= 400:
             # 429 (zu viele Anfragen) erledigt sich beim nächsten Durchlauf von selbst
-            self.last_error = i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code)
-            log.warning("Discord-Statusanzeige: HTTP %s", response.status_code)
+            self.last_error[fid] = i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code)
+            log.warning("Discord-Statusanzeige %s: HTTP %s", fid, response.status_code)
             return
-        self._last_hash = digest
-        self._last_sent = time.monotonic()
-        self.last_ok = db.utcnow()
-        self.last_error = None
+        self._last_hash[fid] = digest
+        self._last_sent[fid] = time.monotonic()
+        self.last_ok[fid] = db.utcnow()
+        self.last_error.pop(fid, None)
 
-    async def _sync(self, http: httpx.AsyncClient, url: str, payloads: list[dict]) -> httpx.Response:
+    @staticmethod
+    def _messages(fid: int) -> list[str]:
+        with db.connect() as con:
+            row = con.execute("SELECT msg_ids FROM status_feeds WHERE id = ?", (fid,)).fetchone()
+        return [i for i in (row["msg_ids"] if row else "").split(",") if i.isdigit()]
+
+    @staticmethod
+    def _remember(fid: int, ids: list[str]) -> None:
+        with db.connect() as con:
+            con.execute("UPDATE status_feeds SET msg_ids = ? WHERE id = ?", (",".join(ids), fid))
+
+    async def _sync(self, http: httpx.AsyncClient, url: str, payloads: list[dict], fid: int) -> httpx.Response:
         """Vorhandene Nachrichten der Reihe nach bearbeiten, fehlende anhängen, überzählige löschen.
         Gibt die letzte Antwort zurück (bei einem Fehler die fehlgeschlagene)."""
-        old = [i for i in db.get_setting("status_discord_msg").split(",") if i.isdigit()]
+        old = self._messages(fid)
         kept: list[str] = []
         response = httpx.Response(200)
         try:
@@ -244,7 +283,7 @@ class StatusFeed:
             return response
         finally:
             # Auch nach einem Fehler: bekannte Nachrichten merken, damit nichts doppelt gepostet wird
-            db.set_setting("status_discord_msg", ",".join(kept + old[len(kept):]), None)
+            self._remember(fid, kept + old[len(kept):])
 
     @staticmethod
     async def _delete(http: httpx.AsyncClient, url: str, message_id: str) -> None:

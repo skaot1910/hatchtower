@@ -766,7 +766,8 @@
       boxes.forEach(function (b) { b.checked = false; });
       update();
     });
-    form.addEventListener("submit", function () {
+    form.addEventListener("submit", function (ev) {
+      if (ev.submitter && ev.submitter.hasAttribute("data-backup-add")) return;
       toast(tr("ZIP wird erstellt, der Download startet gleich. Große Ordner brauchen etwas."), true);
     });
     update();
@@ -1163,6 +1164,123 @@
     tick();
   }
 
+  // ---- Backups: laufende Backups mit Fortschritt ----------------------------------------
+  function startBackups() {
+    document.querySelectorAll("form[data-backup-download]").forEach(function (f) {
+      f.addEventListener("submit", function () {
+        toast(tr("Backup startet, der Download beginnt gleich. Den Fortschritt siehst du unter Backups."), true);
+      });
+    });
+    var form = document.getElementById("backup-job-form");
+    if (form) {
+      var target = document.getElementById("job-target");
+      var schedule = document.getElementById("job-schedule");
+      var hint = document.getElementById("job-schedule-hint");
+      var warn = document.getElementById("job-warn");
+      var sync = function () {
+        var download = target.value === "";
+        schedule.querySelectorAll("input").forEach(function (i) { i.disabled = download; });
+        hint.hidden = !download;
+        var stop = form.querySelector('input[name="stop_mode"]:checked');
+        warn.hidden = !stop || stop.value === "none";
+      };
+      form.addEventListener("change", sync);
+      sync();
+    }
+    var tform = document.getElementById("target-form");
+    if (tform) {
+      var syncKind = function () {
+        var kind = tform.querySelector('input[name="kind"]:checked').value;
+        tform.querySelectorAll("[data-kind]").forEach(function (el) {
+          el.hidden = el.dataset.kind !== kind;
+          el.querySelectorAll("input, select").forEach(function (i) { i.disabled = el.hidden; });
+        });
+        ["smb_host", "smb_share"].forEach(function (n) { tform.elements[n].required = kind === "smb"; });
+      };
+      tform.addEventListener("change", syncKind);
+      syncKind();
+    }
+    var box = document.getElementById("backup-active");
+    if (!box) return;
+    var list = document.getElementById("backup-active-list");
+    var empty = document.getElementById("backup-active-empty");
+    var known = [];
+    function el(tag, cls, text) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    function render(active) {
+      list.textContent = "";
+      active.forEach(function (a) {
+        var row = el("div", "backup-run");
+        var head = el("div", "backup-run-head");
+        var title = el("div", "backup-run-title");
+        title.appendChild(el("strong", "", a.server));
+        title.appendChild(el("span", "faint small", " · " + a.job + (a.kind === "download" ? " · " + tr("Direktdownload") : "")));
+        head.appendChild(title);
+        if (a.can_cancel) {
+          var btn = el("button", "chip chip-sm chip-danger", tr("Abbrechen"));
+          btn.type = "button";
+          btn.dataset.cancel = a.id;
+          head.appendChild(btn);
+        }
+        row.appendChild(head);
+        var bar = el("div", "bar backup-bar");
+        var fill = el("div");
+        bar.appendChild(fill);
+        row.appendChild(bar);
+        paintBar(fill, a.state === "copying" ? a.percent : 0);
+        fill.classList.remove("warn", "crit");
+        var info = a.phase;
+        if (a.state === "copying") {
+          info = a.percent + " % · " + fmtBytes(a.done) + " / " + fmtBytes(a.total) + " · " +
+            tr("{n} von {m} Dateien", { n: a.files_done, m: a.files_total }) +
+            (a.rate ? " · " + fmtBytes(a.rate, true) : "");
+          if (a.throttled) info += " · " + tr("wartet kurz auf Pterodactyl (Anfragen-Limit)");
+        }
+        row.appendChild(el("div", "faint small", info));
+        list.appendChild(row);
+      });
+      empty.hidden = active.length > 0;
+    }
+    function tick() {
+      fetch(box.dataset.status, { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (r) {
+          if (r.status === 401) { window.location = "/login"; throw new Error("login"); }
+          if (!r.ok) throw new Error("http");
+          return r.json();
+        })
+        .then(function (data) {
+          var now = data.active.map(function (a) { return String(a.id); });
+          // Ein Lauf ist fertig geworden: Seite neu laden, damit Tabellen und „Zuletzt“ stimmen
+          if (known.some(function (id) { return now.indexOf(id) < 0; })) {
+            window.location.reload();
+            return;
+          }
+          known = now;
+          render(data.active);
+        })
+        .catch(function () { /* nächster Versuch */ })
+        .then(function () { setTimeout(tick, 2000); });
+    }
+    list.addEventListener("click", function (ev) {
+      var btn = ev.target.closest("[data-cancel]");
+      if (!btn || !window.confirm(tr("Dieses Backup abbrechen?"))) return;
+      btn.disabled = true;
+      postJson("/api/backups/runs/" + btn.dataset.cancel + "/cancel", {})
+        .then(function (d) { toast(d.message || tr("Wird abgebrochen …"), true); })
+        .catch(function (e) { toast(e.message, false); btn.disabled = false; });
+    });
+    try {
+      var initial = JSON.parse(document.getElementById("backup-active-data").textContent);
+      known = initial.map(function (a) { return String(a.id); });
+      render(initial);
+    } catch (e) { /* leer */ }
+    tick();
+  }
+
   // ---- Felder zum Kopieren (z. B. Einladungslink) ----------------------------------------
   function startCopyFields() {
     document.querySelectorAll("[data-select-on-focus]").forEach(function (f) {
@@ -1179,6 +1297,7 @@
     startCopyFields();
     startPasswordOptIn();
     startUpdateProgress();
+    startBackups();
     paintBars(document);
     document.querySelectorAll("[data-c]").forEach(function (el) { el.style.background = el.dataset.c; });
     startMenu();
