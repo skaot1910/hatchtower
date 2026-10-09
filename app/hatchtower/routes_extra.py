@@ -539,7 +539,7 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
     if email and not mailer.valid_email(email):
         return back("/admin/users#einladen", "Bitte eine gültige E-Mail-Adresse eingeben")
     raw = accounts.create("invite", email=email or None, data={"role": role}, created_by=owner.id,
-                          hours=days * 24, max_uses=uses, note=note or None)
+                          hours=days * 24, max_uses=uses, note=note or None, encrypt=vault.encrypt)
     link = f"{link_base(request)}/invite/{raw}"
     message = "Einladung erstellt. Kopiere den Link, er wird nur jetzt angezeigt."
     if email:

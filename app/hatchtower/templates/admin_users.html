@@ -69,6 +69,9 @@
     {% for i in invites %}
     <li class="invite-row">
       <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {% if i.expires %}{{ _("gültig bis {date}", date=i.expires) }}{% else %}{{ _("unbegrenzt gültig") }}{% endif %}</span></span>
+      {% if i.link %}<details class="invite-link"><summary class="chip chip-sm">{{ _("Link anzeigen") }}</summary>
+        <input class="mono copy-field" value="{{ i.link }}" readonly data-select-on-focus aria-label="{{ _("Einladungslink") }}">
+      </details>{% else %}<span class="faint small">{{ _("Link nicht mehr abrufbar (vor Version 0.19.2 erstellt)") }}</span>{% endif %}
       <form method="post" action="/admin/users/invites/{{ i.hash }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Zurückziehen") }}</button></form>
     </li>
     {% endfor %}

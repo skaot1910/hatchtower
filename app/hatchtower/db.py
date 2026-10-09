@@ -338,6 +338,10 @@ MIGRATIONS: list[str] = [
     INSERT OR IGNORE INTO user_server_permissions (user_id, identifier, permission)
         SELECT user_id, identifier, 'console.archive' FROM user_server_permissions WHERE permission = 'console.read';
     """,
+    # 17: Einladungslink zusätzlich verschlüsselt speichern, damit Owner ihn später noch einmal kopieren können
+    """
+    ALTER TABLE tokens ADD COLUMN token_enc TEXT;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

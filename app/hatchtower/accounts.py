@@ -1,6 +1,7 @@
 """Einmal-Links für Einladungen, Passwort-Zurücksetzen und E-Mail-Bestätigung.
 
-In der Datenbank steht nur der SHA-256-Hash des Links. Links laufen ab: Einladung 1–90 Tage
+In der Datenbank steht der SHA-256-Hash des Links; Einladungen zusätzlich verschlüsselt (token_enc),
+damit Owner den Link später noch einmal kopieren können. Links laufen ab: Einladung 1–90 Tage
 oder unbegrenzt (Standard 7), Passwort zurücksetzen 1 Stunde, E-Mail bestätigen 24 Stunden. Passwort- und E-Mail-Links
 gelten einmal, Einladungen so oft wie eingestellt (max_uses, 0 = unbegrenzt).
 """
@@ -30,7 +31,7 @@ def valid_username(name: str) -> bool:
 
 def create(purpose: str, *, user_id: int | None = None, email: str | None = None, data: dict | None = None,
            created_by: int | None = None, hours: int | None = None, max_uses: int = 1,
-           note: str | None = None) -> str:
+           note: str | None = None, encrypt=None) -> str:
     raw = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
     with db.connect() as con:
@@ -38,11 +39,11 @@ def create(purpose: str, *, user_id: int | None = None, email: str | None = None
             con.execute("DELETE FROM tokens WHERE purpose = ? AND user_id = ?", (purpose, user_id))
         con.execute(
             "INSERT INTO tokens (token_hash, purpose, user_id, email, data, created_at, expires_at, created_by,"
-            " max_uses, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " max_uses, note, token_enc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (_hash(raw), purpose, user_id, email, json.dumps(data or {}), now.isoformat(timespec="seconds"),
              NEVER if hours == 0 else
              (now + timedelta(hours=hours or VALID_HOURS[purpose])).isoformat(timespec="seconds"), created_by,
-             max_uses, note))
+             max_uses, note, encrypt(raw) if encrypt else None))
     return raw
 
 

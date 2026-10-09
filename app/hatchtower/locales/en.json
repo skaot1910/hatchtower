@@ -1097,7 +1097,10 @@
   "beliebig oft": "unlimited uses",
   "unbegrenzt gültig": "never expires",
   "gilt 1 Tag": "valid for 1 day",
-  "gilt {n} Tage": "valid for {n} days"
+  "gilt {n} Tage": "valid for {n} days",
+  "Link anzeigen": "Show link",
+  "Einladungslink": "Invitation link",
+  "Link nicht mehr abrufbar (vor Version 0.19.2 erstellt)": "Link no longer available (created before version 0.19.2)"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

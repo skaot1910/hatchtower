@@ -1358,10 +1358,17 @@ async def admin_users(request: Request):
         rows.append({"u": u, "access": access, "visible": visible,
                      "last_login": fmt_dt(u["last_login_at"], settings.timezone)})
     from . import accounts, mailer
+    from .routes_extra import link_base
+    base = link_base(request)
+
+    def invite_link(i) -> str | None:
+        raw = vault.decrypt(i["token_enc"])
+        return f"{base}/invite/{raw}" if raw else None
+
     invites = [{"hash": i["token_hash"], "role": __import__("json").loads(i["data"] or "{}").get("role", "user"),
                 "email": i["email"], "created": fmt_dt(i["created_at"], settings.timezone),
                 "expires": None if i["expires_at"] == accounts.NEVER else fmt_dt(i["expires_at"], settings.timezone),
-                "creator": i["creator"],
+                "creator": i["creator"], "link": invite_link(i),
                 "note": i["note"], "uses": accounts.uses_text(i["uses"], i["max_uses"])}
                for i in accounts.open_invites()]
     return render(request, "admin_users.html", rows=rows, error=None, server_count=len(names), invites=invites,

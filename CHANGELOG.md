@@ -3,6 +3,10 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.19.2 – 2026-10-09
+
+- **Offene Einladungslinks wieder kopierbar:** In der Benutzerverwaltung lässt sich der Link einer offenen Einladung über „Link anzeigen“ erneut abrufen und kopieren (gilt für Einladungen ab dieser Version)
+
 ## 0.19.1 – 2026-10-08
 
 - **Einladungslinks länger gültig:** zusätzlich 30, 60 oder 90 Tage und unbegrenzt (läuft nie ab, bis zum Zurückziehen oder Aufbrauchen)

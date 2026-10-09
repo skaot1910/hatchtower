@@ -401,6 +401,17 @@ def test_einladung_unbegrenzt_und_ablauf_im_audit(world):
         assert con.execute("SELECT COUNT(*) FROM tokens WHERE purpose = 'invite'").fetchone()[0] == 0
 
 
+def test_offener_einladungslink_bleibt_kopierbar(world):
+    owner = world.client(world.ids["olga"])
+    r = owner.post("/admin/users/invite", data={"csrf": owner.csrf, "note": "Wiederholen"})
+    link = re.search(r'value="(https?://[^"]*/invite/[^"]+)"', r.text).group(1)
+    page = owner.get("/admin/users").text
+    assert page.count(link) == 1
+    with db.connect() as con:
+        enc = con.execute("SELECT token_enc FROM tokens WHERE note = 'Wiederholen'").fetchone()[0]
+    assert enc and link.rsplit("/", 1)[1] not in enc
+
+
 def test_einladung_ohne_ablauf(world):
     owner = world.client(world.ids["olga"])
     r = owner.post("/admin/users/invite", data={"csrf": owner.csrf, "days": "0", "uses": "1"})
