@@ -44,11 +44,26 @@ PANEL_DOWN_AFTER = 2              # so viele Fehlversuche in Folge, bis Pterodac
 
 POLL_QUERY = (
     "SELECT s.identifier, s.primary_ip, s.allocations, s.limit_memory, s.limit_disk, s.limit_cpu, m.query_port AS fixed_port,"
-    " st.state AS prev_state FROM servers s"
+    " st.state AS prev_state, st.uptime_ms AS prev_uptime, st.updated_at AS prev_updated FROM servers s"
     " LEFT JOIN server_meta m ON m.identifier = s.identifier"
     " LEFT JOIN server_state st ON st.identifier = s.identifier"
     " WHERE s.present = 1"
 )
+
+
+SILENT_RESTART_MAX_GAP = 60      # Laufzeit nur mit einer höchstens so alten Messung vergleichen (Sekunden)
+
+
+def silent_restart(prev_uptime: int | None, uptime: int | None, prev_updated: str | None, now: datetime) -> bool:
+    """Die Laufzeit ist seit der letzten Abfrage gesunken, ohne dass der Server offline zu sehen war:
+    Wings hat ihn dazwischen neu gestartet (bei Pterodactyl nach einem Absturz die Standardeinstellung)."""
+    if not prev_uptime or uptime is None or uptime >= prev_uptime - 2000:
+        return False
+    try:
+        last = datetime.fromisoformat(prev_updated)
+    except (TypeError, ValueError):
+        return False
+    return 0 <= (now - last).total_seconds() <= SILENT_RESTART_MAX_GAP
 
 
 class Monitor:
@@ -63,6 +78,7 @@ class Monitor:
         self.last_sync: str | None = None
         self._task: asyncio.Task | None = None
         self.on_offline = None  # Rückruf für Automationen (Absturz-Erkennung)
+        self.on_silent_restart = None  # Rückruf, wenn Wings einen Server zwischen zwei Abfragen neu gestartet hat
         self.on_new_servers = None  # Rückruf, wenn Pterodactyl einen bisher unbekannten Server liefert
         self._follow: dict[str, float] = {}
         self._last_sample: dict[str, float] = {}
@@ -265,6 +281,9 @@ class Monitor:
         stopped_at = now_s if prev in ("running", "starting", "stopping") and state == "offline" else None
         if prev in ("running", "starting") and state == "offline" and self.on_offline:
             self.on_offline(ident)
+        elif (prev == "running" and state in ("running", "starting") and self.on_silent_restart
+              and silent_restart(row["prev_uptime"], res["uptime_ms"], row["prev_updated"], now)):
+            self.on_silent_restart(ident)
         first_seen = ident not in self._tracked
         self._tracked.add(ident)
         with db.connect() as con:

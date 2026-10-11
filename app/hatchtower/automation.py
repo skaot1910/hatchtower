@@ -21,7 +21,7 @@ ACTOR = "Automation"
 INTENT_WINDOW = 180          # Sekunden, in denen ein Stopp als gewollt gilt
 CRASH_GRACE = 90             # Wartezeit, ob Wings den Server selbst neu startet
 CRASH_LIMIT_PER_HOUR = 3
-STOP_WORDS = {"stop", "quit", "exit", "shutdown", "end", "save-and-exit", "quit()", "halt"}
+STOP_WORDS = {"stop", "quit", "exit", "shutdown", "end", "save-and-exit", "quit()", "halt", "restart", "reboot"}
 WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 ACTIONS = {"start": "Start", "stop": "Stop", "restart": "Restart", "command": "Befehl"}
 
@@ -123,6 +123,24 @@ class Automation:
         task = asyncio.create_task(self._handle_crash(identifier, restart))
         self._crash_tasks[identifier] = task
         task.add_done_callback(lambda _t, i=identifier: self._crash_tasks.pop(i, None))
+
+    def on_silent_restart(self, identifier: str) -> None:
+        """Vom Monitoring aufgerufen, wenn die Laufzeit eines laufenden Servers zurückgesprungen ist, ohne dass er
+        offline zu sehen war. Meist hat Wings ihn nach einem Absturz sofort selbst neu gestartet – das wird wie ein
+        Absturz erfasst und gemeldet, ein eigener Neustart ist nicht nötig."""
+        if identifier in self._crash_tasks:
+            return
+        task = asyncio.create_task(self._handle_silent_restart(identifier))
+        self._crash_tasks[identifier] = task
+        task.add_done_callback(lambda _t, i=identifier: self._crash_tasks.pop(i, None))
+
+    async def _handle_silent_restart(self, identifier: str) -> None:
+        i18n.use_default()
+        if self._manual_stop_recent(identifier) or await self._ptero_stop_recent(identifier):
+            return  # gewollter Neustart (Hatchtower, Panel, Zeitplan oder Konsolenbefehl)
+        i18n.use_default()
+        self._record_crash(identifier, i18n.t("Absturz erkannt, Wings hat den Server sofort neu gestartet"))
+        self._emit("crash", identifier, i18n.t("Der Server ist abgestürzt und wurde von Wings sofort wieder gestartet."))
 
     def _record_crash(self, identifier: str, outcome: str, result: str = "ok") -> None:
         with db.connect() as con:

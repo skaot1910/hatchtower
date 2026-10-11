@@ -935,6 +935,7 @@ class BackupManager:
 
     def _finish(self, rs: RunState, status: str, detail: str = "", **cols) -> None:
         self.runs.pop(rs.run_id, None)
+        i18n.use_default()
         cols.setdefault("power_restore", 0)
         sets = ", ".join(f"{k} = ?" for k in ("status", "detail", "finished_at", "files", "data_bytes", *cols))
         with db.connect() as con:
@@ -1165,13 +1166,13 @@ class BackupManager:
             return
         ok = sum(1 for r in rows if r["status"] == "ok")
         bad = [r for r in rows if r["status"] != "ok"]
+        i18n.use_default()
         stamp = datetime.now(ZoneInfo(self.settings.timezone)).strftime(i18n.date_format())
         summary = i18n.t("{ok} von {n} Servern gesichert", ok=ok, n=len(rows))
         with db.connect() as con:
             con.execute("UPDATE backup_jobs SET last_result = ? WHERE id = ?", (f"{stamp} {summary}", job["id"]))
         if rows[0]["kind"] != "target" or job["notify"] == "never" or (not bad and job["notify"] != "always"):
             return
-        i18n.use_default()
         lines = [i18n.t("Job „{job}“: {summary}", job=job["name"], summary=summary)]
         for r in rows:
             label = i18n.t(STATUS_LABELS.get(r["status"], r["status"]))

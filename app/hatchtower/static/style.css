@@ -603,7 +603,7 @@ a.file-link:hover { color: var(--violet-3); }
   .head-tools { width: 100%; }
   .head-tools .view-toggle { display: none; }
   .monitor-status { font-size: 13.5px; }
-  .grid, .grid.list-view { grid-template-columns: 1fr; gap: 12px; }
+  .grid, .grid.list-view { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .server-card, .list-view .server-card { display: flex; flex-direction: column; align-items: stretch; padding: 16px; gap: 14px; }
   .list-view .card-head, .list-view .facts, .list-view .metrics, .list-view .power, .list-view .actions { grid-row: auto; grid-column: auto; }
   .server-card:hover { transform: none; }

@@ -3,6 +3,13 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.20.1 – 2026-10-12
+
+- **Abstürze werden jetzt auch erkannt, wenn Wings den Server selbst sofort neu startet** (bei Pterodactyl die Standardeinstellung). Bisher fiel das zwischen zwei Abfragen oft durch: keine Meldung per Discord/E-Mail, kein Eintrag bei den Abstürzen, kein roter Balken in der Verfügbarkeit. Gewollte Neustarts (Hatchtower, Panel, Zeitplan, Backup, Konsolenbefehl `restart`) zählen weiterhin nicht als Absturz
+- **Behoben:** Backups zeigten in der englischen Oberfläche und in den Meldungen deutsche Texte („fertig“, „4 von 4 Servern gesichert“)
+- **Behoben:** Auf dem Handy ragten Serverkarten mit langem Namen über den Bildschirmrand
+- README: Backups und mehrere Discord-Kanäle ergänzt
+
 ## 0.20.0 – 2026-10-09
 
 - **Backups (neu):** Hatchtower sichert Server oder ausgewählte Dateien und Ordner (z. B. Spielstände) als ZIP – eine Datei pro Server und Lauf, mit den Pfaden ab dem Serverordner, damit sie sich woanders wieder einspielen lassen

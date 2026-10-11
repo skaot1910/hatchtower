@@ -99,6 +99,7 @@ async def lifespan(app: FastAPI):
     app.state.automation = automation.Automation(app.state.ptero, settings.timezone, vault)
     app.state.logarchive = logarchive.LogArchive(app.state.ptero)
     app.state.monitor.on_offline = app.state.automation.on_offline
+    app.state.monitor.on_silent_restart = app.state.automation.on_silent_restart
     app.state.logarchive.on_status = lambda ident: app.state.monitor.follow(ident, 20)
     app.state.monitor.on_new_servers = announce_new_servers
     app.state.monitor.start()

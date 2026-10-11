@@ -30,6 +30,7 @@ die Stelle, an der deine Server wirklich laufen. Hatchtower legt sich darüber u
 - 👥 **eigene Benutzer** mit genau den Rechten, die du ihnen gibst – pro Server
 - 📈 **Live-Monitoring** mit Verlauf von CPU, RAM und Netzwerk
 - ⏰ **Automationen** wie Neustart bei Absturz oder nächtliche Neustarts
+- 💾 **Backups** von ganzen Servern oder einzelnen Spielständen – auf ein Laufwerk, eine SMB-Freigabe oder direkt in den Browser
 - 📜 ein **Audit-Log**, das festhält, wer wann was getan hat
 - 🔒 einen **Nur-Lesen-Modus**, mit dem garantiert nichts am Panel verändert wird
 
@@ -105,6 +106,14 @@ einmalig) starten, stoppen oder starten Server neu – mit Vorwarnung im Spiel, 
 
 <img src="docs/screenshots/automation.png" alt="Automationen und Zeitpläne" width="100%">
 
+### Backups
+
+Sichere ganze Server oder nur das, was wirklich zählt – zum Beispiel die Spielstände. Dateien und
+Ordner kreuzt du einfach im Datei-Explorer an und fügst sie einem Backup-Job hinzu. Gespeichert
+wird als ZIP auf einem Laufwerk (z. B. Proxmox-Mountpoint, USB, NFS), auf einer SMB-Freigabe
+(Windows, NAS) oder direkt als Download im Browser. Auf Wunsch wird der Server vorher gestoppt –
+mit Vorwarnung im Spiel – und danach wieder gestartet.
+
 ### Audit-Log
 
 Jede Aktion wird festgehalten und lässt sich nicht nachträglich verändern. Filtern nach Aktion,
@@ -160,8 +169,19 @@ Auf dem Handy passt sich Hatchtower automatisch an.
 - Benachrichtigungen per Discord/Webhook und E-Mail: Absturz, Neustart, Neustart fehlgeschlagen,
   Speicher fast voll, RAM dauerhaft hoch, Zeitplan fehlgeschlagen
 
+**Backups**
+- Backup-Jobs für einen, mehrere oder alle Server (auch künftige), ganze Server oder ausgewählte Dateien und Ordner, mit Ausschlüssen (z. B. `logs/`, `*.log`)
+- Dateien und Ordner direkt im Datei-Explorer zu einem Backup-Job hinzufügen
+- Ziele: Laufwerk im Hatchtower-Container (z. B. Proxmox-Mountpoint, USB, NFS), SMB-Freigabe (Windows, NAS, Samba) oder Direktdownload im Browser
+- Von Hand oder per Zeitplan, mit Fortschrittsanzeige; laufende Backups lassen sich abbrechen
+- Server vorher stoppen (mit Vorwarnung im Spiel) und danach wieder starten
+- Aufbewahrung nach Anzahl oder Tagen, Platzprüfung vorab, Meldung per Webhook/E-Mail
+- Eigene Rechte: Backups sehen, starten und herunterladen, Backup-Jobs verwalten
+- Schont das Anfragen-Limit von Pterodactyl, damit Statusabfragen nicht ausfallen
+
 **Community**
 - Öffentliche Statusseite (abschaltbar): Name, Spiel, Status und Adresse ausgewählter Server
+- Server-Status in Discord, auch in mehreren Kanälen – jeder mit eigener Server-Auswahl und Überschrift
 - Ankündigungen oben auf jeder Seite, mit geplantem Beginn und Ende
 
 **Aussehen und Sprache**
