@@ -863,7 +863,7 @@ a.file-link:hover { color: var(--violet-3); }
 .check-pill.bad { background: var(--red-bg); color: var(--red-fg); }
 .mode-choice { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px 12px; margin: 0; display: grid; gap: 10px; }
 .mode-choice legend { color: var(--muted); font-size: 13px; padding: 0 6px; }
-.mode-option { display: flex; gap: 10px; align-items: flex-start; color: var(--text); cursor: pointer; }
+.mode-option, .form label.mode-option { display: flex; gap: 10px; align-items: flex-start; color: var(--text); cursor: pointer; }
 .mode-option input { margin-top: 4px; accent-color: var(--violet); }
 .mode-option > span { display: grid; gap: 2px; }
 .panel-choice { margin-bottom: 4px; }

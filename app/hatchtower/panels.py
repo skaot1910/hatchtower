@@ -23,8 +23,8 @@ class Panel:
 
 PANELS: dict[str, Panel] = {
     "pterodactyl": Panel("pterodactyl", "Pterodactyl", "https://pterodactyl.io", "ptla_", "ptlc_", False, "Panel 1.15.1 · Wings 1.13.3"),
-    "pelican": Panel("pelican", "Pelican", "https://pelican.dev", "papp_", "pacc_", False, "Panel · Wings 1.0.0-rc.1"),
-    "calagopus": Panel("calagopus", "Calagopus", "https://calagopus.com", "", "", True, "Panel · Wings 1.2.5"),
+    "pelican": Panel("pelican", "Pelican", "https://pelican.dev", "papp_", "pacc_", False, "Panel/Wings 1.0.0-rc.1"),
+    "calagopus": Panel("calagopus", "Calagopus", "https://calagopus.com", "", "", True, "Panel/Wings 1.2.5"),
 }
 
 

@@ -3,6 +3,12 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.21.2 – 2026-10-12
+
+- **Behoben:** Bei der Panel-Auswahl im Einrichtungsassistenten und bei der Modus-Auswahl (Nur lesen / Lesen und steuern) standen die Auswahlkreise über dem Text statt daneben
+- **Behoben:** In der englischen Übersicht hieß der Statusfilter noch „wird gestartet / wird gestoppt“
+- Getestete Versionen bei Pelican und Calagopus verständlicher („Panel/Wings 1.0.0-rc.1“)
+
 ## 0.21.1 – 2026-10-12
 
 - Serverstatus umbenannt: „running“ heißt jetzt **online** (deutsch und englisch), „starting / stopping“ heißt auf Deutsch **wird gestartet / wird gestoppt** – auf den Serverkarten, im Statusfilter und auf der öffentlichen Statusseite
