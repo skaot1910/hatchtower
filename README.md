@@ -45,7 +45,7 @@ die Stelle, an der deine Server wirklich laufen. Hatchtower legt sich darüber u
 | [Calagopus](https://calagopus.com) | Panel und Wings 1.2.5 (integrierte oder eigene Wings) | ein API-Key mit Admin-Lese- und Server-Rechten |
 
 Eine Hatchtower-Installation verwaltet die Server **eines** Panels. Welches, wählst du im
-Einrichtungsassistenten; wechseln kannst du später unter **System → Verbindung**.
+Einrichtungsassistenten; wechseln kannst du später unter **System → Panel**.
 
 > **In 5 Minuten startklar:** Ein Befehl installiert alles, danach führt dich ein Assistent im
 > Browser Schritt für Schritt durch die Einrichtung.
@@ -319,11 +319,11 @@ Adresse im Browser – ein Assistent führt dich durch fünf Schritte:
 Fertig! 🎉
 
 > 💡 Neue Installationen starten sicherheitshalber im Modus **Nur lesen**. Umstellen kannst du das
-> jederzeit unter **System → Verbindung bearbeiten → Modus und Optionen**.
+> jederzeit unter **System → Panel → Modus**.
 >
 > API-Keys werden verschlüsselt gespeichert und nie wieder angezeigt.
 
-**Eigener Look:** Unter **System → Erscheinungsbild** hinterlegst du den Namen und die Logos
+**Eigener Look:** Unter **Auftritt → Erscheinungsbild** hinterlegst du den Namen und die Logos
 deiner Community. Theme und Sprache wählt jeder Benutzer selbst oben rechts.
 
 ---
@@ -405,7 +405,7 @@ Hatchtower läuft auch auf einem Server im Internet. Damit es dort sicher ist:
 3. **Einrichtung sofort abschließen.** Solange kein Konto existiert, kann jeder mit dem
    Einrichtungscode den Owner anlegen. Den Code also nicht weitergeben und gleich nach der
    Installation einrichten.
-4. **Proxy-IP eintragen** unter **System → Verbindung → Reverse-Proxy-IPs** (bei Caddy auf
+4. **Proxy-IP eintragen** unter **System → Netzwerk → Reverse-Proxy-IPs** (bei Caddy auf
    demselben Server: `127.0.0.1`). Das ist im Internet Pflicht, nicht optional: Erst dann
    - erkennt Hatchtower HTTPS und setzt die Cookies mit `Secure` sowie HSTS,
    - sieht es die echten IPs der Besucher. Ohne Eintrag kommen alle von der Proxy-IP, und ein

@@ -3,6 +3,20 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.22.0 – 2026-10-12
+
+- **Menü neu gegliedert:** Die Hauptleiste hat jetzt die Bereiche **Benutzer**, **Auftritt** und **System**, jeder mit eigenen Reitern
+  - **Benutzer:** Benutzer, Rechtegruppen und Audit-Log
+  - **Auftritt** (was Besucher und Spieler sehen): Erscheinungsbild, Statusseite, Ankündigungen und Rechtliches (Impressum, Datenschutzerklärung)
+  - **System:** Zustand, Panel, Netzwerk, E-Mail, Benachrichtigungen, Daten und Updates
+- **Netzwerk** (neu): Adresse von Hatchtower (bisher unter E-Mail), öffentliche Adresse für Spieler und Reverse-Proxy-IPs (bisher unter Verbindung) an einer Stelle
+- **Erscheinungsbild** hat eine eigene Seite, mit Standardsprache und **Zeitzone** im Abschnitt „Sprache und Zeit“
+- **Zeitzone:** Jede Auswahl zeigt den aktuellen Abstand zu UTC, z. B. „Europe/Berlin (UTC+2)“. Bei den Zeitplänen steht, in welcher Zeitzone sie laufen
+- **Updates** haben einen eigenen Reiter; der Hinweis auf eine neue Version in der Leiste führt direkt dorthin
+- **Daten:** Aufbewahrung, Export und Import auf einer Seite (bisher Datenschutz und Datenumzug)
+- Der Link zur öffentlichen Statusseite steht nur noch in der Übersicht, nicht mehr zusätzlich in der Hauptleiste
+- Doppelte Rücklinks wie „← System“ entfernt; die Reiterleiste führt jetzt überall zurück
+
 ## 0.21.3 – 2026-10-12
 
 - **Übersicht: „Alle auswählen“** – ein Haken wählt alle gerade sichtbaren Server (passend zu Status- und Tag-Filter) für Start, Restart oder Stop auf einmal aus

@@ -209,7 +209,7 @@ if hatchtower setup-token >/tmp/hatchtower-token 2>/dev/null; then
   if [ "$LOCAL_ONLY" -eq 1 ]; then
     echo
     echo "  Hatchtower lauscht nur auf $HATCHTOWER_BIND. Öffne es über deinen Reverse-Proxy (HTTPS)"
-    echo "  und trag dessen IP danach unter System → Verbindung ein (bei einem Proxy auf diesem Server: 127.0.0.1)."
+    echo "  und trag dessen IP danach unter System → Netzwerk ein (bei einem Proxy auf diesem Server: 127.0.0.1)."
   fi
 else
   rm -f /tmp/hatchtower-token
