@@ -3,6 +3,10 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.21.1 – 2026-10-12
+
+- Serverstatus umbenannt: „running“ heißt jetzt **online** (deutsch und englisch), „starting / stopping“ heißt auf Deutsch **wird gestartet / wird gestoppt** – auf den Serverkarten, im Statusfilter und auf der öffentlichen Statusseite
+
 ## 0.21.0 – 2026-10-12
 
 - **Pelican und Calagopus werden unterstützt:** Hatchtower lässt sich jetzt neben Pterodactyl auch mit [Pelican](https://pelican.dev) und [Calagopus](https://calagopus.com) verbinden. Eine Installation verwaltet weiterhin die Server eines Panels

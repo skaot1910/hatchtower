@@ -1447,6 +1447,10 @@
   "{n} von {m} Dateien": "{n} of {m} files",
   "Dieses Backup abbrechen?": "Cancel this backup?",
   "Wird abgebrochen …": "Cancelling …",
-  "wartet kurz auf {panel} (Anfragen-Limit)": "waiting briefly for {panel} (request limit)"
+  "wartet kurz auf {panel} (Anfragen-Limit)": "waiting briefly for {panel} (request limit)",
+  "online": "online",
+  "wird gestartet": "starting",
+  "wird gestoppt": "stopping",
+  "wird gestartet / wird gestoppt": "starting / stopping"
  }
 }

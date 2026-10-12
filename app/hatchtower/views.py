@@ -12,9 +12,9 @@ from .permissions import UserContext
 from .security import Vault
 
 STATE_LABELS = {
-    "running": "running",
-    "starting": "starting",
-    "stopping": "stopping",
+    "running": "online",
+    "starting": "wird gestartet",
+    "stopping": "wird gestoppt",
     "offline": "offline",
     "unknown": "unbekannt",
 }

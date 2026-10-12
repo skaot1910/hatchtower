@@ -28,7 +28,7 @@ from .main import (BACKUP_SUFFIX, SYSTEM_TABS, LoginRequired, app, apply_connect
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
 from .panels import PANELS
 from .permissions import load_grants
-from .views import fmt_dt, is_stale, monogram
+from .views import STATE_LABELS, fmt_dt, is_stale, monogram
 
 
 
@@ -139,7 +139,7 @@ def status_servers(fields: set[str] | None = None, idents: set[str] | None = Non
             item["ingame"] = r["ingame_name"] or r["query_name"] or r["startup_name"] or None
         if "status" in fields:
             item["state"] = state
-            item["state_label"] = i18n.t({"suspended": "gesperrt", "unknown": "unbekannt"}.get(state, state))
+            item["state_label"] = i18n.t({**STATE_LABELS, "suspended": "gesperrt"}.get(state, state))
         if "started" in fields:
             when = r["last_started_at"] if running else r["last_stopped_at"]
             item["started"] = (i18n.t("Gestartet: {zeit}" if running else "Gestoppt: {zeit}",
