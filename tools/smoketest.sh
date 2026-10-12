@@ -106,7 +106,7 @@ check "  ... Seite auf Englisch" "$(curl -s -b "$J" $B/account | grep -c '<h1>Yo
 check "  ... Weiterleitung nur auf eigene Seiten" "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" -c "$J" "$B/lang/de?next=//evil.example")" "$B/"
 check "  ... zurück auf Deutsch" "$(SQL "select language from users where username='$U'")" de
 # 0.11: neue Seiten, Aufbewahrung, Statusseite, Rechtliches, Export
-for p in /admin/mail /admin/notify /admin/statuspage /admin/announcements /admin/privacy /admin/transfer /about; do
+for p in /admin/appearance /admin/network /admin/mail /admin/notify /admin/statuspage /admin/announcements /admin/legal /admin/data /admin/updates /about; do
   check "Seite $p" "$(code $B$p)" 200
 done
 check "Statusseite ist standardmäßig aus" "$(curl -s -o /dev/null -w '%{http_code}' $B/status)" 404
@@ -117,7 +117,7 @@ try:
     c = sqlite3.connect('$T/hatchtower.db'); c.execute('DELETE FROM audit_log'); c.commit(); print('geloescht')
 except sqlite3.DatabaseError: print('geschuetzt')")" geschuetzt
 check "Audit-Export CSV" "$(code "$B/admin/audit/export?format=csv")" 200
-check "Export ohne Passwort abgelehnt (Weiterleitung)" "$(code -X POST --data-urlencode "csrf=$CSRF" -d 'current=falsch&passphrase=x&repeat=x' $B/admin/transfer/export)" 303
+check "Export ohne Passwort abgelehnt (Weiterleitung)" "$(code -X POST --data-urlencode "csrf=$CSRF" -d 'current=falsch&passphrase=x&repeat=x' $B/admin/data/export)" 303
 check "Passwort vergessen ohne E-Mail-Versand aus" "$(curl -s -o /dev/null -w '%{http_code}' $B/forgot)" 404
 check "Zu große Anfrage abgelehnt (413)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Length: 99999999' --data-binary 'x' --max-time 5 $B/login)" 413
 check "Chunked ohne Länge abgelehnt (411)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Transfer-Encoding: chunked' --data-binary 'x' $B/login)" 411

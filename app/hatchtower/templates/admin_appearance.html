@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Erscheinungsbild") }} · {{ brand.name }}{% endblock %}
+{% import "_connection.html" as cf with context %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Erscheinungsbild") }}</h1><p class="muted">{{ _("Name, Logos, Design, Sprache und Zeitzone dieser Instanz.") }}</p></div>
+</div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Name und Design") }}</h2>
+  <form method="post" action="/admin/branding" class="form brand-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="form-grid">
+      <label>{{ _("Eigener Name (optional)") }}
+        <input name="brand_name" value="{{ brand.custom }}" maxlength="40" placeholder="{{ _("z. B. der Name deiner Community") }}">
+      </label>
+      <label>{{ _("Standard-Theme (für neue Benutzer und die Login-Seite)") }}
+        <select name="default_theme">
+          {% for t in themes %}<option value="{{ t.key }}" {% if t.key == default_theme %}selected{% endif %}>{{ _(t.name) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _("Community-Discord (Einladungslink oder Code, leer = ausblenden)") }}
+        <input name="discord" value="{{ discord_url }}" maxlength="80" placeholder="https://discord.gg/…" spellcheck="false">
+      </label>
+      <label class="check brand-check"><input type="checkbox" name="show_name" value="1" {% if brand.show_name %}checked{% endif %}> {{ _("Eigenen Namen neben dem Logo anzeigen") }}</label>
+    </div>
+    <p class="faint small">{{ _("Dein eigener Name steht groß in der Kopfzeile und auf der Login-Seite, „Hatchtower“ dezent darunter und in der Fußzeile. Ohne eigenen Namen steht dort einfach „Hatchtower“. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.") }}</p>
+    <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Logos") }}</h2>
+  <div class="brand-logos">
+    {% for kind, label, current, size, shown, hint in [
+      ('header', 'Logo in der Kopfzeile', brand.logo_header, '360 × 72 px', 'max. 180 × 36 px', 'Breites Querformat (5:1) passt am besten, z. B. Schriftzug mit Symbol. Quadratisch geht auch: dann 72 × 72 px.'),
+      ('login', 'Logo auf der Login-Seite', brand.logo_login, '640 × 240 px', 'max. 320 × 120 px', 'Querformat (8:3). Quadratisch geht auch: dann 240 × 240 px.')
+    ] %}
+    <div class="brand-logo-box">
+      <h3>{{ _(label) }}</h3>
+      <div class="brand-preview brand-preview-{{ kind }}">
+        {% if current %}<img src="/branding/{{ current }}" alt="{{ _(label) }}">{% else %}<span class="faint small">{{ _("kein Logo – es wird der Name angezeigt") }}</span>{% endif %}
+      </div>
+      <p class="small"><strong>{{ _("Empfohlen: {size}").format(size=size) }}</strong> <span class="faint">{{ _("(angezeigt mit {shown}, doppelte Größe für scharfe Bildschirme)").format(shown=_(shown)) }}</span></p>
+      <p class="faint small">{{ _(hint) }} {{ _("PNG mit transparentem Hintergrund passt zu allen Themes. Erlaubt: PNG, JPG, WebP bis 2 MB; größere Bilder werden automatisch verkleinert.") }}</p>
+      <form method="post" action="/admin/branding/logo/{{ kind }}" enctype="multipart/form-data" class="inline-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" required aria-label="{{ _("{label} auswählen").format(label=_(label)) }}">
+        <button class="btn btn-primary btn-sm" type="submit">{{ _("Hochladen") }}</button>
+      </form>
+      {% if current %}
+      <form method="post" action="/admin/branding/logo/{{ kind }}/delete" data-confirm="{{ _("{label} entfernen?").format(label=_(label)) }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost btn-sm" type="submit">{{ _("Logo entfernen") }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card" id="sprache-zeit">
+  <h2 class="card-h">{{ _("Sprache und Zeit") }}</h2>
+  <form method="post" action="/admin/appearance/locale" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="form-grid">
+      <label>{{ _("Standardsprache (für die Login-Seite und Benutzer ohne eigene Wahl)") }}
+        <select name="default_language">
+          {% for code, name in languages.items() %}<option value="{{ code }}" {% if code == default_language %}selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      {{ cf.timezone_select(timezones, timezone) }}
+    </div>
+    <p class="faint small"><strong>{{ _("Zeitzone:") }}</strong> {{ _("gilt für Zeitpläne und alle angezeigten Uhrzeiten. Die Angabe in Klammern ist der aktuelle Abstand zu UTC, mit Sommerzeit falls gerade gültig.") }}</p>
+    <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
+{% endblock %}

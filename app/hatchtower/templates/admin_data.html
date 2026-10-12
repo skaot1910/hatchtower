@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Daten") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Daten") }}</h1><p class="muted">{{ _("Wie lange Hatchtower personenbezogene Daten aufbewahrt, und Datenumzug in eine andere Hatchtower-Installation.") }}</p></div>
+</div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Aufbewahrung") }}</h2>
+  <form method="post" action="/admin/data/retention" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="form-grid">
+      <label>{{ _("Audit-Log (mit IP-Adressen und Benutzernamen)") }}
+        <select name="audit_days">
+          {% for d in choices %}<option value="{{ d }}" {% if d == audit_days %}selected{% endif %}>{{ _("1 Tag") if d == 1 else _("{n} Tage", n=d) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _("Konsolen-Archiv") }}
+        <select name="console_days">
+          <option value="0" {% if console_days == 0 %}selected{% endif %}>{{ _("aus – nichts mitschreiben") }}</option>
+          {% for d in choices %}<option value="{{ d }}" {% if d == console_days %}selected{% endif %}>{{ _("1 Tag") if d == 1 else _("{n} Tage", n=d) }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <ul class="plain-list faint small">
+      <li>{{ _("Ältere Einträge löscht Hatchtower automatisch, mindestens einmal pro Stunde.") }}</li>
+      <li>{{ _("Wird ein Benutzer gelöscht, verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Seine Einträge im Audit-Log bleiben zur Nachvollziehbarkeit bis zum Ende der Aufbewahrungsfrist und werden dann ebenfalls gelöscht.") }}</li>
+      <li>{{ _("Statuswechsel und Absturz-Ereignisse (ohne Personenbezug) bleiben 90 Tage, der Ressourcen-Verlauf 72 Stunden.") }}</li>
+      <li>{{ _("Das Konsolen-Archiv kann Spielernamen und Chat enthalten. Halte die Frist so kurz wie möglich.") }}</li>
+    </ul>
+    <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2 class="card-h">{{ _("Datenumzug: Exportieren") }}</h2>
+    <p class="muted small">{{ _("Alles aus dieser Instanz in eine Datei exportieren und in einer anderen Hatchtower-Installation einspielen, z. B. beim Umzug auf einen anderen Server.") }}</p>
+    <p class="muted small">{{ _("Enthalten: Benutzer (mit Passwort-Hashes), Rechte und Gruppen, Serverangaben mit Logos und Passwörtern, Tags, Favoriten, Zeitpläne, Ankündigungen und alle Einstellungen samt API-Keys, E-Mail-Zugang und Webhook.") }}</p>
+    <p class="faint small">{{ _("Nicht enthalten: Audit-Log, Sitzungen, Verlauf und Konsolen-Archiv. Die Serverliste liest die neue Instanz selbst aus {panel}.") }}</p>
+    <form method="post" action="/admin/data/export" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>{{ _("Dein aktuelles Passwort") }}<input name="current" type="password" required autocomplete="current-password"></label>
+      <label>{{ _("Passwort für die Exportdatei (mind. 12 Zeichen)") }}<input name="passphrase" type="password" required minlength="12" autocomplete="new-password"></label>
+      <label>{{ _("Passwort wiederholen") }}<input name="repeat" type="password" required minlength="12" autocomplete="new-password"></label>
+      <p class="faint small">{{ _("Die Datei wird mit diesem Passwort verschlüsselt. Ohne das Passwort lässt sie sich nicht einspielen – gut aufbewahren.") }}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Exportdatei herunterladen") }}</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2 class="card-h">{{ _("Datenumzug: Importieren") }}</h2>
+    <div class="alert">{{ _("Achtung: Der Import ersetzt alle Benutzer, Rechte, Serverangaben, Zeitpläne und Einstellungen dieser Instanz. Danach meldest du dich mit einem Konto aus der Exportdatei an.") }}</div>
+    <form method="post" action="/admin/data/import" enctype="multipart/form-data" class="form" data-busy="{{ _("Importiere …") }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>{{ _("Exportdatei (.htexport)") }}<input type="file" name="file" accept=".htexport" required></label>
+      <label>{{ _("Passwort der Exportdatei") }}<input name="passphrase" type="password" required autocomplete="off"></label>
+      <label>{{ _("Dein aktuelles Passwort") }}<input name="current" type="password" required autocomplete="current-password"></label>
+      <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ _("Ja, alle Daten dieser Instanz ersetzen") }}</label>
+      <button class="btn btn-danger" type="submit">{{ _("Importieren") }}</button>
+    </form>
+    <p class="faint small">{{ _("Bei einer neuen Installation geht der Import auch direkt im Einrichtungsassistenten, ohne vorher ein Konto anzulegen.") }}</p>
+  </section>
+</div>
+{% endblock %}

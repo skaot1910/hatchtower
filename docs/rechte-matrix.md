@@ -157,11 +157,11 @@ Grundregeln:
 | Methode | Pfad | CSRF | Zweck |
 |---|---|---|---|
 | GET | `/setup` | – | Einrichtungsassistent (vor dem ersten Konto öffentlich) |
-| GET | `/admin/connection` | – | Verbindung zum Panel (Pterodactyl, Pelican, Calagopus) |
+| GET | `/admin/connection` | – | System → Panel: Verbindung zum Panel (Pterodactyl, Pelican, Calagopus) |
 | POST | `/admin/connection/panel` | Formular | Panel-Art, Panel-Adresse und Application-Key |
 | POST | `/admin/connection/client` | Formular | Client-Key |
 | POST | `/admin/connection/nodes` | Formular | Abweichende Wings-Adressen |
-| POST | `/admin/connection/options` | Formular | Modus, öffentliche Adresse, Proxy, Zeitzone |
+| POST | `/admin/connection/options` | Formular | Modus (im Assistenten auch öffentliche Adresse, Proxy, Zeitzone) |
 | GET | `/admin/users` | – | Benutzerliste |
 | POST | `/admin/users` | Formular | Benutzer anlegen |
 | POST | `/admin/users/invite` | Formular | Einladungslink erstellen |
@@ -182,17 +182,13 @@ Grundregeln:
 | POST | `/admin/backups/targets/{target_id}` | Formular | Backup-Ziel ändern (SMB: Verbindung wird geprüft) |
 | POST | `/admin/backups/targets/{target_id}/test` | Formular | Backup-Ziel testen |
 | POST | `/admin/backups/targets/{target_id}/delete` | Formular | Backup-Ziel entfernen |
-| GET | `/admin/system` | – | System: Übersicht und Prüfungen |
-| POST | `/admin/branding` | Formular | Name, Standard-Theme, Standardsprache |
+| GET | `/admin/appearance` | – | Auftritt → Erscheinungsbild |
+| POST | `/admin/branding` | Formular | Name, Standard-Theme, Discord-Link |
 | POST | `/admin/branding/logo/{kind}` | Formular | Eigenes Logo hochladen |
 | POST | `/admin/branding/logo/{kind}/delete` | Formular | Eigenes Logo entfernen |
-| GET | `/admin/mail` | – | E-Mail-Einstellungen |
-| POST | `/admin/mail` | Formular | E-Mail-Einstellungen speichern |
-| POST | `/admin/mail/password/delete` | Formular | SMTP-Passwort entfernen |
-| POST | `/admin/mail/test` | Formular | Testmail senden |
-| GET | `/admin/notify` | – | Benachrichtigungen |
-| POST | `/admin/notify` | Formular | Benachrichtigungen speichern |
-| POST | `/admin/notify/test` | Formular | Test-Webhook senden |
+| POST | `/admin/appearance/locale` | Formular | Standardsprache und Zeitzone |
+| GET | `/admin/legal` | – | Auftritt → Rechtliches |
+| POST | `/admin/legal/{page}` | Formular | Impressum/Datenschutzerklärung |
 | GET | `/admin/statuspage` | – | Statusseite einstellen |
 | POST | `/admin/statuspage` | Formular | Statusseite speichern |
 | POST | `/admin/statuspage/discord` | Formular | Discord-Kanal hinzufügen (eigene Server-Auswahl) |
@@ -201,12 +197,21 @@ Grundregeln:
 | GET | `/admin/announcements` | – | Ankündigungen |
 | POST | `/admin/announcements` | Formular | Ankündigung speichern |
 | POST | `/admin/announcements/{ann_id}/delete` | Formular | Ankündigung löschen |
-| GET | `/admin/privacy` | – | Datenschutz |
-| POST | `/admin/privacy/retention` | Formular | Aufbewahrungsfristen |
-| POST | `/admin/privacy/legal/{page}` | Formular | Impressum/Datenschutzerklärung |
-| GET | `/admin/transfer` | – | Datenumzug |
-| POST | `/admin/transfer/export` | Formular | Alle Daten verschlüsselt exportieren (Passwort nötig) |
-| POST | `/admin/transfer/import` | Formular | Daten importieren und ersetzen (Passwort nötig) |
+| GET | `/admin/system` | – | System → Zustand: Verbindung, Monitoring, Selbsttest |
+| GET | `/admin/network` | – | System → Netzwerk |
+| POST | `/admin/network` | Formular | Adresse von Hatchtower, öffentliche Adresse, Reverse-Proxy |
+| GET | `/admin/mail` | – | E-Mail-Einstellungen |
+| POST | `/admin/mail` | Formular | E-Mail-Einstellungen speichern |
+| POST | `/admin/mail/password/delete` | Formular | SMTP-Passwort entfernen |
+| POST | `/admin/mail/test` | Formular | Testmail senden |
+| GET | `/admin/notify` | – | Benachrichtigungen |
+| POST | `/admin/notify` | Formular | Benachrichtigungen speichern |
+| POST | `/admin/notify/test` | Formular | Test-Webhook senden |
+| GET | `/admin/data` | – | System → Daten: Aufbewahrung und Datenumzug |
+| POST | `/admin/data/retention` | Formular | Aufbewahrungsfristen |
+| POST | `/admin/data/export` | Formular | Alle Daten verschlüsselt exportieren (Passwort nötig) |
+| POST | `/admin/data/import` | Formular | Daten importieren und ersetzen (Passwort nötig) |
+| GET | `/admin/updates` | – | System → Updates |
 | POST | `/admin/system/update-check` | Formular | Nach Updates suchen |
 | POST | `/admin/system/update` | Formular | Update starten |
 | GET | `/admin/system/update` | – | Update-Fortschritt |

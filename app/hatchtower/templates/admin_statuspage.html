@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Statusseite") }} · {{ brand.name }}{% endblock %}
 {% block content %}
-{% include "_system_tabs.html" %}
 <div class="page-head">
   <div><h1>{{ _("Öffentliche Statusseite") }}</h1><p class="muted">{{ _("Eine Seite ohne Anmeldung für deine Community: welche Server laufen und wie man sie erreicht. Passwörter, Ressourcen und Steuerung sind dort nie zu sehen.") }}</p></div>
   {% if enabled %}<a class="btn btn-ghost" href="/status" target="_blank" rel="noopener">{{ _("Statusseite öffnen") }}</a>{% endif %}

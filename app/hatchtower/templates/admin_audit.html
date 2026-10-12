@@ -2,7 +2,7 @@
 {% block title %}{{ _("Audit-Log") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ _("Audit-Log") }}</h1><p class="muted">{{ _("{n} Einträge · nur anhängbar, nicht änderbar", n=total) }} · {{ _("wird nach {n} Tagen gelöscht", n=retention_days) }} (<a href="/admin/privacy">{{ _("ändern") }}</a>)</p></div>
+  <div><h1>{{ _("Audit-Log") }}</h1><p class="muted">{{ _("{n} Einträge · nur anhängbar, nicht änderbar", n=total) }} · {{ _("wird nach {n} Tagen gelöscht", n=retention_days) }} (<a href="/admin/data">{{ _("ändern") }}</a>)</p></div>
   <div class="head-tools">
     <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=csv&{{ export_query }}">{{ _("Export als CSV") }}</a>
     <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=txt&{{ export_query }}">{{ _("Export als TXT") }}</a>

@@ -32,11 +32,6 @@
   </div>
   <nav class="nav">
     <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">{{ _("Übersicht") }}</a>
-    {% if status_page_on %}<a href="/status" target="_blank" rel="noopener" class="nav-external" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Serverstatus") }} <span aria-hidden="true">↗</span></a>{% endif %}
-    {% if user.is_owner %}
-    <a href="/admin/users" class="{% if request.url.path.startswith('/admin/users') %}active{% endif %}">{{ _("Benutzer") }}</a>
-    <a href="/admin/groups" class="{% if request.url.path.startswith('/admin/groups') %}active{% endif %}">{{ _("Rechtegruppen") }}</a>
-    {% endif %}
     {% if user.can_automate %}
     <a href="/admin/automation" class="{% if request.url.path.startswith('/admin/automation') %}active{% endif %}">{{ _("Automationen") }}</a>
     {% endif %}
@@ -44,8 +39,9 @@
     <a href="/admin/backups" class="{% if request.url.path.startswith('/admin/backups') %}active{% endif %}">{{ _("Backups") }}</a>
     {% endif %}
     {% if user.is_owner %}
-    <a href="/admin/audit" class="{% if request.url.path.startswith('/admin/audit') %}active{% endif %}">{{ _("Audit-Log") }}</a>
-    <a href="/admin/system" class="{% if in_system %}active{% endif %}">{{ _("System") }}{% if update_available %} <span class="nav-dot" title="{{ _("Neue Version verfügbar") }}"></span>{% endif %}</a>
+    <a href="/admin/users" class="{% if nav_section == 'users' %}active{% endif %}">{{ _("Benutzer") }}</a>
+    <a href="/admin/appearance" class="{% if nav_section == 'appearance' %}active{% endif %}">{{ _("Auftritt") }}</a>
+    <a href="{{ '/admin/updates' if update_available else '/admin/system' }}" class="{% if nav_section == 'system' %}active{% endif %}">{{ _("System") }}{% if update_available %} <span class="nav-dot" title="{{ _("Neue Version verfügbar") }}"></span>{% endif %}</a>
     {% endif %}
   </nav>
   <div class="account">
@@ -70,11 +66,12 @@
   {% endfor %}
   {% if proxy_warning %}
   <div class="announcement announcement-warn" role="alert">
-    <span class="announcement-text">{{ _("Hatchtower bekommt Anfragen über einen Reverse-Proxy ({ip}), der nicht eingetragen ist. Dadurch werden HTTPS und die echten Besucher-IPs nicht erkannt: Cookies sind ungeschützt, und Fehlversuche eines Besuchers sperren alle aus. Trag die IP unter System → Verbindung ein, aber nur, wenn das wirklich dein Proxy ist.", ip=proxy_warning) }}</span>
-    <a class="btn btn-sm" href="/admin/connection">{{ _("Zur Verbindung") }}</a>
+    <span class="announcement-text">{{ _("Hatchtower bekommt Anfragen über einen Reverse-Proxy ({ip}), der nicht eingetragen ist. Dadurch werden HTTPS und die echten Besucher-IPs nicht erkannt: Cookies sind ungeschützt, und Fehlversuche eines Besuchers sperren alle aus. Trag die IP unter System → Netzwerk ein, aber nur, wenn das wirklich dein Proxy ist.", ip=proxy_warning) }}</span>
+    <a class="btn btn-sm" href="/admin/network">{{ _("Zum Netzwerk") }}</a>
   </div>
   {% endif %}
   {% if flash %}<div class="flash" role="status">{{ flash }}</div>{% endif %}
+  {% if section_tabs and user and user.is_owner %}{% include "_tabs.html" %}{% endif %}
   {% block content %}{% endblock %}
 </main>
 <div class="toasts" id="toasts" aria-live="polite"></div>

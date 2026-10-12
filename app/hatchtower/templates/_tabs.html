@@ -1,0 +1,4 @@
+{# Reiter des aktuellen Bereichs (Benutzer, Auftritt, System) #}
+<nav class="subnav" aria-label="{{ _({'users': 'Benutzer', 'appearance': 'Auftritt', 'system': 'System'}[nav_section]) }}">
+  {% for href, label, _prefixes in section_tabs %}<a href="{{ href }}" class="{% if href == nav_tab %}active{% endif %}">{{ _(label) }}{% if href == '/admin/updates' and update_available %} <span class="nav-dot" title="{{ _("Neue Version verfügbar") }}"></span>{% endif %}</a>{% endfor %}
+</nav>

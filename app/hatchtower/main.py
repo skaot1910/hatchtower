@@ -47,17 +47,38 @@ LANG_COOKIE = "hatchtower_lang"
 templates.env.filters["hash_version"] = lambda v: __import__("hashlib").sha256(
     f"{v}:{settings.secret_key}".encode()).hexdigest()[:10]
 
-# Reiter unter „System“
-SYSTEM_TABS = [
-    ("/admin/system", "Übersicht"),
-    ("/admin/connection", "Verbindung"),
-    ("/admin/mail", "E-Mail"),
-    ("/admin/notify", "Benachrichtigungen"),
-    ("/admin/statuspage", "Statusseite"),
-    ("/admin/announcements", "Ankündigungen"),
-    ("/admin/privacy", "Datenschutz"),
-    ("/admin/transfer", "Datenumzug"),
-]
+# Bereiche der Owner-Navigation mit ihren Reitern: (Adresse, Name, weitere Pfad-Anfänge des Reiters)
+NAV_SECTIONS = {
+    "users": [
+        ("/admin/users", "Benutzer", ("/admin/users/",)),
+        ("/admin/groups", "Rechtegruppen", ()),
+        ("/admin/audit", "Audit-Log", ()),
+    ],
+    "appearance": [
+        ("/admin/appearance", "Erscheinungsbild", ()),
+        ("/admin/statuspage", "Statusseite", ()),
+        ("/admin/announcements", "Ankündigungen", ()),
+        ("/admin/legal", "Rechtliches", ()),
+    ],
+    "system": [
+        ("/admin/system", "Zustand", ()),
+        ("/admin/connection", "Panel", ()),
+        ("/admin/network", "Netzwerk", ()),
+        ("/admin/mail", "E-Mail", ()),
+        ("/admin/notify", "Benachrichtigungen", ()),
+        ("/admin/data", "Daten", ()),
+        ("/admin/updates", "Updates", ("/admin/system/update",)),
+    ],
+}
+
+
+def nav_tab(path: str) -> tuple[str | None, str | None]:
+    """Bereich und aktiver Reiter zu einer Adresse, sonst (None, None)."""
+    for section, tabs in NAV_SECTIONS.items():
+        for href, _label, prefixes in tabs:
+            if path == href or path.startswith(prefixes):
+                return section, href
+    return None, None
 
 
 def load_connection() -> None:
@@ -184,7 +205,7 @@ def untrusted_proxy() -> str | None:
 BODY_LIMIT_DEFAULT = 1024 * 1024
 BODY_LIMITS = [
     (re.compile(r"^/servers/[^/]+/files/upload$"), 201 * 1024 * 1024),
-    (re.compile(r"^/(admin/transfer|setup)/import$"), 51 * 1024 * 1024),
+    (re.compile(r"^/(admin/data|setup)/import$"), 51 * 1024 * 1024),
     (re.compile(r"^/(servers/[^/]+/logo|admin/branding/logo/[^/]+)$"), 3 * 1024 * 1024),
     (re.compile(r"^/servers/[^/]+/files/edit$"), 4 * 1024 * 1024),
 ]
@@ -326,11 +347,13 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("here", request.url.path + (f"?{request.url.query}" if request.url.query else ""))
     context.setdefault("legal_links", legal.links())
     context.setdefault("discord_url", community_discord())
-    context.setdefault("system_tabs", SYSTEM_TABS)
     if template in ("login.html", "setup.html"):
         from . import mailer
         context.setdefault("forgot_enabled", mailer.load_config(vault).ready)
-    context.setdefault("in_system", any(request.url.path.startswith(p) for p, _ in SYSTEM_TABS))
+    section, tab = nav_tab(request.url.path)
+    context.setdefault("nav_section", section)
+    context.setdefault("nav_tab", tab)
+    context.setdefault("section_tabs", NAV_SECTIONS.get(section, []))
     if context.get("user") is not None:
         context.setdefault("announcements", extras.active_announcements())
         context.setdefault("update_available", getattr(app.state, "updates", None) is not None and app.state.updates.available)
@@ -655,32 +678,53 @@ async def connection_nodes(request: Request, next: str = Form("/admin/connection
 
 
 @app.post("/admin/connection/options")
-async def connection_options(request: Request, mode: str = Form("read-only"), public_host: str = Form(""),
-                             trusted_proxies: str = Form(""), timezone_: str = Form("Europe/Berlin", alias="timezone"),
+async def connection_options(request: Request, mode: str = Form("read-only"), public_host: str | None = Form(None),
+                             trusted_proxies: str | None = Form(None), timezone_: str | None = Form(None, alias="timezone"),
                              next: str = Form("/admin/connection")):
+    """Modus und, im Assistenten, auch öffentliche Adresse, Reverse-Proxy und Zeitzone.
+    Auf der Panel-Seite kommt nur der Modus; fehlende Felder bleiben unverändert."""
     owner = require_owner(request)
     await check_csrf(request)
-    try:
-        parse_proxies(trusted_proxies)
-    except ValueError:
-        return connection_back(next, "Reverse-Proxy: bitte IP-Adressen oder Netze (mindestens /8) durch Komma getrennt angeben")
-    choices = setup.timezone_choices()
-    if timezone_.strip() not in choices["common"] + choices["others"]:
-        return connection_back(next, "Bitte eine Zeitzone aus der Liste wählen")
-    host = public_host.strip().lower()
-    if host and not re.fullmatch(r"[a-z0-9.\-]{1,253}", host):
-        return connection_back(next, "Öffentliche Adresse: nur Hostname oder IP, ohne http:// und Port")
-    mode = "read-write" if mode == "read-write" else "read-only"
-    old_mode = settings.manager_mode
-    setup.save_values({"mode": mode, "trusted_proxies": trusted_proxies.strip(), "timezone": timezone_.strip()}, vault, owner.id)
-    db.set_setting("public_host", host, owner.id)
+    values: dict = {"mode": "read-write" if mode == "read-write" else "read-only"}
+    detail: dict = {"modus": [settings.manager_mode, values["mode"]]}
+    if trusted_proxies is not None:
+        problem = proxies_problem(trusted_proxies)
+        if problem:
+            return connection_back(next, problem)
+        values["trusted_proxies"] = detail["proxy"] = trusted_proxies.strip()
+    if timezone_ is not None:
+        if not setup.valid_timezone(timezone_.strip()):
+            return connection_back(next, "Bitte eine Zeitzone aus der Liste wählen")
+        values["timezone"] = detail["zeitzone"] = timezone_.strip()
+    host = None
+    if public_host is not None:
+        host, problem = clean_public_host(public_host)
+        if problem:
+            return connection_back(next, problem)
+        detail["public_host"] = host
+    setup.save_values(values, vault, owner.id)
+    if host is not None:
+        db.set_setting("public_host", host, owner.id)
     await apply_connection()
-    audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
-                 detail={"modus": [old_mode, mode], "public_host": host, "proxy": trusted_proxies.strip(),
-                         "zeitzone": timezone_.strip()})
+    audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail=detail)
     if next.startswith("/setup"):
         return back("/", "Einrichtung abgeschlossen. Willkommen bei Hatchtower!")
-    return connection_back(next, "Optionen gespeichert")
+    return connection_back(next, "Modus gespeichert")
+
+
+def proxies_problem(value: str) -> str | None:
+    try:
+        parse_proxies(value)
+    except ValueError:
+        return "Reverse-Proxy: bitte IP-Adressen oder Netze (mindestens /8) durch Komma getrennt angeben"
+    return None
+
+
+def clean_public_host(value: str) -> tuple[str, str | None]:
+    host = value.strip().lower()
+    if host and not re.fullmatch(r"[a-z0-9.\-]{1,253}", host):
+        return host, "Öffentliche Adresse: nur Hostname oder IP, ohne http:// und Port"
+    return host, None
 
 
 @app.get("/admin/connection", response_class=HTMLResponse)
@@ -1755,7 +1799,8 @@ async def admin_automation(request: Request):
                        for s in servers}
     return render(request, "admin_automation.html", servers=servers, crash=settings_rows, schedules=sched_view,
                   crashes=crash_view, weekdays=[i18n.t(d) for d in automation.WEEKDAYS],
-                  actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()}, allowed_actions=allowed_actions)
+                  actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()}, allowed_actions=allowed_actions,
+                  tz_offset=setup.utc_offset_label(settings.timezone))
 
 
 @app.post("/admin/automation/crash")
@@ -1885,31 +1930,28 @@ async def branding_file(filename: str):
 
 @app.post("/admin/branding")
 async def admin_branding_save(request: Request, brand_name: str = Form(""), show_name: str = Form(""),
-                              default_theme: str = Form(""), default_language: str = Form(""),
-                              discord: str = Form("")):
+                              default_theme: str = Form(""), discord: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     name = " ".join(brand_name.split())
     if len(name) > 40:
-        return back("/admin/system#erscheinungsbild", "Name: höchstens 40 Zeichen")
+        return back("/admin/appearance", "Name: höchstens 40 Zeichen")
     old = load_brand()
     db.set_setting("brand_name", name, owner.id)
     db.set_setting("brand_show_name", "1" if show_name else "0", owner.id)
     if themes.valid(default_theme):
         db.set_setting("default_theme", default_theme, owner.id)
-    if i18n.valid(default_language):
-        db.set_setting("default_language", default_language, owner.id)
     discord = discord.strip()
     if discord and not discord.startswith("http"):
         discord = "https://discord.gg/" + discord      # nur der Einladungscode eingegeben
     if discord and not DISCORD_RE.match(discord):
-        return back("/admin/system#erscheinungsbild",
+        return back("/admin/appearance",
                     "Discord: bitte einen Einladungslink wie https://discord.gg/abc123 oder nur den Code eingeben")
     db.set_setting("community_discord", discord, owner.id)
     audit.record("settings.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"eigener_name": [old["custom"], name], "name_neben_logo": bool(show_name),
-                         "standard_theme": default_theme, "standardsprache": default_language})
-    return back("/admin/system#erscheinungsbild", "Erscheinungsbild gespeichert")
+                         "standard_theme": default_theme})
+    return back("/admin/appearance", "Erscheinungsbild gespeichert")
 
 
 @app.post("/admin/branding/logo/{kind}")
@@ -1918,18 +1960,18 @@ async def admin_branding_logo(request: Request, kind: str, logo: UploadFile = Fi
     await check_csrf(request)
     spec = BRAND_LOGOS.get(kind)
     if spec is None:
-        return back("/admin/system#erscheinungsbild")
+        return back("/admin/appearance")
     data = await logo.read(logos.MAX_UPLOAD_BYTES + 1)
     try:
         filename = logos.store_logo(data, settings.logo_dir, spec["box"])
     except logos.LogoError as exc:
-        return back("/admin/system#erscheinungsbild", str(exc))
+        return back("/admin/appearance", str(exc))
     old = db.get_setting(spec["key"])
     db.set_setting(spec["key"], filename, owner.id)
     logos.delete_logo(old, settings.logo_dir)
     audit.record("settings.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail=f"Logo {spec['label']} hochgeladen")
-    return back("/admin/system#erscheinungsbild", i18n.t("Logo für {ziel} gespeichert", ziel=i18n.t(spec["label"])))
+    return back("/admin/appearance", i18n.t("Logo für {ziel} gespeichert", ziel=i18n.t(spec["label"])))
 
 
 @app.post("/admin/branding/logo/{kind}/delete")
@@ -1938,13 +1980,13 @@ async def admin_branding_logo_delete(request: Request, kind: str):
     await check_csrf(request)
     spec = BRAND_LOGOS.get(kind)
     if spec is None:
-        return back("/admin/system#erscheinungsbild")
+        return back("/admin/appearance")
     old = db.get_setting(spec["key"])
     db.set_setting(spec["key"], "", owner.id)
     logos.delete_logo(old, settings.logo_dir)
     audit.record("settings.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail=f"Logo {spec['label']} entfernt")
-    return back("/admin/system#erscheinungsbild", i18n.t("Logo für {ziel} entfernt", ziel=i18n.t(spec["label"])))
+    return back("/admin/appearance", i18n.t("Logo für {ziel} entfernt", ziel=i18n.t(spec["label"])))
 
 
 @app.get("/admin/system", response_class=HTMLResponse)
@@ -1986,13 +2028,45 @@ async def admin_system(request: Request):
                        "detail": f"{n['host']}:{n['sftp_port']} " + i18n.t("erreichbar" if n["sftp_ok"] else "nicht erreichbar")})
     m = app.state.monitor
     return render(request, "admin_system.html", checks=checks, last_ok=fmt_dt(m.last_ok, settings.timezone),
-                  public_host=db.get_setting("public_host"), themes=themes.THEMES,
-                  default_theme=themes.valid(db.get_setting("default_theme")) or themes.DEFAULT,
-                  default_language=i18n.valid(db.get_setting("default_language")) or i18n.DEFAULT,
-                  last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error,
+                  public_host=db.get_setting("public_host"),
+                  last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error)
+
+
+@app.get("/admin/updates", response_class=HTMLResponse)
+async def admin_updates(request: Request):
+    require_owner(request)
+    record_finished_update()
+    return render(request, "admin_updates.html",
                   upd=app.state.updates, upd_checked=fmt_dt(app.state.updates.checked_at, settings.timezone),
                   upd_cooldown=app.state.updates.cooldown_left(), upd_helper=updates.helper_installed(),
                   upd_running=updates.read_state(settings.data_dir).get("state") in ("requested", "running"))
+
+
+@app.get("/admin/appearance", response_class=HTMLResponse)
+async def admin_appearance(request: Request):
+    require_owner(request)
+    return render(request, "admin_appearance.html", themes=themes.THEMES,
+                  default_theme=themes.valid(db.get_setting("default_theme")) or themes.DEFAULT,
+                  default_language=i18n.valid(db.get_setting("default_language")) or i18n.DEFAULT,
+                  timezones=setup.timezone_choices(), timezone=settings.timezone)
+
+
+@app.post("/admin/appearance/locale")
+async def admin_appearance_locale(request: Request, default_language: str = Form(""),
+                                  timezone_: str = Form("", alias="timezone")):
+    owner = require_owner(request)
+    await check_csrf(request)
+    zone = timezone_.strip()
+    if not setup.valid_timezone(zone):
+        return back("/admin/appearance#sprache-zeit", "Bitte eine Zeitzone aus der Liste wählen")
+    if i18n.valid(default_language):
+        db.set_setting("default_language", default_language, owner.id)
+    old_zone = settings.timezone
+    setup.save_values({"timezone": zone}, vault, owner.id)
+    await apply_connection()
+    audit.record("settings.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
+                 detail={"standardsprache": default_language, "zeitzone": [old_zone, zone]})
+    return back("/admin/appearance#sprache-zeit", "Sprache und Zeit gespeichert")
 
 
 # Weitere Seiten (Statusseite, E-Mail, Einladungen, Datenumzug, ...)

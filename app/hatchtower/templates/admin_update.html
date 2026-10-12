@@ -1,13 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Update") }} · {{ brand.name }}{% endblock %}
 {% block content %}
-{% include "_system_tabs.html" %}
-<a class="backlink" href="/admin/system#version">{{ _("← System") }}</a>
 <section class="card" id="update-progress" data-status="/api/system/update-status" data-version="{{ version }}">
   <h2 class="card-h">{{ _("Hatchtower wird aktualisiert") }}</h2>
   <p class="update-status" id="update-status">{{ _("Update wird gestartet …") }}</p>
   <pre class="console update-log" id="update-log">{{ state.log }}</pre>
   <p class="faint small">{{ _("Während des Neustarts ist die Oberfläche kurz nicht erreichbar. Diese Seite fragt selbstständig weiter nach und meldet sich, wenn alles fertig ist.") }}</p>
-  <a class="btn btn-primary" id="update-done" href="/admin/system#version" hidden>{{ _("Zurück zur System-Seite") }}</a>
+  <a class="btn btn-primary" id="update-done" href="/admin/updates" hidden>{{ _("Zurück zu den Updates") }}</a>
 </section>
 {% endblock %}

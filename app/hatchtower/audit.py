@@ -68,6 +68,7 @@ ACTION_LABELS = {
     "email.change": "E-Mail-Adresse geändert",
     "email.verify": "E-Mail-Adresse bestätigt",
     "settings.mail": "E-Mail-Einstellungen geändert",
+    "settings.network": "Netzwerk-Einstellungen geändert",
     "settings.notify": "Benachrichtigungen geändert",
     "settings.status": "Statusseite geändert",
     "settings.retention": "Aufbewahrung geändert",

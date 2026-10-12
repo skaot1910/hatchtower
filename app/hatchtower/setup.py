@@ -27,12 +27,30 @@ _ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # ohne 0/O und 1/I
 COMMON_TIMEZONES = ["Europe/Berlin", "Europe/Vienna", "Europe/Zurich", "Europe/Amsterdam", "Europe/London", "UTC"]
 
 
+def utc_offset_label(zone: str, now: datetime | None = None) -> str:
+    """Aktueller Abstand zu UTC, z. B. „UTC+2“, „UTC+5:30“ oder „UTC−3“ (mit Sommerzeit, falls gerade gültig)."""
+    from zoneinfo import ZoneInfo
+    offset = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo(zone)).utcoffset() or timedelta(0)
+    minutes = int(offset.total_seconds() // 60)
+    if minutes == 0:
+        return "UTC"
+    hours, rest = divmod(abs(minutes), 60)
+    return f"UTC{'+' if minutes > 0 else '−'}{hours}" + (f":{rest:02d}" if rest else "")
+
+
 def timezone_choices() -> dict:
-    """Zeitzonen für die Auswahlliste: die gängigen zuerst, darunter alle übrigen."""
+    """Zeitzonen für die Auswahlliste: die gängigen zuerst, darunter alle übrigen, je mit aktuellem UTC-Abstand."""
     from zoneinfo import available_timezones
     others = sorted(z for z in available_timezones()
                     if "/" in z and not z.startswith(("Etc/", "SystemV/", "posix/", "right/")) and z not in COMMON_TIMEZONES)
-    return {"common": COMMON_TIMEZONES, "others": others}
+    now = datetime.now(timezone.utc)
+    offsets = {z: utc_offset_label(z, now) for z in COMMON_TIMEZONES + others}
+    return {"common": COMMON_TIMEZONES, "others": others, "offsets": offsets}
+
+
+def valid_timezone(zone: str) -> bool:
+    choices = timezone_choices()
+    return zone in choices["common"] or zone in choices["others"]
 
 
 def users_exist() -> bool:

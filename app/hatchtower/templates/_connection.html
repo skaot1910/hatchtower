@@ -108,7 +108,21 @@
 </form>
 {% endmacro %}
 
-{% macro options_form(c, next) %}
+{% macro timezone_select(zones, current) %}
+<label>{{ _("Zeitzone") }}
+  <select name="timezone">
+    <optgroup label="{{ _("Häufig") }}">
+      {% for z in zones.common %}<option value="{{ z }}" {% if z == current %}selected{% endif %}>{{ z }} ({{ zones.offsets[z] }})</option>{% endfor %}
+    </optgroup>
+    <optgroup label="{{ _("Alle Zeitzonen") }}">
+      {% for z in zones.others %}<option value="{{ z }}" {% if z == current %}selected{% endif %}>{{ z }} ({{ zones.offsets[z] }})</option>{% endfor %}
+    </optgroup>
+  </select>
+</label>
+{% endmacro %}
+
+{# Im Assistenten alle Optionen, auf der Panel-Seite nur der Modus (der Rest steht unter Netzwerk und Erscheinungsbild) #}
+{% macro options_form(c, next, full=True) %}
 <form method="post" action="/admin/connection/options" class="form">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="next" value="{{ next }}">
@@ -123,25 +137,18 @@
       <span><strong>{{ _("Lesen und steuern") }}</strong><span class="faint small">{{ _("Zusätzlich Start, Stop, Restart, Konsolenbefehle, Dateien ändern und Automationen, jeweils nur mit dem passenden Recht.") }}</span></span>
     </label>
   </fieldset>
+  {% if full %}
   <div class="form-grid">
     <label>{{ _("Öffentliche Adresse für Spieler (optional)") }}
       <input name="public_host" value="{{ c.public_host }}" placeholder="{{ _("z. B. play.example.de oder DynDNS-Name") }}" spellcheck="false">
     </label>
-    <label>{{ _("Zeitzone") }}
-      <select name="timezone">
-        <optgroup label="{{ _("Häufig") }}">
-          {% for z in c.timezones.common %}<option value="{{ z }}" {% if z == c.timezone %}selected{% endif %}>{{ z }}</option>{% endfor %}
-        </optgroup>
-        <optgroup label="{{ _("Alle Zeitzonen") }}">
-          {% for z in c.timezones.others %}<option value="{{ z }}" {% if z == c.timezone %}selected{% endif %}>{{ z }}</option>{% endfor %}
-        </optgroup>
-      </select>
-    </label>
+    {{ timezone_select(c.timezones, c.timezone) }}
     <label>{{ _("Reverse-Proxy-IPs (optional)") }}
       <input name="trusted_proxies" value="{{ c.trusted_proxies }}" placeholder="{{ _("z. B. 127.0.0.1 oder 172.16.0.0/12") }}" spellcheck="false">
     </label>
   </div>
   <p class="faint small"><strong>{{ _("Öffentliche Adresse:") }}</strong> {{ _("wird in der Übersicht mit dem Port jedes Servers angezeigt, damit Spieler wissen, wohin sie sich verbinden.") }} <strong>{{ _("Zeitzone:") }}</strong> {{ _("gilt für Zeitpläne und alle angezeigten Uhrzeiten.") }} <strong>{{ _("Reverse-Proxy:") }}</strong> {{ _("Läuft Hatchtower hinter einem Reverse-Proxy (z. B. Caddy, Nginx, Traefik, Pangolin), trag dessen IP oder Netz ein. Erst dann erkennt Hatchtower HTTPS (geschützte Cookies) und die echten IPs der Besucher für Audit-Log und Anmeldesperre. Im Internet ist das Pflicht.") }}</p>
+  {% endif %}
   <button class="btn btn-primary" type="submit">{{ _('Einrichtung abschließen') if next.startswith('/setup') else _('Speichern') }}</button>
 </form>
 {% endmacro %}

@@ -107,7 +107,7 @@
   <pre class="console log-archive" id="log-lines" tabindex="0"></pre>
   <button class="btn btn-ghost btn-sm" type="button" id="log-more" hidden>{{ _("Ältere Zeilen laden") }}</button>
   {% else %}
-  <p class="faint">{{ _("Das Konsolen-Archiv ist ausgeschaltet.") }}{% if user.is_owner %} <a href="/admin/privacy">{{ _("Einschalten") }}</a>{% endif %}</p>
+  <p class="faint">{{ _("Das Konsolen-Archiv ist ausgeschaltet.") }}{% if user.is_owner %} <a href="/admin/data">{{ _("Einschalten") }}</a>{% endif %}</p>
   {% endif %}
 </section>
 {% endif %}

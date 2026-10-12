@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Rechtliches") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Rechtliches") }}</h1><p class="muted">{{ _("Impressum und Datenschutzerklärung, verlinkt in der Fußzeile und auf der Login-Seite.") }}</p></div>
+</div>
+
+{% for page, info in pages.items() %}
+<section class="card" id="{{ page }}">
+  <h2 class="card-h">{{ _("Impressum") if page == 'impressum' else _("Datenschutzerklärung") }}</h2>
+  {% if info.from_template %}<div class="hint">{{ _("Vorlage eingefügt – noch nicht gespeichert. Ergänze die Angaben in eckigen Klammern und speichere dann.") }}</div>{% endif %}
+  <form method="post" action="/admin/legal/{{ page }}" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="enabled" value="1" {% if info.enabled %}checked{% endif %}> {{ _("Anzeigen (Link in der Fußzeile und auf der Login-Seite)") }}</label>
+    <textarea name="text" rows="14" class="legal-editor" spellcheck="true">{{ info.text }}</textarea>
+    <p class="faint small">{{ _("Format: Leerzeile = neuer Absatz, „## “ am Zeilenanfang = Überschrift, „- “ = Aufzählung. Links und E-Mail-Adressen werden automatisch verlinkt.") }}{% if page == 'datenschutz' %} {{ _("{audit_tage} und {konsolen_tage} werden durch die eingestellten Fristen ersetzt.") }}{% endif %}</p>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+      <a class="btn btn-ghost btn-sm" href="/admin/legal?vorlage={{ page }}&sprache=de#{{ page }}">{{ _("Deutsche Vorlage einfügen") }}</a>
+      <a class="btn btn-ghost btn-sm" href="/admin/legal?vorlage={{ page }}&sprache=en#{{ page }}">{{ _("Englische Vorlage einfügen") }}</a>
+      {% if info.enabled and info.text %}<a class="btn btn-ghost btn-sm" href="/{{ page }}" target="_blank" rel="noopener">{{ _("Ansehen") }}</a>{% endif %}
+    </div>
+  </form>
+</section>
+{% endfor %}
+<p class="faint small">{{ _("Die Vorlagen passen zu dem, was Hatchtower speichert, sind aber keine Rechtsberatung. Prüfe sie für deinen Fall.") }}</p>
+{% endblock %}

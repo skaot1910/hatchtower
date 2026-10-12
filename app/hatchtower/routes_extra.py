@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 
 from . import (APP_NAME, __version__, accounts, audit, db, extras, i18n, legal, logarchive, mailer, notify, retention,
                security, setup, statusfeed, transfer)
-from .main import (BACKUP_SUFFIX, SYSTEM_TABS, LoginRequired, app, apply_connection, back, check_csrf, check_csrf_header, clean_path,
+from .main import (BACKUP_SUFFIX, LoginRequired, app, apply_connection, back, check_csrf, check_csrf_header, clean_path,
                    current_user, file_action, files_back, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
 from .panels import PANELS
@@ -647,16 +647,14 @@ async def invite_accept(request: Request, token: str, username: str = Form(""), 
 async def admin_mail(request: Request):
     require_owner(request)
     cfg = mail_config()
-    suggested = cfg.base_url or link_base(request)
-    return render(request, "admin_mail.html", cfg=cfg, has_password=bool(cfg.password), suggested_base=suggested,
+    return render(request, "admin_mail.html", cfg=cfg, has_password=bool(cfg.password),
                   security_options=mailer.SECURITY)
 
 
 @app.post("/admin/mail")
 async def admin_mail_save(request: Request, enabled: str = Form(""), host: str = Form(""), port: str = Form("587"),
                           security_: str = Form("starttls", alias="security"), username: str = Form(""),
-                          password: str = Form(""), sender: str = Form(""), sender_name: str = Form(""),
-                          base_url: str = Form("")):
+                          password: str = Form(""), sender: str = Form(""), sender_name: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     problems = []
@@ -667,13 +665,13 @@ async def admin_mail_save(request: Request, enabled: str = Form(""), host: str =
         problems.append("Port")
     if sender.strip() and not mailer.valid_email(sender.strip()):
         problems.append("Absenderadresse")
-    base = setup.normalize_url(base_url) if base_url.strip() else ""
-    if base_url.strip() and base is None:
-        problems.append("Adresse von Hatchtower")
-    if enabled and not (host and sender.strip() and base):
-        problems.append("zum Einschalten: Server, Absender und Adresse von Hatchtower")
+    if enabled and not (host and sender.strip()):
+        problems.append("zum Einschalten: Server und Absender")
     if problems:
         return back("/admin/mail", i18n.t("Bitte prüfen: {list}", list=", ".join(i18n.t(x) for x in problems)))
+    if enabled and not mail_config().base_url:
+        # Ohne feste Adresse keine Links in E-Mails: die aktuelle übernehmen, änderbar unter System → Netzwerk
+        db.set_setting("mail_base_url", link_base(request), owner.id)
     db.set_setting("mail_enabled", "1" if enabled else "0", owner.id)
     db.set_setting("mail_host", host, owner.id)
     db.set_setting("mail_port", port.strip(), owner.id)
@@ -683,7 +681,6 @@ async def admin_mail_save(request: Request, enabled: str = Form(""), host: str =
         db.set_setting("mail_password_enc", vault.encrypt(password), owner.id)
     db.set_setting("mail_from", sender.strip(), owner.id)
     db.set_setting("mail_from_name", " ".join(sender_name.split())[:60], owner.id)
-    db.set_setting("mail_base_url", base or "", owner.id)
     owner_audit(request, owner, "settings.mail", detail={"enabled": bool(enabled), "host": host, "port": port.strip(),
                                                           "password": "neu" if password else "unverändert"})
     return back("/admin/mail", "E-Mail-Einstellungen gespeichert")
@@ -711,6 +708,41 @@ async def admin_mail_test(request: Request, to: str = Form("")):
         return back("/admin/mail", i18n.t("E-Mail konnte nicht verschickt werden: {grund}", grund=exc))
     owner_audit(request, owner, "settings.mail", detail="Testnachricht")
     return back("/admin/mail", i18n.t("Testnachricht an {email} verschickt.", email=to.strip()))
+
+
+# == System: Netzwerk (Adressen und Reverse-Proxy) ===================================================
+
+@app.get("/admin/network", response_class=HTMLResponse)
+async def admin_network(request: Request):
+    from .config import format_proxies
+    require_owner(request)
+    cfg = mail_config()
+    return render(request, "admin_network.html", base_url=cfg.base_url, suggested_base=link_base(request),
+                  public_host=db.get_setting("public_host"), trusted_proxies=format_proxies(settings.trusted_proxies))
+
+
+@app.post("/admin/network")
+async def admin_network_save(request: Request, base_url: str = Form(""), public_host: str = Form(""),
+                             trusted_proxies: str = Form("")):
+    from .main import clean_public_host, proxies_problem
+    owner = require_owner(request)
+    await check_csrf(request)
+    base = setup.normalize_url(base_url) if base_url.strip() else ""
+    if base is None:
+        return back("/admin/network", "Adresse von Hatchtower: bitte vollständig angeben, z. B. https://gameserver.example.com")
+    if not base and mail_config().enabled:
+        return back("/admin/network", "Adresse von Hatchtower: wird für Links in E-Mails gebraucht, solange E-Mail eingeschaltet ist")
+    host, problem = clean_public_host(public_host)
+    problem = problem or proxies_problem(trusted_proxies)
+    if problem:
+        return back("/admin/network", problem)
+    db.set_setting("mail_base_url", base, owner.id)
+    db.set_setting("public_host", host, owner.id)
+    setup.save_values({"trusted_proxies": trusted_proxies.strip()}, vault, owner.id)
+    await apply_connection()
+    owner_audit(request, owner, "settings.network", detail={"adresse": base, "public_host": host,
+                                                             "proxy": trusted_proxies.strip()})
+    return back("/admin/network", "Netzwerk gespeichert")
 
 
 # == System: Benachrichtigungen ======================================================================
@@ -982,10 +1014,10 @@ async def admin_announcement_delete(request: Request, ann_id: int):
     return back("/admin/announcements", "Ankündigung gelöscht")
 
 
-# == System: Datenschutz (Aufbewahrung, Impressum, Datenschutzerklärung) ====================
+# == Auftritt: Rechtliches (Impressum, Datenschutzerklärung) ===============================
 
-@app.get("/admin/privacy", response_class=HTMLResponse)
-async def admin_privacy(request: Request, vorlage: str = "", sprache: str = ""):
+@app.get("/admin/legal", response_class=HTMLResponse)
+async def admin_legal(request: Request, vorlage: str = "", sprache: str = ""):
     require_owner(request)
     pages = {}
     for page in legal.PAGES:
@@ -993,43 +1025,25 @@ async def admin_privacy(request: Request, vorlage: str = "", sprache: str = ""):
         if vorlage == page:
             text_value = legal.template(page, sprache if sprache in i18n.LANGUAGES else i18n.current())
         pages[page] = {"enabled": legal.enabled(page), "text": text_value, "from_template": vorlage == page}
-    return render(request, "admin_privacy.html", pages=pages, choices=db.RETENTION_CHOICES,
-                  audit_days=retention.audit_days(), console_days=retention.console_days())
+    return render(request, "admin_legal.html", pages=pages)
 
 
-@app.post("/admin/privacy/retention")
-async def admin_privacy_retention(request: Request, audit_days: str = Form("30"), console_days: str = Form("3")):
-    owner = require_owner(request)
-    await check_csrf(request)
-    try:
-        a, c = int(audit_days), int(console_days)
-    except ValueError:
-        return back("/admin/privacy", "Ungültige Auswahl")
-    if a not in db.RETENTION_CHOICES or (c != 0 and c not in db.RETENTION_CHOICES):
-        return back("/admin/privacy", "Ungültige Auswahl")
-    db.set_setting("audit_retention_days", str(a), owner.id)
-    db.set_setting("console_retention_days", str(c), owner.id)
-    owner_audit(request, owner, "settings.retention", detail={"audit_tage": a, "konsole_tage": c})
-    retention.cleanup()
-    return back("/admin/privacy", "Aufbewahrung gespeichert")
-
-
-@app.post("/admin/privacy/legal/{page}")
-async def admin_privacy_legal(request: Request, page: str, enabled: str = Form(""), text: str = Form("")):
+@app.post("/admin/legal/{page}")
+async def admin_legal_save(request: Request, page: str, enabled: str = Form(""), text: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     if page not in legal.PAGES:
-        return back("/admin/privacy")
+        return back("/admin/legal")
     if len(text) > 50000:
-        return back("/admin/privacy", "Text zu lang (max. 50 000 Zeichen)")
+        return back("/admin/legal", "Text zu lang (max. 50 000 Zeichen)")
     key = legal.PAGES[page]
     db.set_setting(key + "_enabled", "1" if enabled else "0", owner.id)
     db.set_setting(key + "_text", text.replace("\r\n", "\n").strip(), owner.id)
     owner_audit(request, owner, "settings.legal", detail={"seite": page, "anzeigen": bool(enabled)})
-    return back(f"/admin/privacy#{page}", "Gespeichert")
+    return back(f"/admin/legal#{page}", "Gespeichert")
 
 
-# == System: Datenumzug ================================================================================
+# == System: Daten (Aufbewahrung, Export, Import) ======================================================
 
 def verify_owner_password(owner, password: str) -> bool:
     with db.connect() as con:
@@ -1037,21 +1051,39 @@ def verify_owner_password(owner, password: str) -> bool:
     return bool(row) and security.verify_password(row["password_hash"], password)
 
 
-@app.get("/admin/transfer", response_class=HTMLResponse)
-async def admin_transfer(request: Request):
+@app.get("/admin/data", response_class=HTMLResponse)
+async def admin_data(request: Request):
     require_owner(request)
-    return render(request, "admin_transfer.html")
+    return render(request, "admin_data.html", choices=db.RETENTION_CHOICES,
+                  audit_days=retention.audit_days(), console_days=retention.console_days())
 
 
-@app.post("/admin/transfer/export")
+@app.post("/admin/data/retention")
+async def admin_data_retention(request: Request, audit_days: str = Form("30"), console_days: str = Form("3")):
+    owner = require_owner(request)
+    await check_csrf(request)
+    try:
+        a, c = int(audit_days), int(console_days)
+    except ValueError:
+        return back("/admin/data", "Ungültige Auswahl")
+    if a not in db.RETENTION_CHOICES or (c != 0 and c not in db.RETENTION_CHOICES):
+        return back("/admin/data", "Ungültige Auswahl")
+    db.set_setting("audit_retention_days", str(a), owner.id)
+    db.set_setting("console_retention_days", str(c), owner.id)
+    owner_audit(request, owner, "settings.retention", detail={"audit_tage": a, "konsole_tage": c})
+    retention.cleanup()
+    return back("/admin/data", "Aufbewahrung gespeichert")
+
+
+@app.post("/admin/data/export")
 async def admin_transfer_export(request: Request, passphrase: str = Form(""), repeat: str = Form(""),
                                 current: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     if not verify_owner_password(owner, current):
-        return back("/admin/transfer", "Das aktuelle Passwort stimmt nicht.")
+        return back("/admin/data", "Das aktuelle Passwort stimmt nicht.")
     if len(passphrase) < 12 or passphrase != repeat:
-        return back("/admin/transfer", "Export-Passwort: mindestens 12 Zeichen, zweimal gleich eingeben")
+        return back("/admin/data", "Export-Passwort: mindestens 12 Zeichen, zweimal gleich eingeben")
     import asyncio
     data = await asyncio.to_thread(transfer.build_export, vault, settings.logo_dir, passphrase)
     owner_audit(request, owner, "transfer.export")
@@ -1074,19 +1106,19 @@ async def run_import(raw: bytes, passphrase: str) -> dict:
     return transfer.summary(data)
 
 
-@app.post("/admin/transfer/import")
+@app.post("/admin/data/import")
 async def admin_transfer_import(request: Request, file: UploadFile = File(...), passphrase: str = Form(""),
                                 current: str = Form(""), confirm: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     if not verify_owner_password(owner, current):
-        return back("/admin/transfer", "Das aktuelle Passwort stimmt nicht.")
+        return back("/admin/data", "Das aktuelle Passwort stimmt nicht.")
     if not confirm:
-        return back("/admin/transfer", "Bitte bestätige, dass die Daten dieser Instanz ersetzt werden.")
+        return back("/admin/data", "Bitte bestätige, dass die Daten dieser Instanz ersetzt werden.")
     try:
         info = await run_import(await read_upload(file), passphrase)
     except transfer.TransferError as exc:
-        return back("/admin/transfer", str(exc))
+        return back("/admin/data", str(exc))
     audit.record("transfer.import", user_id=owner.id, username=owner.username, ip=ip_of(request), detail=info)
     response = back("/login", i18n.t("Import abgeschlossen: {users} Benutzer, {groups} Gruppen, {schedules} Zeitpläne. "
                                      "Bitte mit einem Konto aus der Exportdatei anmelden.", **info))
@@ -1222,14 +1254,14 @@ async def admin_update_check(request: Request):
     await check_csrf(request)
     upd = app.state.updates
     if not await upd.check_now():
-        return back("/admin/system#version", i18n.t("Bitte warten: Erneut suchen ist in {n} Sekunden möglich.",
+        return back("/admin/updates", i18n.t("Bitte warten: Erneut suchen ist in {n} Sekunden möglich.",
                                                     n=upd.cooldown_left()))
     owner_audit(request, owner, "system.update_check", detail={"neueste": upd.latest, "fehler": upd.error})
     if upd.error:
-        return back("/admin/system#version", upd.error)
+        return back("/admin/updates", upd.error)
     if upd.available:
-        return back("/admin/system#version", i18n.t("Version {v} ist verfügbar.", v=upd.latest))
-    return back("/admin/system#version", "Hatchtower ist aktuell.")
+        return back("/admin/updates", i18n.t("Version {v} ist verfügbar.", v=upd.latest))
+    return back("/admin/updates", "Hatchtower ist aktuell.")
 
 
 @app.post("/admin/system/update")
@@ -1239,9 +1271,9 @@ async def admin_update_start(request: Request):
     await check_csrf(request)
     upd = app.state.updates
     if not updates.helper_installed():
-        return back("/admin/system#version", "Das Update über die Oberfläche ist hier noch nicht eingerichtet.")
+        return back("/admin/updates", "Das Update über die Oberfläche ist hier noch nicht eingerichtet.")
     if not upd.available:
-        return back("/admin/system#version", "Es ist kein neueres Update bekannt. Bitte zuerst nach Updates suchen.")
+        return back("/admin/updates", "Es ist kein neueres Update bekannt. Bitte zuerst nach Updates suchen.")
     if not updates.request_update(settings.data_dir, upd.latest or ""):
         return RedirectResponse("/admin/system/update", status_code=303)
     owner_audit(request, owner, "system.update_start", detail={"von": __version__, "auf": upd.latest})

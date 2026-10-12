@@ -33,7 +33,10 @@
 </div>
 
 <section class="card">
-  <h2 class="card-h">{{ _("Zeitpläne") }}</h2>
+  <div class="group-head">
+    <h2 class="card-h">{{ _("Zeitpläne") }}</h2>
+    <p class="faint small">{{ _("Zeiten in {zone} ({offset})", zone=settings.timezone, offset=tz_offset) }}{% if user.is_owner %} · <a href="/admin/appearance#sprache-zeit">{{ _("ändern") }}</a>{% endif %}</p>
+  </div>
   {% if schedules %}
   <div class="table-card">
   <table class="table stack-table">
