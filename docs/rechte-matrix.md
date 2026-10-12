@@ -16,6 +16,7 @@ Grundregeln:
 |---|---|---|---|---|
 | `server.view` | Sehen |  | – | `GET /api/servers/{ident}/metrics`<br>`GET /servers/{ident}`<br>`POST /api/servers/{ident}/favorite` |
 | `server.password` | Passwort sehen |  | `server.view` |  |
+| `server.log` | Protokoll sehen |  | `server.view` |  |
 | `server.manage` | Server verwalten |  | `server.view` | `GET /servers/{ident}/settings`<br>`POST /servers/{ident}/logo/delete`<br>`POST /servers/{ident}/logo`<br>`POST /servers/{ident}/settings` |
 | `power.start` | Start | ✎ | `server.view` | `POST /api/servers/{ident}/power` (start) |
 | `power.stop` | Stop | ✎ | `server.view` | `POST /api/servers/{ident}/power` (stop) |

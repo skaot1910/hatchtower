@@ -111,4 +111,40 @@
   {% endif %}
 </section>
 {% endif %}
+{% if server.can_log %}
+<section class="card" id="protokoll">
+  <div class="console-toolbar">
+    <h2 class="card-h">{{ _("Protokoll") }}</h2>
+    <span class="faint small">{{ _("Aus dem Audit-Log ({n} Tage) und den Statuswechseln (90 Tage)", n=audit_days) }}</span>
+  </div>
+  <form class="log-filters" method="get" action="/servers/{{ server.identifier }}#protokoll">
+    <select name="log" aria-label="{{ _("Art") }}">
+      {% for key, label in log_kinds.items() %}<option value="{{ key }}" {% if key == log_kind %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-ghost btn-sm" type="submit">{{ _("Anzeigen") }}</button>
+  </form>
+  {% if log_entries %}
+  <div class="table-card">
+  <table class="table stack-table server-log">
+    <thead><tr><th>{{ _("Zeit") }}</th><th>{{ _("Ereignis") }}</th><th>{{ _("Spalte|Benutzer") }}</th><th>{{ _("Details") }}</th></tr></thead>
+    <tbody>
+    {% for e in log_entries %}
+    <tr class="log-{{ e.kind }}{% if e.state %} log-state-{{ e.state }}{% endif %}{% if e.error %} log-error{% endif %}{% if e.crash %} log-crash{% endif %}">
+      <td data-label="{{ _("Zeit") }}" class="nowrap">{{ e.ts }}</td>
+      <td data-label="{{ _("Ereignis") }}">{{ e.action }}{% if e.error %} <span class="badge badge-bad">{{ _("fehlgeschlagen") }}</span>{% endif %}</td>
+      <td data-label="{{ _("Spalte|Benutzer") }}">{{ e.username or '–' }}</td>
+      <td data-label="{{ _("Details") }}" class="log-detail">{{ e.detail }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if log_more and log_n < log_max %}
+  <a class="btn btn-ghost btn-sm" href="/servers/{{ server.identifier }}?log={{ log_kind }}&amp;log_n={{ [log_n + log_page * 2, log_max]|min }}#protokoll">{{ _("Ältere Einträge anzeigen") }}</a>
+  {% endif %}
+  {% else %}
+  <p class="faint">{{ _("Noch keine Einträge.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
 {% endblock %}

@@ -3,6 +3,14 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.23.0 – 2026-10-12
+
+- **Protokoll pro Server:** Auf jeder Serverseite zeigt die neue Karte „Protokoll“, was am Server passiert ist – wer ihn wann gestartet, gestoppt oder neu gestartet hat, Abstürze, Statuswechsel (online/offline, auch wenn im Panel oder im Spiel ausgelöst), Konsolenbefehle, Dateiänderungen, Zeitpläne, Backups und geänderte Einstellungen
+  - Filter nach Art (Start/Stop/Abstürze, Dateien, Konsole, Backups, Einstellungen und Zeitpläne), ältere Einträge lassen sich nachladen
+  - Ohne IP-Adressen und ohne reine Lesezugriffe wie „Dateien aufgelistet“
+  - Reicht so weit zurück wie das Audit-Log (Aufbewahrung unter System → Daten), Statuswechsel 90 Tage
+- **Neues Recht „Protokoll sehen“** (Gruppe Allgemein), pro Benutzer und Server oder in Rechtegruppen vergebbar. Bestehende Benutzer und Gruppen bekommen es nicht automatisch
+
 ## 0.22.0 – 2026-10-12
 
 - **Menü neu gegliedert:** Die Hauptleiste hat jetzt die Bereiche **Benutzer**, **Auftritt** und **System**, jeder mit eigenen Reitern

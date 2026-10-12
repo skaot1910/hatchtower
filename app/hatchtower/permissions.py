@@ -27,6 +27,10 @@ PERMISSIONS: tuple[Permission, ...] = (
                "Server in der Übersicht sehen: Status, CPU, RAM, Speicher, Spieler, IP. Ohne dieses Recht ist der Server unsichtbar."),
     Permission("server.password", "Passwort sehen", "Allgemein",
                "Das Beitritts-Passwort in Klarschrift sehen.", requires=("server.view",)),
+    Permission("server.log", "Protokoll sehen", "Allgemein",
+               "Das Protokoll des Servers sehen: wer ihn wann gestartet, gestoppt oder neu gestartet hat, Abstürze,"
+               " Statuswechsel, Konsolenbefehle, Dateiänderungen, Zeitpläne und Backups. Ohne IP-Adressen.",
+               requires=("server.view",)),
     Permission("server.manage", "Server verwalten", "Allgemein",
                "Logo, Ingame-Servername, Passwort und öffentliche Adresse im Manager pflegen.", requires=("server.view",)),
     Permission("power.start", "Start", "Steuerung", "Server starten.", write=True, requires=("server.view",)),

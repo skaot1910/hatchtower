@@ -939,6 +939,13 @@ a.file-link:hover { color: var(--violet-3); }
 .copy-field { width: 100%; font-size: 13px; }
 .badge-ok { background: var(--green-bg); color: var(--green-fg); border-color: var(--green-line); }
 .badge-warn { background: var(--amber-bg); color: var(--amber-fg); border-color: var(--amber-line); }
+.badge-bad { background: var(--red-bg); color: var(--red-fg); border-color: var(--red-line); }
+
+/* Protokoll auf der Serverseite */
+.server-log .log-detail { color: var(--muted); overflow-wrap: anywhere; }
+.server-log .log-state-running td:nth-child(2) { color: var(--green-fg); }
+.server-log .log-state-offline td:nth-child(2) { color: var(--faint); }
+.server-log .log-crash td:nth-child(2) { color: var(--red-fg); font-weight: 600; }
 .legal-editor { width: 100%; font: 13px/1.55 var(--mono); }
 .setup-import { margin-top: 18px; }
 

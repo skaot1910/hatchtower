@@ -112,7 +112,7 @@ def test_katalog_nennt_nur_bekannte_rechte():
 
 def test_jedes_recht_wird_von_einer_route_genutzt():
     used = {r.perm for r in ROUTES if r.perm}
-    unused = ALL - used - {"server.password"}   # wirkt auf Inhalte, nicht auf eine Route
+    unused = ALL - used - {"server.password", "server.log"}   # wirken auf Inhalte, nicht auf eine Route
     assert not unused, f"Rechte ohne Route: {unused}"
 
 

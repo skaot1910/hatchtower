@@ -1413,7 +1413,19 @@
   "Links in E-Mails führen zu:": "Links in emails lead to:",
   "noch nicht festgelegt – wird beim Einschalten übernommen": "not set yet – taken over when enabling",
   "ändern unter Netzwerk": "change under Network",
-  "Zeiten in {zone} ({offset})": "Times in {zone} ({offset})"
+  "Zeiten in {zone} ({offset})": "Times in {zone} ({offset})",
+  "Protokoll sehen": "View log",
+  "Das Protokoll des Servers sehen: wer ihn wann gestartet, gestoppt oder neu gestartet hat, Abstürze, Statuswechsel, Konsolenbefehle, Dateiänderungen, Zeitpläne und Backups. Ohne IP-Adressen.": "See the server's log: who started, stopped or restarted it and when, crashes, status changes, console commands, file changes, schedules and backups. Without IP addresses.",
+  "Protokoll": "Log",
+  "Aus dem Audit-Log ({n} Tage) und den Statuswechseln (90 Tage)": "From the audit log ({n} days) and status changes (90 days)",
+  "Start, Stop und Abstürze": "Start, stop and crashes",
+  "Backups": "Backups",
+  "Einstellungen und Zeitpläne": "Settings and schedules",
+  "Anzeigen": "Show",
+  "Ereignis": "Event",
+  "Ältere Einträge anzeigen": "Show older entries",
+  "Noch keine Einträge.": "No entries yet.",
+  "Status: {state}": "Status: {state}"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, backups, db, extras, i18n, legal, logarchive, logos, retention,
-               security, notify, setup, statusfeed, themes, updates, zipdownload)
+               security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
 from .monitor import Monitor
@@ -875,13 +875,18 @@ async def api_metrics(request: Request, ident: str, range: int = 3600):
 # -- Serverdetails, Konsole, Dateien ---------------------------------------
 
 @app.get("/servers/{ident}", response_class=HTMLResponse)
-async def server_detail(request: Request, ident: str):
+async def server_detail(request: Request, ident: str, log: str = "", log_n: int = serverlog.PAGE):
     user = current_user(request)
     server = get_server_or_deny(request, user, ident)
     server["favorite"] = ident in extras.favorites(user.id)
+    log = log if log in serverlog.KINDS else ""
+    log_entries, log_more = (serverlog.entries(ident, settings.timezone, log, log_n) if server["can_log"]
+                             else ([], False))
     return render(request, "server.html", server=server, uptime=extras.availability(ident),
                   uptime_bars=extras.uptime_bars(ident, 30, settings.timezone)["bars"],
-                  archive_days=retention.console_days())
+                  archive_days=retention.console_days(), log_entries=log_entries, log_more=log_more,
+                  log_kind=log, log_n=min(max(log_n, 1), serverlog.MAX), log_kinds=serverlog.KIND_LABELS,
+                  audit_days=retention.audit_days(), log_page=serverlog.PAGE, log_max=serverlog.MAX)
 
 
 CONSOLE_RECHECK_SECONDS = 15

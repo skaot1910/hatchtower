@@ -456,6 +456,10 @@ MIGRATIONS: list[str] = [
     ALTER TABLE backup_targets ADD COLUMN check_free INTEGER;
     ALTER TABLE backup_targets ADD COLUMN check_error TEXT;
     """,
+    # 21: Protokoll pro Server liest das Audit-Log nach Server
+    """
+    CREATE INDEX audit_server ON audit_log(server, id);
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)
