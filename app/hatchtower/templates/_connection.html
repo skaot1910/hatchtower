@@ -138,10 +138,10 @@
       </select>
     </label>
     <label>{{ _("Reverse-Proxy-IPs (optional)") }}
-      <input name="trusted_proxies" value="{{ c.trusted_proxies }}" placeholder="{{ _("z. B. 192.168.1.5") }}" spellcheck="false">
+      <input name="trusted_proxies" value="{{ c.trusted_proxies }}" placeholder="{{ _("z. B. 127.0.0.1 oder 172.16.0.0/12") }}" spellcheck="false">
     </label>
   </div>
-  <p class="faint small"><strong>{{ _("Öffentliche Adresse:") }}</strong> {{ _("wird in der Übersicht mit dem Port jedes Servers angezeigt, damit Spieler wissen, wohin sie sich verbinden.") }} <strong>{{ _("Zeitzone:") }}</strong> {{ _("gilt für Zeitpläne und alle angezeigten Uhrzeiten.") }} <strong>{{ _("Reverse-Proxy:") }}</strong> {{ _("Läuft Hatchtower hinter einem Reverse-Proxy (z. B. Pangolin, Nginx, Traefik), trag dessen IP ein. Dann stehen im Audit-Log die echten IPs der Besucher.") }}</p>
+  <p class="faint small"><strong>{{ _("Öffentliche Adresse:") }}</strong> {{ _("wird in der Übersicht mit dem Port jedes Servers angezeigt, damit Spieler wissen, wohin sie sich verbinden.") }} <strong>{{ _("Zeitzone:") }}</strong> {{ _("gilt für Zeitpläne und alle angezeigten Uhrzeiten.") }} <strong>{{ _("Reverse-Proxy:") }}</strong> {{ _("Läuft Hatchtower hinter einem Reverse-Proxy (z. B. Caddy, Nginx, Traefik, Pangolin), trag dessen IP oder Netz ein. Erst dann erkennt Hatchtower HTTPS (geschützte Cookies) und die echten IPs der Besucher für Audit-Log und Anmeldesperre. Im Internet ist das Pflicht.") }}</p>
   <button class="btn btn-primary" type="submit">{{ _('Einrichtung abschließen') if next.startswith('/setup') else _('Speichern') }}</button>
 </form>
 {% endmacro %}

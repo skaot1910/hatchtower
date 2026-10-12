@@ -3,6 +3,17 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.21.3 – 2026-10-12
+
+- **Übersicht: „Alle auswählen“** – ein Haken wählt alle gerade sichtbaren Server (passend zu Status- und Tag-Filter) für Start, Restart oder Stop auf einmal aus
+- **Betrieb auf öffentlichen Servern** (VPS, Root-Server) abgesichert:
+  - **Behoben:** Wer einen Benutzernamen kannte, konnte das Konto mit wenigen falschen Anmeldungen dauerhaft für alle sperren. Die Sperre gilt jetzt nur noch für die IP, von der die Fehlversuche kamen; eine Passwortänderung (auch per `hatchtower reset-password`) hebt sie auf
+  - Läuft Hatchtower hinter einem Reverse-Proxy, der nicht eingetragen ist, zeigt es dem Owner eine Warnung. Ohne Eintrag werden HTTPS (geschützte Cookies, HSTS) und die echten Besucher-IPs nicht erkannt
+  - Unter System → Verbindung lassen sich als Reverse-Proxy jetzt auch Netze eintragen (z. B. `172.16.0.0/12` für Docker)
+  - Der Installer weist bei `--bind 127.0.0.1` auf den Reverse-Proxy hin, statt eine nicht erreichbare Adresse anzuzeigen
+  - README: neuer Abschnitt „Auf einem öffentlichen Server betreiben“
+- Auf dem Handy sind die Auswahl-Haken der Übersicht etwas größer
+
 ## 0.21.2 – 2026-10-12
 
 - **Behoben:** Bei der Panel-Auswahl im Einrichtungsassistenten und bei der Modus-Auswahl (Nur lesen / Lesen und steuern) standen die Auswahlkreise über dem Text statt daneben

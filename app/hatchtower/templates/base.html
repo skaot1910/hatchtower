@@ -68,6 +68,12 @@
     <button type="button" class="announcement-close" data-ann-close aria-label="{{ _("Ausblenden") }}">✕</button>
   </div>
   {% endfor %}
+  {% if proxy_warning %}
+  <div class="announcement announcement-warn" role="alert">
+    <span class="announcement-text">{{ _("Hatchtower bekommt Anfragen über einen Reverse-Proxy ({ip}), der nicht eingetragen ist. Dadurch werden HTTPS und die echten Besucher-IPs nicht erkannt: Cookies sind ungeschützt, und Fehlversuche eines Besuchers sperren alle aus. Trag die IP unter System → Verbindung ein, aber nur, wenn das wirklich dein Proxy ist.", ip=proxy_warning) }}</span>
+    <a class="btn btn-sm" href="/admin/connection">{{ _("Zur Verbindung") }}</a>
+  </div>
+  {% endif %}
   {% if flash %}<div class="flash" role="status">{{ flash }}</div>{% endif %}
   {% block content %}{% endblock %}
 </main>

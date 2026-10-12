@@ -385,6 +385,41 @@ automatisch – nur, wenn du es willst.
 > Nur-Lesen-Modus und Audit-Log. Noch vorsichtiger: Lege einen eigenen Panel-Benutzer an und füge
 > ihn nur als Subuser zu den gewünschten Servern hinzu.
 
+<details>
+<summary><b>Auf einem öffentlichen Server (VPS, Root-Server) betreiben</b></summary>
+
+Hatchtower läuft auch auf einem Server im Internet. Damit es dort sicher ist:
+
+1. **Nur auf localhost lauschen**, wenn der Reverse-Proxy auf demselben Server läuft:
+   `sudo bash installer/install.sh --bind 127.0.0.1`. Sonst Port 8000 per Firewall
+   (oder `--allow`) nur für den Proxy öffnen. Der Proxy darf sich nicht umgehen lassen.
+2. **HTTPS über einen Reverse-Proxy.** Hatchtower selbst spricht nur HTTP. Beispiel mit Caddy
+   (holt das Zertifikat automatisch):
+
+   ```
+   hatchtower.example.de {
+     reverse_proxy 127.0.0.1:8000
+   }
+   ```
+
+3. **Einrichtung sofort abschließen.** Solange kein Konto existiert, kann jeder mit dem
+   Einrichtungscode den Owner anlegen. Den Code also nicht weitergeben und gleich nach der
+   Installation einrichten.
+4. **Proxy-IP eintragen** unter **System → Verbindung → Reverse-Proxy-IPs** (bei Caddy auf
+   demselben Server: `127.0.0.1`). Das ist im Internet Pflicht, nicht optional: Erst dann
+   - erkennt Hatchtower HTTPS und setzt die Cookies mit `Secure` sowie HSTS,
+   - sieht es die echten IPs der Besucher. Ohne Eintrag kommen alle von der Proxy-IP, und ein
+     Angreifer mit zehn falschen Anmeldungen sperrt damit alle Besucher aus.
+
+   Erlaubt sind IP-Adressen und Netze (z. B. `172.16.0.0/12` für Docker). `X-Forwarded-For` wird nur von diesen
+   Adressen angenommen, gefälschte Angaben anderer Clients zählen nicht.
+5. **Verbindung zum Panel und zu Wings:** Hatchtower muss das Panel und die Wings (meist Port
+   `8080`) erreichen. Liegen sie nicht im selben Rechenzentrum, verbinde die Server lieber über
+   einen VPN-Tunnel (z. B. WireGuard), statt den Wings-Port offen ins Internet zu stellen.
+   Im Panel beim Client-Key *Allowed IP* auf die Adresse von Hatchtower setzen.
+
+</details>
+
 ---
 
 ## Für Entwickler

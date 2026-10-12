@@ -233,6 +233,8 @@ def world(monkeypatch, tmp_path) -> World:
     monkeypatch.setattr(setup, "node_checks", no_nodes)
     main._power_last.clear()
     main.throttle.__init__()
+    main._untrusted_proxy[:] = [None, 0.0]
+    main._untrusted_proxy[:] = [None, 0.0]
 
     w = World(path=path, ptero=ptero)
     w.user("olga", "owner")

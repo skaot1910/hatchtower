@@ -103,12 +103,31 @@ def load_settings() -> Settings:
 
 
 def parse_proxies(text: str) -> tuple:
+    """Reverse-Proxys als IP-Adressen oder Netze (z. B. 172.16.0.0/12). Zu große Netze sind nicht erlaubt,
+    sonst könnte jeder Besucher seine IP und HTTPS vortäuschen."""
     result = []
     for part in (text or "").replace(";", ",").split(","):
         part = part.strip()
         if part:
-            result.append(ipaddress.ip_address(part))
+            net = ipaddress.ip_network(part, strict=False)
+            if net.prefixlen < (8 if net.version == 4 else 32):
+                raise ValueError(f"Netz zu groß: {part}")
+            result.append(net)
     return tuple(result)
+
+
+def is_trusted_proxy(peer, proxies: tuple) -> bool:
+    try:
+        addr = ipaddress.ip_address(peer) if isinstance(peer, str) else peer
+    except ValueError:
+        return False
+    if addr is None:
+        return False
+    return any(addr in net for net in proxies)
+
+
+def format_proxies(proxies: tuple) -> str:
+    return ", ".join(str(n.network_address) if n.prefixlen == n.max_prefixlen else str(n) for n in proxies)
 
 
 def apply_db_values(settings: Settings, values: dict[str, str], decrypt) -> None:

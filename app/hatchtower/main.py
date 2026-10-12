@@ -8,7 +8,7 @@ import posixpath
 import re
 import time
 from contextlib import aclosing, asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -21,7 +21,7 @@ from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, backups, db, extras, i18n, legal, logarchive, logos, retention,
                security, notify, setup, statusfeed, themes, updates, zipdownload)
-from .config import DB_KEYS, apply_db_values, load_settings, parse_proxies
+from .config import DB_KEYS, apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
 from .monitor import Monitor
 from .permissions import (BY_KEY, PERMISSIONS, UserContext, describe_access, grouped_permissions, load_assignments,
@@ -152,8 +152,32 @@ CSP = (
 
 def is_https(request: Request) -> bool:
     peer = request.client.host if request.client else None
-    trusted = any(str(p) == peer for p in settings.trusted_proxies)
+    trusted = is_trusted_proxy(peer, settings.trusted_proxies)
     return request.url.scheme == "https" or (trusted and request.headers.get("x-forwarded-proto") == "https")
+
+
+# Zuletzt gesehener Reverse-Proxy, der nicht eingetragen ist: (IP, Zeitpunkt aus time.monotonic())
+_untrusted_proxy: list = [None, 0.0]
+UNTRUSTED_PROXY_HINT = 86400   # so lange bleibt der Hinweis nach der letzten solchen Anfrage stehen
+
+
+def note_forwarded(request: Request) -> None:
+    """Merkt sich Anfragen mit Proxy-Headern von einer IP, die nicht als Reverse-Proxy eingetragen ist.
+    Dann fehlen HTTPS-Erkennung und echte Besucher-IPs, das soll der Owner erfahren."""
+    if not (request.headers.get("x-forwarded-for") or request.headers.get("x-forwarded-proto")):
+        return
+    peer = request.client.host if request.client else None
+    if peer and not is_trusted_proxy(peer, settings.trusted_proxies):
+        _untrusted_proxy[:] = [peer, time.monotonic()]
+
+
+def untrusted_proxy() -> str | None:
+    peer, seen = _untrusted_proxy
+    if peer is None or time.monotonic() - seen > UNTRUSTED_PROXY_HINT:
+        return None
+    if is_trusted_proxy(peer, settings.trusted_proxies):
+        return None
+    return peer
 
 
 # Höchstgröße einer Anfrage, geprüft bevor der Inhalt gelesen wird (Schutz vor Speicher-/Plattenflutung)
@@ -191,6 +215,7 @@ async def security_headers(request: Request, call_next):
     i18n.set_language(i18n.valid(request.cookies.get(LANG_COOKIE))
                       or i18n.from_accept_language(request.headers.get("accept-language"))
                       or i18n.valid(db.get_setting("default_language")))
+    note_forwarded(request)
     response = body_problem(request) or await call_next(request)
     response.headers["Content-Security-Policy"] = CSP
     response.headers["X-Frame-Options"] = "DENY"
@@ -310,6 +335,8 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
         context.setdefault("announcements", extras.active_announcements())
         context.setdefault("update_available", getattr(app.state, "updates", None) is not None and app.state.updates.available)
         context.setdefault("status_page_on", db.get_setting("status_enabled") == "1")
+        if context["user"].is_owner:
+            context.setdefault("proxy_warning", untrusted_proxy())
     user = context.get("user")
     context.setdefault("theme", themes.valid(getattr(user, "theme", None)) or themes.valid(db.get_setting("default_theme")) or themes.DEFAULT)
     return templates.TemplateResponse(request, template, context, status_code=status)
@@ -408,7 +435,8 @@ async def login(request: Request, username: str = Form(""), password: str = Form
         row = con.execute("SELECT * FROM users WHERE username = ?", (username.strip(),)).fetchone()
 
     now = db.utcnow()
-    if row is not None and row["locked_until"] and row["locked_until"] > now:
+    # Kontosperre gilt pro Konto und IP: Fehlversuche eines Fremden sperren den Besitzer nicht aus
+    if row is not None and throttle.account_locked(row["id"], ip, row["password_hash"]):
         security.verify_password(None, password)
         throttle.record_failure(ip)
         audit.record("login", result="blocked", user_id=row["id"], username=row["username"], ip=ip, detail="Konto gesperrt")
@@ -418,17 +446,12 @@ async def login(request: Request, username: str = Form(""), password: str = Form
     if not ok or row is None or not row["is_active"]:
         throttle.record_failure(ip)
         if row is not None:
-            failed = row["failed_logins"] + 1
-            minutes = security.LoginThrottle.lock_minutes(failed)
-            locked = None
-            if minutes:
-                locked = (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat(timespec="seconds")
-            with db.connect() as con:
-                con.execute("UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?", (failed, locked, row["id"]))
+            throttle.account_failure(row["id"], ip, row["password_hash"])
         audit.record("login", result="failed", user_id=row["id"] if row else None,
                      username=username[:64], ip=ip)
         return fail("Anmeldung fehlgeschlagen.")
 
+    throttle.account_success(row["id"], ip)
     with db.connect() as con:
         con.execute("UPDATE users SET failed_logins = 0, locked_until = NULL, last_login_at = ? WHERE id = ?",
                     (now, row["id"]))
@@ -469,7 +492,7 @@ async def connection_context(step: str | None) -> dict:
         "app_key_masked": setup.mask_key(settings.app_key), "client_key_masked": setup.mask_key(settings.client_key),
         "manager_ip": setup.manager_ip_towards(settings.pterodactyl_url) if settings.pterodactyl_url else None,
         "mode": settings.manager_mode, "public_host": db.get_setting("public_host"),
-        "trusted_proxies": ", ".join(str(p) for p in settings.trusted_proxies), "timezone": settings.timezone,
+        "trusted_proxies": format_proxies(settings.trusted_proxies), "timezone": settings.timezone,
         "timezones": setup.timezone_choices(), "nodes": [], "nodes_error": None,
         "steps": setup_steps()[1:], "step": step,
     }
@@ -640,7 +663,7 @@ async def connection_options(request: Request, mode: str = Form("read-only"), pu
     try:
         parse_proxies(trusted_proxies)
     except ValueError:
-        return connection_back(next, "Reverse-Proxy: bitte IP-Adressen durch Komma getrennt angeben")
+        return connection_back(next, "Reverse-Proxy: bitte IP-Adressen oder Netze (mindestens /8) durch Komma getrennt angeben")
     choices = setup.timezone_choices()
     if timezone_.strip() not in choices["common"] + choices["others"]:
         return connection_back(next, "Bitte eine Zeitzone aus der Liste wählen")

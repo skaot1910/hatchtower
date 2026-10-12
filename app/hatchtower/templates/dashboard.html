@@ -50,6 +50,12 @@
 
 {% if servers %}
 <div class="list-tools">
+{% set ns = namespace(selectable=false) %}{% for s in servers %}{% if s.can_start or s.can_stop or s.can_restart %}{% set ns.selectable = true %}{% endif %}{% endfor %}
+{% if not preview and ns.selectable %}
+<label class="bulk-all" title="{{ _("Alle sichtbaren Server für eine gemeinsame Aktion auswählen") }}">
+  <input type="checkbox" class="bulk-box" id="bulk-all"> {{ _("Alle auswählen") }}
+</label>
+{% endif %}
 <label class="sort-select">{{ _("Sortieren") }}
   <select id="sort-select" aria-label="{{ _("Sortieren") }}">
     <option value="name-asc">{{ _("Name A–Z") }}</option>

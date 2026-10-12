@@ -15,7 +15,7 @@ from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatc
 from cryptography.fernet import Fernet, InvalidToken
 
 from . import db
-from .config import Settings
+from .config import Settings, is_trusted_proxy
 
 # OWASP-Empfehlung für Argon2id: 19 MiB, 2 Durchläufe, 1 Thread
 _hasher = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
@@ -169,22 +169,62 @@ def prelogin_valid(secret_key: str, cookie: str | None, form: str | None) -> boo
 # -- Anmeldeschutz -------------------------------------------------------
 
 class LoginThrottle:
-    """Begrenzt Anmeldeversuche pro IP (im Speicher) und sperrt Konten mit wachsender Dauer."""
+    """Begrenzt Anmeldeversuche pro IP und sperrt Konten mit wachsender Dauer (beides im Speicher).
+
+    Die Kontosperre gilt nur für die IP, von der die Fehlversuche kamen. So kann ein Fremder, der einen
+    Benutzernamen kennt, das Konto nicht für alle anderen sperren. Gegen verteiltes Raten schützen die
+    langen Passwörter (mindestens 15 Zeichen, Argon2id). Jede Sperre hängt am Passwort-Hash: Wird das Passwort
+    geändert (auch über die Konsole), ist sie aufgehoben.
+    """
+
+    MAX_ENTRIES = 10000        # danach werden alte Einträge verworfen
+    ACCOUNT_FORGET = 86400     # Fehlversuche pro Konto und IP verfallen nach einem Tag ohne neuen Versuch
 
     def __init__(self, per_ip: int = 10, window: int = 900):
         self.per_ip = per_ip
         self.window = window
         self._hits: dict[str, deque[float]] = defaultdict(deque)
+        # (Benutzer-ID, IP) -> (Fehlversuche, gesperrt bis, letzter Versuch, Passwort-Hash), Zeiten aus time.monotonic()
+        self._accounts: dict[tuple[int, str], tuple[int, float, float, str]] = {}
 
     def ip_blocked(self, ip: str) -> bool:
-        hits = self._hits[ip]
+        hits = self._hits.get(ip)
+        if not hits:
+            return False
         cutoff = time.monotonic() - self.window
         while hits and hits[0] < cutoff:
             hits.popleft()
+        if not hits:
+            del self._hits[ip]
         return len(hits) >= self.per_ip
 
     def record_failure(self, ip: str) -> None:
+        if len(self._hits) >= self.MAX_ENTRIES:
+            cutoff = time.monotonic() - self.window
+            for key in [k for k, v in self._hits.items() if not v or v[-1] < cutoff]:
+                del self._hits[key]
         self._hits[ip].append(time.monotonic())
+
+    def account_locked(self, user_id: int, ip: str, password_hash: str) -> bool:
+        entry = self._accounts.get((user_id, ip))
+        return entry is not None and entry[3] == password_hash and entry[1] > time.monotonic()
+
+    def account_failure(self, user_id: int, ip: str, password_hash: str) -> int:
+        """Zählt einen Fehlversuch für Konto und IP; gibt die Sperrdauer in Minuten zurück (0 = keine)."""
+        now = time.monotonic()
+        if len(self._accounts) >= self.MAX_ENTRIES:
+            for key in [k for k, v in self._accounts.items() if v[2] < now - self.ACCOUNT_FORGET]:
+                del self._accounts[key]
+        failed, _, last, known = self._accounts.get((user_id, ip), (0, 0.0, now, password_hash))
+        if last < now - self.ACCOUNT_FORGET or known != password_hash:
+            failed = 0
+        failed += 1
+        minutes = self.lock_minutes(failed)
+        self._accounts[(user_id, ip)] = (failed, now + minutes * 60, now, password_hash)
+        return minutes
+
+    def account_success(self, user_id: int, ip: str) -> None:
+        self._accounts.pop((user_id, ip), None)
 
     @staticmethod
     def lock_minutes(failed_logins: int) -> int:
@@ -196,19 +236,19 @@ class LoginThrottle:
 # -- Client-IP -----------------------------------------------------------
 
 def client_ip(peer: str | None, forwarded_for: str | None, settings: Settings) -> str:
-    """Echte Client-IP. X-Forwarded-For zählt nur, wenn die Anfrage von Pangolin kommt."""
+    """Echte Client-IP. X-Forwarded-For zählt nur, wenn die Anfrage von einem eingetragenen Reverse-Proxy kommt."""
     peer = peer or "unbekannt"
     try:
         peer_addr = ipaddress.ip_address(peer)
     except ValueError:
         return peer
-    if peer_addr not in settings.trusted_proxies or not forwarded_for:
+    if not is_trusted_proxy(peer_addr, settings.trusted_proxies) or not forwarded_for:
         return peer
     for candidate in reversed([p.strip() for p in forwarded_for.split(",") if p.strip()]):
         try:
             addr = ipaddress.ip_address(candidate)
         except ValueError:
             return peer
-        if addr not in settings.trusted_proxies:
+        if not is_trusted_proxy(addr, settings.trusted_proxies):
             return candidate
     return peer

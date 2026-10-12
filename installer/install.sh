@@ -192,6 +192,12 @@ if [ "$ok" -ne 1 ]; then
 fi
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+LOCAL_ONLY=0
+case "$HATCHTOWER_BIND" in
+  0.0.0.0|::|"") ;;
+  127.*|::1|localhost) LOCAL_ONLY=1; IP="127.0.0.1";;
+  *) IP="$HATCHTOWER_BIND";;
+esac
 echo
 if hatchtower setup-token >/tmp/hatchtower-token 2>/dev/null; then
   TOKEN="$(sed 's/.*: //' /tmp/hatchtower-token)"; rm -f /tmp/hatchtower-token
@@ -200,6 +206,11 @@ if hatchtower setup-token >/tmp/hatchtower-token 2>/dev/null; then
   echo "  2. Einrichtungscode:    $TOKEN   (24 Stunden gültig, neu: hatchtower setup-token)"
   echo
   echo "  Der Assistent führt dich durch Panel-Adresse, API-Keys und Wings."
+  if [ "$LOCAL_ONLY" -eq 1 ]; then
+    echo
+    echo "  Hatchtower lauscht nur auf $HATCHTOWER_BIND. Öffne es über deinen Reverse-Proxy (HTTPS)"
+    echo "  und trag dessen IP danach unter System → Verbindung ein (bei einem Proxy auf diesem Server: 127.0.0.1)."
+  fi
 else
   rm -f /tmp/hatchtower-token
   printf '\033[1;32mHatchtower %s läuft.\033[0m  http://%s:%s\n' "$VERSION" "${IP:-SERVER-IP}" "$HATCHTOWER_PORT"

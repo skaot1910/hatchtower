@@ -668,7 +668,7 @@ a.file-link:hover { color: var(--violet-3); }
   .access-row { padding: 12px; }
   .custom-perms { grid-template-columns: 1fr; }
   .perm-group .check, .toggle-list .check, .weekdays .check { font-size: 15.5px; padding: 4px 0; }
-  .perm-group input[type="checkbox"], .toggle-list input[type="checkbox"] { width: 20px; height: 20px; }
+  .perm-group input[type="checkbox"], .toggle-list input[type="checkbox"], input.bulk-box { width: 20px; height: 20px; }
   .matrix-tools { width: 100%; }
   .matrix-tools select { flex: 1; }
   .checks li { grid-template-columns: 24px 1fr; }
@@ -997,6 +997,8 @@ a.file-link:hover { color: var(--violet-3); }
 .card-head .card-title { min-width: 0; }
 .list-view .card-head-link { gap: 12px; }
 .bulk-box { width: 16px; height: 16px; margin: 0; flex: none; cursor: pointer; accent-color: var(--accent-strong); }
+.bulk-all { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
+.bulk-all:has(input:disabled) { opacity: .5; cursor: default; }
 @media (min-width: 1101px) { .list-view .server-card { grid-template-columns: minmax(240px, 1.5fr) minmax(240px, 1.5fr) minmax(200px, 1.1fr) auto; } }
 .status-main .status-ingame { display: block; font-size: 13.5px; color: var(--muted); }
 .status-address { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }

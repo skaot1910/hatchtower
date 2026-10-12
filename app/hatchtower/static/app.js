@@ -632,6 +632,7 @@
         b.setAttribute("aria-pressed", String(key === "all" ? selected.length === 0 : selected.indexOf(key) !== -1));
       });
       if (empty) empty.hidden = visible > 0;
+      document.dispatchEvent(new Event("hatchtower:filtered"));
     }
 
     buttons.forEach(function (b) {
@@ -973,14 +974,34 @@
     var bar = document.getElementById("bulk-bar");
     if (!bar) return;
     var count = document.getElementById("bulk-count");
+    var all = document.getElementById("bulk-all");
     function boxes() { return Array.prototype.slice.call(document.querySelectorAll("input[data-bulk]")); }
+    // „Alle auswählen“ bezieht sich auf die Server, die Status- und Tag-Filter gerade zeigen
+    function visibleBoxes() {
+      return boxes().filter(function (b) { return !b.closest(".server-card").classList.contains("filtered-out"); });
+    }
     function update() {
       var chosen = boxes().filter(function (b) { return b.checked; });
       bar.hidden = chosen.length === 0;
       count.textContent = tr("{n} ausgewählt", { n: chosen.length });
       boxes().forEach(function (b) { b.closest(".server-card").classList.toggle("is-selected", b.checked); });
+      if (all) {
+        var shown = visibleBoxes();
+        var on = shown.filter(function (b) { return b.checked; }).length;
+        all.disabled = shown.length === 0;
+        all.checked = shown.length > 0 && on === shown.length;
+        all.indeterminate = on > 0 && on < shown.length;
+      }
     }
     document.addEventListener("change", function (ev) { if (ev.target.matches("input[data-bulk]")) update(); });
+    document.addEventListener("hatchtower:filtered", update);
+    if (all) {
+      all.addEventListener("change", function () {
+        var target = all.checked;
+        visibleBoxes().forEach(function (b) { b.checked = target; });
+        update();
+      });
+    }
     document.getElementById("bulk-clear").addEventListener("click", function () {
       boxes().forEach(function (b) { b.checked = false; });
       update();
