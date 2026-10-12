@@ -11,7 +11,7 @@
   <section class="card">
     <h2 class="card-h">{{ _("Verbindung") }}</h2>
     <div class="facts">
-      <div class="kv"><span>{{ _("Pterodactyl") }}</span><span class="mono">{{ settings.pterodactyl_url or '–' }}</span></div>
+      <div class="kv"><span>{{ _("Panel") }}</span><span class="mono">{{ settings.panel.name }} · {{ settings.pterodactyl_url or '–' }}</span></div>
       <div class="kv"><span>{{ _("Modus") }}</span><span>{{ _('Lesen und steuern') if not settings.read_only else _('Nur lesen') }}</span></div>
       <div class="kv"><span>{{ _("Öffentliche Adresse") }}</span><span class="mono">{{ public_host or '–' }}</span></div>
       <div class="kv"><span>{{ _("Reverse-Proxy") }}</span><span class="mono">{{ settings.trusted_proxies|join(', ') or '–' }}</span></div>

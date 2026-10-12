@@ -2,7 +2,7 @@
 {% block title %}{{ _("Automationen") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ _("Automationen") }}</h1><p class="muted">{{ _("Läuft im Manager, prüft alle 20 Sekunden aus der eigenen Datenbank. Pterodactyl wird nur angefragt, wenn etwas auszuführen ist.") }}</p></div>
+  <div><h1>{{ _("Automationen") }}</h1><p class="muted">{{ _("Läuft im Manager, prüft alle 20 Sekunden aus der eigenen Datenbank. {panel} wird nur angefragt, wenn etwas auszuführen ist.") }}</p></div>
 </div>
 {% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Automationen werden gespeichert, aber nicht ausgeführt.") }}</div>{% endif %}
 

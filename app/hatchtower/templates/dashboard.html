@@ -22,7 +22,7 @@
 </div>
 
 <div class="alert" id="panel-down" role="alert" {% if not monitor.down_since %}hidden{% endif %}>
-  <strong>{{ _("Pterodactyl antwortet nicht") }}</strong> ({{ _("seit") }} <span id="panel-down-since">{{ fmt_down_since or '' }}</span>).
+  <strong>{{ _("{panel} antwortet nicht") }}</strong> ({{ _("seit") }} <span id="panel-down-since">{{ fmt_down_since or '' }}</span>).
   {{ _("Hatchtower bekommt keine aktuellen Daten. Die Server werden deshalb als „keine aktuellen Daten“ angezeigt – ob sie wirklich laufen, ist gerade nicht bekannt.") }}
 </div>
 
@@ -44,7 +44,7 @@
 {% if not servers %}
 <div class="empty">
   <h2>{{ _("Noch keine Server sichtbar") }}</h2>
-  <p class="muted">{% if user.is_owner %}{{ _("Das Monitoring liest die Server gerade aus Pterodactyl. Lade die Seite in ein paar Sekunden neu.") }}{% else %}{{ _("Dir wurden noch keine Server freigegeben.") }}{% endif %}</p>
+  <p class="muted">{% if user.is_owner %}{{ _("Das Monitoring liest die Server gerade aus {panel}. Lade die Seite in ein paar Sekunden neu.") }}{% else %}{{ _("Dir wurden noch keine Server freigegeben.") }}{% endif %}</p>
 </div>
 {% endif %}
 

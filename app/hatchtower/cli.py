@@ -4,7 +4,7 @@ Aufruf auf dem Server (als root):
   hatchtower setup-token      Einrichtungscode für den Assistenten erzeugen
   hatchtower create-owner     Owner-Konto auf der Konsole anlegen
   hatchtower reset-password   Passwort eines Benutzers neu setzen
-  hatchtower selftest         Verbindung zu Pterodactyl prüfen (nur lesend)
+  hatchtower selftest         Verbindung zum Panel prüfen (nur lesend)
   hatchtower version          Installierte Version anzeigen
   hatchtower update <paket>   Auf eine neue Version aktualisieren (Shell-Befehl, siehe /usr/local/bin/hatchtower)
 """
@@ -18,7 +18,8 @@ import sys
 from . import APP_NAME, __version__, audit, db, i18n, security, setup
 from .i18n import t
 from .config import ConfigError, apply_db_values, load_settings
-from .ptero import PteroClient, PteroError, ReadOnlyViolation
+from .panels import make_client
+from .ptero import PteroError, ReadOnlyViolation
 
 
 def _ask_password(username: str) -> str | None:
@@ -87,9 +88,10 @@ async def selftest(settings) -> int:
     if not settings.configured:
         print(t("Noch nicht eingerichtet: Panel-Adresse oder API-Keys fehlen. Bitte im Browser einrichten."))
         return 1
-    client = PteroClient(settings)
+    client = make_client(settings)
     failed = 0
-    print(t("{app} {version} – Selbsttest (nur lesend) gegen {url}", app=APP_NAME, version=__version__, url=settings.pterodactyl_url))
+    print(t("{app} {version} – Selbsttest (nur lesend) gegen {url}", app=APP_NAME, version=__version__,
+            url=f"{settings.panel.name} {settings.pterodactyl_url}"))
     try:
         try:
             nodes = await client.list_nodes()
@@ -155,6 +157,7 @@ def main() -> None:
     with db.connect() as con:
         values = {r["key"]: r["value"] for r in con.execute("SELECT key, value FROM app_settings WHERE key LIKE 'conn_%'")}
     apply_db_values(settings, values, vault.decrypt)
+    i18n.set_panel(settings.panel.name)
     sys.exit(asyncio.run(selftest(settings)))
 
 

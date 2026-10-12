@@ -4,12 +4,14 @@
 
 # Hatchtower
 
-**Die schöne, sichere Oberfläche für deine Pterodactyl-Game-Server.**
+**Die schöne, sichere Oberfläche für deine Game-Server auf Pterodactyl, Pelican oder Calagopus.**
 
 Server starten, Konsole mitlesen, Dateien bearbeiten, Rechte vergeben –
 alles an einem Ort, für dich und dein Team.
 
-![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.12-0ea5e9)
+![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
+![Pelican](https://img.shields.io/badge/Pelican-1.0-2563eb)
+![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
 ![Debian](https://img.shields.io/badge/Debian-12%20%7C%2013-a80030)
 ![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN-22c55e)
 
@@ -21,10 +23,10 @@ alles an einem Ort, für dich und dein Team.
 
 ## Was ist Hatchtower?
 
-Du betreibst Game-Server mit **Pterodactyl** und möchtest Freunden, Moderatoren oder deiner
-Community Zugriff geben – aber nicht gleich auf alles? Genau dafür gibt es Hatchtower.
+Du betreibst Game-Server mit **Pterodactyl**, **Pelican** oder **Calagopus** und möchtest Freunden,
+Moderatoren oder deiner Community Zugriff geben – aber nicht gleich auf alles? Genau dafür gibt es Hatchtower.
 
-Hatchtower ist ein **Begleiter** für dein Pterodactyl-Panel, **kein Ersatz**. Pterodactyl bleibt
+Hatchtower ist ein **Begleiter** für dein Panel, **kein Ersatz**. Das Panel bleibt
 die Stelle, an der deine Server wirklich laufen. Hatchtower legt sich darüber und bringt:
 
 - 👥 **eigene Benutzer** mit genau den Rechten, die du ihnen gibst – pro Server
@@ -33,6 +35,17 @@ die Stelle, an der deine Server wirklich laufen. Hatchtower legt sich darüber u
 - 💾 **Backups** von ganzen Servern oder einzelnen Spielständen – auf ein Laufwerk, eine SMB-Freigabe oder direkt in den Browser
 - 📜 ein **Audit-Log**, das festhält, wer wann was getan hat
 - 🔒 einen **Nur-Lesen-Modus**, mit dem garantiert nichts am Panel verändert wird
+
+### Unterstützte Panels
+
+| Panel | Getestet mit | Anbindung |
+|---|---|---|
+| [Pterodactyl](https://pterodactyl.io) | Panel 1.15.1, Wings 1.13.3 | Application-Key (nur lesen) und Client-Key |
+| [Pelican](https://pelican.dev) | Panel und Wings 1.0.0-rc.1 | Application-Key (nur lesen) und Client-Key |
+| [Calagopus](https://calagopus.com) | Panel und Wings 1.2.5 (integrierte oder eigene Wings) | ein API-Key mit Admin-Lese- und Server-Rechten |
+
+Eine Hatchtower-Installation verwaltet die Server **eines** Panels. Welches, wählst du im
+Einrichtungsassistenten; wechseln kannst du später unter **System → Verbindung**.
 
 > **In 5 Minuten startklar:** Ein Befehl installiert alles, danach führt dich ein Assistent im
 > Browser Schritt für Schritt durch die Einrichtung.
@@ -177,7 +190,7 @@ Auf dem Handy passt sich Hatchtower automatisch an.
 - Server vorher stoppen (mit Vorwarnung im Spiel) und danach wieder starten
 - Aufbewahrung nach Anzahl oder Tagen, Platzprüfung vorab, Meldung per Webhook/E-Mail
 - Eigene Rechte: Backups sehen, starten und herunterladen, Backup-Jobs verwalten
-- Schont das Anfragen-Limit von Pterodactyl, damit Statusabfragen nicht ausfallen
+- Schont das Anfragen-Limit des Panels, damit Statusabfragen nicht ausfallen
 
 **Community**
 - Öffentliche Statusseite (abschaltbar): Name, Spiel, Status und Adresse ausgewählter Server
@@ -205,8 +218,8 @@ Auf dem Handy passt sich Hatchtower automatisch an.
 |---|---|
 | **System** | Debian 12 oder 13 (gerne als Proxmox-LXC) |
 | **Leistung** | 1 CPU-Kern, 512 MB RAM, 2 GB Speicher reichen |
-| **Netzwerk** | Zugriff auf das Pterodactyl-Panel **und** die Wings-Server (Daemon-Port meist `8080`, SFTP meist `2022`) |
-| **Pterodactyl** | Ein Admin-Zugang, um zwei API-Keys anzulegen. Getestet mit Panel 1.12 und Wings 1.12 |
+| **Netzwerk** | Zugriff auf das Panel **und** die Wings-Server (Daemon-Port meist `8080`, SFTP meist `2022`; bei Calagopus mit Wings-Proxy reicht das Panel) |
+| **Panel** | Pterodactyl, Pelican oder Calagopus mit einem Admin-Zugang, um die API-Keys anzulegen (siehe [Unterstützte Panels](#unterstützte-panels)) |
 
 ---
 
@@ -297,8 +310,9 @@ Am Ende der Installation siehst du die **Adresse** und einen **Einrichtungscode*
 Adresse im Browser – ein Assistent führt dich durch fünf Schritte:
 
 1. **Owner-Konto** anlegen (mit dem Einrichtungscode)
-2. **Panel-Adresse** und **Application-API-Key** eintragen (nur Lese-Rechte nötig)
-3. **Client-API-Key** eines eigenen Panel-Benutzers eintragen (mit *Allowed IP*)
+2. **Panel** wählen (Pterodactyl, Pelican oder Calagopus), **Adresse** und **API-Key** eintragen –
+   der Assistent zeigt für jedes Panel, wo es den Key gibt und welche Rechte er braucht
+3. **Client-API-Key** eines eigenen Panel-Benutzers eintragen (mit *Allowed IP*; entfällt bei Calagopus)
 4. **Wings-Server** prüfen – werden automatisch aus dem Panel gelesen, mehrere sind kein Problem
 5. **Optionen** wählen: Modus, öffentliche Adresse für Spieler, Reverse-Proxy, Zeitzone
 
@@ -364,7 +378,7 @@ automatisch – nur, wenn du es willst.
 - 🔑 Starke Passwörter (Argon2id), Sperre nach Fehlversuchen, Sitzungs-Timeouts
 - 🛡️ CSRF-Schutz, strenge Content-Security-Policy, kein Einbetten in fremde Seiten
 - 🚫 „Alles verboten, was nicht erlaubt ist“ – Rechte pro Benutzer und Server
-- 👀 Der Nur-Lesen-Modus ist technisch erzwungen: Schreibende Anfragen erreichen Pterodactyl gar nicht erst
+- 👀 Der Nur-Lesen-Modus ist technisch erzwungen: Schreibende Anfragen erreichen das Panel gar nicht erst
 - 🌐 Für den Zugriff von außen bitte einen Reverse-Proxy mit HTTPS nutzen (z. B. Pangolin, Nginx, Traefik)
 
 > ⚠️ Der Client-Key eines Panel-**Admins** darf technisch alles. Schütze ihn mit *Allowed IP*,
@@ -389,8 +403,8 @@ automatisch – nur, wenn du es willst.
 **Neue Version veröffentlichen:** Version in `app/hatchtower/__init__.py` und `VERSION` erhöhen,
 Abschnitt in `CHANGELOG.md` ergänzen, committen, dann in Git Bash `bash tools/release.sh`.
 
-**Aufbau** (`app/hatchtower/`): `main.py` (Web), `ptero.py` (Pterodactyl-Adapter mit
-Read-Only-Sperre), `wings.py` (Konsole), `monitor.py` (Abgleich, Verlauf), `automation.py`,
+**Aufbau** (`app/hatchtower/`): `main.py` (Web), `panels.py` (unterstützte Panels),
+`ptero.py` (Adapter für Pterodactyl und Pelican mit Read-Only-Sperre), `calagopus.py` (Adapter für Calagopus), `wings.py` (Konsole), `monitor.py` (Abgleich, Verlauf), `automation.py`,
 `permissions.py`, `security.py`, `setup.py` (Einrichtung), `themes.py`, `db.py` (Migrationen).
 
 **Übersetzungen** liegen in `app/hatchtower/locales/<sprache>.json` (deutscher Text → Übersetzung).
@@ -406,10 +420,10 @@ Die Lizenz von Hatchtower selbst ist noch nicht festgelegt.
 
 Alle Abhängigkeiten stehen unter freien, permissiven Lizenzen (MIT, BSD-3-Clause, Apache-2.0,
 PSF-2.0, HPND/MIT-CMU, MPL-2.0 für certifi). Hatchtower enthält keine fremden Schriften, Icons,
-Bilder oder JavaScript-Bibliotheken; Pterodactyl wird nur über die API angebunden. Die verwendeten
+Bilder oder JavaScript-Bibliotheken; die Panels werden nur über ihre API angebunden. Die verwendeten
 Bibliotheken und ihre Lizenzen findest du in der Oberfläche unter **Lizenzen** (Fußzeile) und als
 vollständige Texte in `THIRD_PARTY_LICENSES.txt`, die bei jeder Installation neu erzeugt wird.
 
 <div align="center">
-<sub>Hatchtower ist ein unabhängiges Projekt und steht in keiner Verbindung zum Pterodactyl-Projekt.</sub>
+<sub>Hatchtower ist ein unabhängiges Projekt und steht in keiner Verbindung zu den Projekten Pterodactyl, Pelican oder Calagopus.</sub>
 </div>

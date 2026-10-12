@@ -5,10 +5,29 @@
 <div class="page-head">
   <div>
     <h1>{{ _("Über Hatchtower") }}</h1>
-    <p class="muted">{{ _("Hatchtower {version} – Verwaltung und Monitoring für Pterodactyl-Game-Server.", version=version) }}</p>
+    <p class="muted">{{ _("Hatchtower {version} – Verwaltung und Monitoring für Game-Server auf Pterodactyl, Pelican und Calagopus.", version=version) }}</p>
   </div>
   {% if license_file %}<a class="btn btn-ghost" href="/about/licenses.txt" target="_blank" rel="noopener">{{ _("Vollständige Lizenztexte (TXT)") }}</a>{% endif %}
 </div>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Unterstützte Panels") }}</h2>
+  <p class="muted small">{{ _("Hatchtower verwaltet die Game-Server eines dieser Panels. Welches angebunden ist, legt der Owner bei der Einrichtung fest und kann es unter Verbindung ändern.") }}</p>
+  <div class="table-card">
+    <table class="table stack-table">
+      <thead><tr><th>{{ _("Panel") }}</th><th>{{ _("Getestet mit") }}</th><th>{{ _("Anbindung") }}</th></tr></thead>
+      <tbody>
+      {% for p in supported_panels %}
+        <tr>
+          <td><a href="{{ p.website }}" rel="noopener noreferrer">{{ p.name }}</a>{% if p.key == settings.panel_type and settings.configured %} <span class="badge">{{ _("verbunden") }}</span>{% endif %}</td>
+          <td class="mono faint" data-label="{{ _("Getestet mit") }}">{{ p.tested }}</td>
+          <td data-label="{{ _("Anbindung") }}">{{ _("ein API-Key mit Admin- und Server-Rechten") if p.single_key else _("Application-Key (nur lesen) und Client-Key") }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 
 <section class="card">
   <h2 class="card-h">{{ _("Kurz zusammengefasst") }}</h2>
@@ -49,6 +68,8 @@
         <tr><td>SQLite {{ sqlite_version }}</td><td data-label="{{ _("Lizenz") }}">{{ _("Gemeinfrei (Public Domain)") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("Datenbank, Teil von Python") }}</td></tr>
         <tr><td>Debian GNU/Linux</td><td data-label="{{ _("Lizenz") }}">{{ _("verschiedene freie Lizenzen") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("Betriebssystem des Servers, wird nicht mit Hatchtower verteilt") }}</td></tr>
         <tr><td>Pterodactyl Panel / Wings</td><td data-label="{{ _("Lizenz") }}">MIT</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("nur über die offiziellen Schnittstellen (API und Websocket) angebunden, kein Code übernommen") }}</td></tr>
+        <tr><td>Pelican Panel / Wings</td><td data-label="{{ _("Lizenz") }}">AGPL-3.0 / MIT</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("nur über die offiziellen Schnittstellen (API und Websocket) angebunden, kein Code übernommen") }}</td></tr>
+        <tr><td>Calagopus Panel / Wings</td><td data-label="{{ _("Lizenz") }}">MIT</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("nur über die offiziellen Schnittstellen (API und Websocket) angebunden, kein Code übernommen") }}</td></tr>
         <tr><td>Valve Source Query (A2S)</td><td data-label="{{ _("Lizenz") }}">{{ _("offenes Protokoll") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("Abfrage öffentlicher Serverinformationen über python-a2s") }}</td></tr>
         <tr><td>Discord Webhooks</td><td data-label="{{ _("Lizenz") }}">{{ _("Nutzungsbedingungen von Discord") }}</td><td data-label="{{ _("Nutzung in Hatchtower") }}">{{ _("optional, nur wenn du einen Webhook einträgst") }}</td></tr>
       </tbody>
@@ -59,7 +80,7 @@
 <section class="card">
   <h2 class="card-h">{{ _("Marken und Logos") }}</h2>
   <ul class="plain-list muted small">
-    <li>{{ _("Pterodactyl, Steam/Valve und Discord sind Marken ihrer jeweiligen Inhaber. Sie werden nur beschreibend genannt; Hatchtower ist ein eigenständiges Projekt und nicht mit ihnen verbunden.") }}</li>
+    <li>{{ _("Pterodactyl, Pelican, Calagopus, Steam/Valve und Discord sind Marken ihrer jeweiligen Inhaber. Sie werden nur beschreibend genannt; Hatchtower ist ein eigenständiges Projekt und nicht mit ihnen verbunden.") }}</li>
     <li>{{ _("Spiele-Logos und eigene Logos laden die Benutzer selbst hoch. Die Rechte daran liegen bei den jeweiligen Herstellern. Für den privaten Gebrauch im Verwaltungsbereich ist das üblich; auf einer öffentlichen Statusseite solltest du nur Logos zeigen, die du verwenden darfst.") }}</li>
   </ul>
 </section>

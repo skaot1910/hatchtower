@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <h1>{{ _("{name} verwalten", name=server.name) }}</h1>
-    <p class="muted">{{ _("Diese Angaben speichert nur der Manager. Pterodactyl wird dadurch nicht verändert.") }}</p>
+    <p class="muted">{{ _("Diese Angaben speichert nur der Manager. {panel} wird dadurch nicht verändert.") }}</p>
   </div>
 </div>
 
@@ -42,17 +42,17 @@
         <input name="ingame_name" maxlength="120" value="{{ meta.ingame_name if meta and meta.ingame_name else '' }}" placeholder="{{ _("leer = automatisch erkennen") }}">
       </label>
       <label>{{ _("Angezeigtes Spiel") }}
-        <input name="game_name" maxlength="60" value="{{ meta.game_name if meta and meta.game_name else '' }}" placeholder="{{ _("leer = aus Pterodactyl: {egg}", egg=server.egg_ptero or '–') }}">
+        <input name="game_name" maxlength="60" value="{{ meta.game_name if meta and meta.game_name else '' }}" placeholder="{{ _("leer = aus {panel}: {egg}", egg=server.egg_ptero or '–') }}">
       </label>
       <label>{{ _("Serverpasswort (Klarschrift)") }}
         {% if password_hidden %}
         <input name="password" type="text" autocomplete="off" spellcheck="false" value="" placeholder="{{ _("gesetzt – leer lassen = unverändert") }}">
         {% else %}
-        <input name="password" type="text" autocomplete="off" spellcheck="false" value="{{ manual_password or '' }}" placeholder="{{ _("leer = aus Pterodactyl übernehmen") }}">
+        <input name="password" type="text" autocomplete="off" spellcheck="false" value="{{ manual_password or '' }}" placeholder="{{ _("leer = aus {panel} übernehmen") }}">
         {% endif %}
       </label>
       {% if password_hidden %}
-      <label class="check"><input type="checkbox" name="password_clear" value="1"> {{ _("Manuelles Passwort entfernen (dann gilt das aus Pterodactyl)") }}</label>
+      <label class="check"><input type="checkbox" name="password_clear" value="1"> {{ _("Manuelles Passwort entfernen (dann gilt das aus {panel})") }}</label>
       {% endif %}
       <label>{{ _("Öffentliche Adresse") }}
         <input name="public_address" maxlength="200" value="{{ meta.public_address if meta and meta.public_address else '' }}" placeholder="{{ _("leer = {wert}", wert=(public_host ~ ':' ~ server.internal_address.split(':')[1]) if public_host and server.internal_address else _('automatisch')) }}">

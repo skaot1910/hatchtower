@@ -1,6 +1,6 @@
-"""Adapter fuer die Pterodactyl-API.
+"""Adapter fuer die API von Pterodactyl und Pelican (gleiche API; Calagopus: calagopus.py).
 
-Der gesamte Zugriff auf Pterodactyl laeuft ueber diese Klasse. Im Read-Only-Modus
+Der gesamte Zugriff auf das Panel laeuft ueber diese Klasse oder eine Unterklasse. Im Read-Only-Modus
 werden nicht-lesende HTTP-Methoden technisch blockiert, bevor eine Anfrage das
 Livesystem erreicht. Unbekannte Felder in Antworten werden ignoriert, damit
 Panel-Updates den Manager nicht brechen.
@@ -17,7 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 
 from .config import Settings
-from .i18n import t
+from .i18n import panel_name, t
 
 log = logging.getLogger("hatchtower.ptero")
 
@@ -92,7 +92,7 @@ class PteroClient:
                     method, path, params=params, headers=headers, json=json_body, content=content
                 )
             except httpx.HTTPError as exc:
-                raise PteroError(t("Pterodactyl nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+                raise PteroError(t("{panel} nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
             limit, remaining = response.headers.get("x-ratelimit-limit", ""), response.headers.get("x-ratelimit-remaining", "")
             if limit.isdigit() and remaining.isdigit():
                 self.rate = (int(limit), int(remaining), time.monotonic())
@@ -113,7 +113,7 @@ class PteroClient:
         try:
             return response.json()
         except ValueError as exc:
-            raise PteroError("Pterodactyl lieferte kein JSON (falsche URL?)", response.status_code) from exc
+            raise PteroError(t("{panel} lieferte kein JSON (falsche URL?)"), response.status_code) from exc
 
     async def _get(self, path: str, *, key: str, params: dict | None = None) -> Any:
         return await self._request("GET", path, key=key, params=params)
@@ -208,6 +208,11 @@ class PteroClient:
             raise PteroError("Keine Websocket-Zugangsdaten erhalten")
         return token, socket
 
+    async def client_server_count(self) -> int:
+        """Wie viele Server der Client-Key sieht (Verbindungstest)."""
+        data = await self._get("/api/client", key="client", params={"type": "admin-all", "per_page": 100})
+        return len(data.get("data", [])) if isinstance(data, dict) else 0
+
     async def activity(self, identifier: str, limit: int = 25) -> list[dict[str, Any]]:
         data = await self._get(
             f"/api/client/servers/{identifier}/activity", key="client",
@@ -249,10 +254,9 @@ class PteroClient:
                             json_body={"root": root, "files": names})
 
     async def upload(self, identifier: str, directory: str, files: list[tuple[str, Any]]) -> None:
-        """Lädt Dateien über eine von Pterodactyl signierte Wings-URL hoch."""
+        """Lädt Dateien über eine vom Panel signierte Wings-URL hoch."""
         self._guard("POST")
-        data = await self._get(f"/api/client/servers/{identifier}/files/upload", key="client")
-        url = await self.wings_url(data.get("attributes", {}).get("url", ""))
+        url = await self.wings_url(await self._upload_url(identifier))
         # Das Verzeichnis an die signierte URL anhängen. Nicht über params=, das würde
         # den vorhandenen Query-String samt Token ersetzen.
         url = httpx.URL(url).copy_merge_params({"directory": directory})
@@ -266,6 +270,10 @@ class PteroClient:
                 raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
         if response.status_code >= 400:
             raise PteroError(_error_text(response), response.status_code)
+
+    async def _upload_url(self, identifier: str) -> str:
+        data = await self._get(f"/api/client/servers/{identifier}/files/upload", key="client")
+        return data.get("attributes", {}).get("url", "")
 
     # -- Wings (signierte Downloads) -------------------------------------
 
@@ -307,19 +315,21 @@ class PteroClient:
 
 
 def _error_text(response: httpx.Response) -> str:
-    """Fehlermeldung aus einer Pterodactyl- oder Wings-Antwort, ohne Rohdaten durchzureichen."""
+    """Fehlermeldung aus einer Panel- oder Wings-Antwort, ohne Rohdaten durchzureichen."""
     detail = request_id = ""
     try:
         body = response.json()
         errors = body.get("errors") if isinstance(body, dict) else None
         if errors and isinstance(errors, list):
-            detail = str(errors[0].get("detail") or errors[0].get("code") or "")
+            first = errors[0]
+            # Pterodactyl/Pelican: [{"code", "detail"}], Calagopus: ["Text"]
+            detail = str(first.get("detail") or first.get("code") or "") if isinstance(first, dict) else str(first)
         elif isinstance(body, dict):
             detail = str(body.get("error") or "")
             request_id = str(body.get("request_id") or "")
     except ValueError:
         pass
-    source = "Wings" if request_id or "/upload/" in str(response.request.url) else "Pterodactyl"
+    source = "Wings" if request_id or "/upload/" in str(response.request.url) else panel_name()
     text = t("{quelle} antwortet mit HTTP {code}", quelle=source, code=response.status_code)
     if detail:
         text += f": {detail[:200]}"

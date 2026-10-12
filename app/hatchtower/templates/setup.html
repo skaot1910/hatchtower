@@ -11,7 +11,7 @@
     {{ hm.mark("hatch-mark-lg") }}
     <div>
       <h1>{{ _("{name} einrichten", name=brand.product) }}</h1>
-      <p class="muted">{{ _("In wenigen Schritten mit deinem Pterodactyl-Panel verbinden.") }}</p>
+      <p class="muted">{{ _("In wenigen Schritten mit deinem Panel verbinden: Pterodactyl, Pelican oder Calagopus.") }}</p>
     </div>
   </div>
 
@@ -52,22 +52,26 @@
           <button class="btn btn-ghost" type="submit">{{ _("Importieren") }}</button>
         </form>
       </details>
-    {% elif step == 'panel' %}
-      <h2 class="card-h">{{ _("2. Pterodactyl-Panel verbinden") }}</h2>
+    {% else %}
+      {% set keys = steps | map(attribute=0) | list %}
+      {% set number = keys.index(step) + 2 %}
+      {% if step == 'panel' %}
+      <h2 class="card-h">{{ number }}. {{ _("Panel verbinden") }}</h2>
       {{ cf.panel_form(conn, '/setup?step=panel') }}
-    {% elif step == 'client' %}
-      <h2 class="card-h">{{ _("3. Client-API-Key") }}</h2>
+      {% elif step == 'client' %}
+      <h2 class="card-h">{{ number }}. {{ _("Client-API-Key") }}</h2>
       {{ cf.client_form(conn, '/setup?step=client') }}
-    {% elif step == 'nodes' %}
-      <h2 class="card-h">{{ _("4. Wings-Server prüfen") }}</h2>
+      {% elif step == 'nodes' %}
+      <h2 class="card-h">{{ number }}. {{ _("Wings-Server prüfen") }}</h2>
       {{ cf.nodes_form(conn, '/setup?step=nodes') }}
-    {% elif step == 'options' %}
-      <h2 class="card-h">{{ _("5. Optionen") }}</h2>
+      {% elif step == 'options' %}
+      <h2 class="card-h">{{ number }}. {{ _("Optionen") }}</h2>
       {{ cf.options_form(conn, '/setup?step=options') }}
+      {% endif %}
     {% endif %}
   </section>
   {% if step not in ('owner', 'panel') %}
-  <p class="setup-skip faint small"><a href="/setup?step={{ {'client': 'panel', 'nodes': 'client', 'options': 'nodes'}[step] }}">{{ _("← zurück") }}</a></p>
+  <p class="setup-skip faint small"><a href="/setup?step={{ keys[keys.index(step) - 1] }}">{{ _("← zurück") }}</a></p>
   {% endif %}
 </div>
 {% endblock %}

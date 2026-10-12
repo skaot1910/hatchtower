@@ -9,7 +9,7 @@
   <section class="card">
     <h2 class="card-h">{{ _("Exportieren") }}</h2>
     <p class="muted small">{{ _("Enthalten: Benutzer (mit Passwort-Hashes), Rechte und Gruppen, Serverangaben mit Logos und Passwörtern, Tags, Favoriten, Zeitpläne, Ankündigungen und alle Einstellungen samt API-Keys, E-Mail-Zugang und Webhook.") }}</p>
-    <p class="faint small">{{ _("Nicht enthalten: Audit-Log, Sitzungen, Verlauf und Konsolen-Archiv. Die Serverliste liest die neue Instanz selbst aus Pterodactyl.") }}</p>
+    <p class="faint small">{{ _("Nicht enthalten: Audit-Log, Sitzungen, Verlauf und Konsolen-Archiv. Die Serverliste liest die neue Instanz selbst aus {panel}.") }}</p>
     <form method="post" action="/admin/transfer/export" class="form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label>{{ _("Dein aktuelles Passwort") }}<input name="current" type="password" required autocomplete="current-password"></label>

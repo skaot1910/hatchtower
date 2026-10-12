@@ -144,9 +144,9 @@ ROUTES: tuple[Route, ...] = (
 
     # -- Owner: Einrichtung und Verbindung --------------------------------------------------
     R("GET", "/setup", "owner", "Einrichtungsassistent (vor dem ersten Konto öffentlich)"),
-    R("GET", "/admin/connection", "owner", "Verbindung zu Pterodactyl"),
-    R("POST", "/admin/connection/panel", "owner", "Panel-Adresse und Application-Key", csrf="form",
-      form={"panel_url": "https://evil.example", "app_key": "ptla_" + "x" * 43}),
+    R("GET", "/admin/connection", "owner", "Verbindung zum Panel (Pterodactyl, Pelican, Calagopus)"),
+    R("POST", "/admin/connection/panel", "owner", "Panel-Art, Panel-Adresse und Application-Key", csrf="form",
+      form={"panel_type": "pterodactyl", "panel_url": "https://evil.example", "app_key": "ptla_" + "x" * 43}),
     R("POST", "/admin/connection/client", "owner", "Client-Key", csrf="form",
       form={"client_key": "ptlc_" + "x" * 43}),
     R("POST", "/admin/connection/nodes", "owner", "Abweichende Wings-Adressen", csrf="form",

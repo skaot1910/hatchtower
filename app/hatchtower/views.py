@@ -88,13 +88,13 @@ def cpu_view(cpu: float, limit: int) -> dict:
             "cpu_label": t("CPU · 1 Kern") if cores == 1 else t("CPU · {n} Kerne", n=_num(cores)),
             "cpu_text": f"{share:.0f} %" if share >= 10 or share == 0 else decimal(f"{share:.1f} %"),
             "cpu_pct": round(share),
-            "cpu_hint": t("Pterodactyl: {cpu} % von {limit} %", cpu=_num(cpu), limit=limit),
+            "cpu_hint": t("{panel}: {cpu} % von {limit} %", cpu=_num(cpu), limit=limit),
         }
     return {
         "cpu_label": t("CPU · ohne Limit"),
         "cpu_text": t("1 Kern genutzt") if round(cpu) == 100 else t("{n} Kerne genutzt", n=_num(cpu / 100)),
         "cpu_pct": 0,
-        "cpu_hint": t("Pterodactyl: {cpu} % (100 % = ein Kern)", cpu=_num(cpu)),
+        "cpu_hint": t("{panel}: {cpu} % (100 % = ein Kern)", cpu=_num(cpu)),
     }
 
 
@@ -132,7 +132,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
         else:
             startup = vault.decrypt(row["startup_password_enc"])
             if startup:
-                password, password_source = startup, t("aus Pterodactyl")
+                password, password_source = startup, t("aus {panel}")
 
     running = (row["state"] or "") in ("running", "starting")   # letzter bekannter Zustand
     if running:

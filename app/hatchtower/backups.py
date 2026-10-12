@@ -749,7 +749,7 @@ class RunState:
         elif self.phase == "collecting":
             phase = t("Dateien werden gelesen … {n} gefunden", n=self.total_files)
         if self.throttled:
-            phase += " · " + t("wartet kurz auf Pterodactyl (Anfragen-Limit)")
+            phase += " · " + t("wartet kurz auf {panel} (Anfragen-Limit)")
         elapsed = time.monotonic() - self.began if self.began else 0
         rate = self.done_bytes / elapsed if elapsed > 1 and self.phase == "copying" else 0
         return {"id": self.run_id, "job": self.job_name, "job_id": self.job_id, "server": self.server_name,

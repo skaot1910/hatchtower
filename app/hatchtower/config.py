@@ -4,8 +4,8 @@ Die Umgebungsdatei enthält nur, was die Installation selbst braucht (interne
 Schlüssel, Datenordner). Alles andere - Panel-Adresse, API-Keys, Modus - wird in
 der Oberfläche eingestellt und verschlüsselt in der Datenbank gespeichert.
 
-Welches Pterodactyl angebunden ist und wie es bezeichnet wird, wird immer
-ausdrücklich eingetragen und nie automatisch erraten.
+Welches Panel (Pterodactyl, Pelican oder Calagopus) angebunden ist und wie es
+bezeichnet wird, wird immer ausdrücklich eingetragen und nie automatisch erraten.
 """
 from __future__ import annotations
 
@@ -34,7 +34,8 @@ class Settings:
     data_key: str
     data_dir: Path
     # Aus der Datenbank (in der Oberfläche änderbar)
-    pterodactyl_url: str = ""
+    panel_type: str = "pterodactyl"     # siehe panels.PANELS
+    pterodactyl_url: str = ""           # Adresse des Panels (Name historisch, gilt für alle Panels)
     app_key: str = ""
     client_key: str = ""
     manager_mode: str = "read-only"
@@ -52,6 +53,11 @@ class Settings:
         return self.manager_mode != "read-write"
 
     @property
+    def panel(self):
+        from .panels import get
+        return get(self.panel_type)
+
+    @property
     def configured(self) -> bool:
         return bool(self.pterodactyl_url and self.app_key and self.client_key)
 
@@ -67,6 +73,7 @@ class Settings:
 
 # Schlüssel in der Tabelle app_settings
 DB_KEYS = {
+    "panel_type": "conn_panel_type",
     "panel_url": "conn_panel_url",
     "app_key": "conn_app_key",          # verschlüsselt
     "client_key": "conn_client_key",    # verschlüsselt
@@ -106,6 +113,8 @@ def parse_proxies(text: str) -> tuple:
 
 def apply_db_values(settings: Settings, values: dict[str, str], decrypt) -> None:
     """Übernimmt die in der Oberfläche gespeicherten Werte in die laufenden Einstellungen."""
+    from .panels import valid
+    settings.panel_type = valid(values.get(DB_KEYS["panel_type"]))
     settings.pterodactyl_url = (values.get(DB_KEYS["panel_url"]) or "").rstrip("/")
     settings.app_key = decrypt(values.get(DB_KEYS["app_key"])) or ""
     settings.client_key = decrypt(values.get(DB_KEYS["client_key"])) or ""

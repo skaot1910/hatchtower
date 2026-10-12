@@ -153,7 +153,7 @@ class Monitor:
         while True:
             try:
                 if not self.client.settings.configured:
-                    self.last_error = "Noch nicht eingerichtet: Verbindung zu Pterodactyl fehlt"
+                    self.last_error = "Noch nicht eingerichtet: Verbindung zum Panel fehlt"
                     await asyncio.sleep(5)
                     continue
                 if time.monotonic() >= self._next_sync:
@@ -184,7 +184,7 @@ class Monitor:
             self.down_since = db.utcnow()
             i18n.use_default()
             notify.emit(self.vault, "panel_down", None, i18n.t(
-                "Hatchtower bekommt von Pterodactyl keine Daten mehr ({grund}). Die angezeigten Zustände sind"
+                "Hatchtower bekommt von {panel} keine Daten mehr ({grund}). Die angezeigten Zustände sind"
                 " nicht aktuell, bis das Panel wieder antwortet.", grund=exc))
 
     def _panel_ok(self) -> None:
@@ -195,7 +195,7 @@ class Monitor:
             self.down_since = None
             i18n.use_default()
             notify.emit(self.vault, "panel_up", None, i18n.t(
-                "Pterodactyl antwortet wieder (Ausfall etwa {n} Minuten).", n=minutes))
+                "{panel} antwortet wieder (Ausfall etwa {n} Minuten).", n=minutes))
 
     async def sync(self, full: bool = True) -> None:
         """Serverliste mit Limits aus Pterodactyl. full=False liest die Startvariablen

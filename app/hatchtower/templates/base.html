@@ -28,7 +28,7 @@
   <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="topbar-menu" aria-label="{{ _("Menü öffnen") }}"><span></span><span></span><span></span></button>
   <div class="topbar-menu" id="topbar-menu">
   <div class="badges">
-    {% if settings.read_only %}<span class="badge badge-ro" title="{{ _("Schreibzugriffe auf Pterodactyl sind gesperrt") }}">{{ _("Read-only") }}</span>{% endif %}
+    {% if settings.read_only %}<span class="badge badge-ro" title="{{ _("Schreibzugriffe auf {panel} sind gesperrt") }}">{{ _("Read-only") }}</span>{% endif %}
   </div>
   <nav class="nav">
     <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">{{ _("Übersicht") }}</a>

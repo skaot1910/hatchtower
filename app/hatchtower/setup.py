@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from . import db
 from .config import DB_KEYS, Settings
 from .i18n import t
+from .panels import make_client
 from .ptero import PteroClient, PteroError
 
 TOKEN_KEY = "setup_token_hash"
@@ -79,7 +80,12 @@ def normalize_url(url: str) -> str | None:
 
 
 def key_problem(key: str, prefix: str) -> str | None:
+    """Grobe Prüfung vor dem Verbindungstest. Ohne festes Präfix (Calagopus) nur die Länge."""
     key = key.strip()
+    if not prefix:
+        if len(key) < 20 or any(c.isspace() for c in key):
+            return t("Der Key ist zu kurz oder enthält Leerzeichen. Wurde er vollständig kopiert?")
+        return None
     if not key.startswith(prefix):
         return t("Der Key muss mit „{prefix}“ beginnen.", prefix=prefix)
     if len(key) != 48:
@@ -104,23 +110,25 @@ def manager_ip_towards(url: str) -> str | None:
         return None
 
 
-def explain(exc: PteroError, which: str) -> str:
+def explain(exc: PteroError, which: str, panel: str | None = None) -> str:
     """Fehler aus Verbindungstests in eine verständliche Meldung übersetzen."""
+    extra = {"panel": panel} if panel else {}
     if exc.status == 401:
-        return t("Pterodactyl lehnt den {which} ab (HTTP 401). Prüfe, ob er vollständig und noch gültig ist.", which=which)
+        return t("{panel} lehnt den {which} ab (HTTP 401). Prüfe, ob er vollständig und noch gültig ist.", which=which, **extra)
     if exc.status == 403:
-        return (t("Pterodactyl verweigert den Zugriff (HTTP 403). Beim Client-Key passt meist die „Allowed IP“ nicht")
+        return (t("{panel} verweigert den Zugriff (HTTP 403). Beim Client-Key passt meist die „Allowed IP“ nicht", **extra)
                 if which == "Client-Key" else t("Der {which} hat nicht genug Rechte (HTTP 403).", which=which))
     if exc.status == 404:
-        return t("Unter dieser Adresse antwortet kein Pterodactyl-Panel (HTTP 404). Stimmt die URL?")
+        return t("Unter dieser Adresse antwortet kein {panel}-Panel (HTTP 404). Stimmt die URL?", **extra)
     return str(exc)
 
 
 # -- Verbindungstests mit vorläufigen Einstellungen ------------------------------------
 
-async def test_panel(settings: Settings, url: str, app_key: str) -> dict:
-    temp = dataclasses.replace(settings, pterodactyl_url=url, app_key=app_key, client_key="", node_overrides={})
-    client = PteroClient(temp)
+async def test_panel(settings: Settings, panel_type: str, url: str, app_key: str) -> dict:
+    temp = dataclasses.replace(settings, panel_type=panel_type, pterodactyl_url=url, app_key=app_key,
+                               client_key="", node_overrides={})
+    client = make_client(temp)
     try:
         nodes = await client.list_nodes()
         servers = await client.list_servers()
@@ -131,12 +139,11 @@ async def test_panel(settings: Settings, url: str, app_key: str) -> dict:
 
 async def test_client(settings: Settings, client_key: str) -> int:
     temp = dataclasses.replace(settings, client_key=client_key)
-    client = PteroClient(temp)
+    client = make_client(temp)
     try:
-        data = await client._get("/api/client", key="client", params={"type": "admin-all", "per_page": 100})
+        return await client.client_server_count()
     finally:
         await client.close()
-    return len(data.get("data", [])) if isinstance(data, dict) else 0
 
 
 async def tcp_check(host: str, port: int) -> bool:

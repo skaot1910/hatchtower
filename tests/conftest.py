@@ -204,6 +204,7 @@ def world(monkeypatch, tmp_path) -> World:
 
     s = main.settings
     monkeypatch.setattr(s, "data_dir", tmp_path)
+    monkeypatch.setattr(s, "panel_type", "pterodactyl")
     monkeypatch.setattr(s, "pterodactyl_url", "https://panel.test")
     monkeypatch.setattr(s, "app_key", "ptla_test")
     monkeypatch.setattr(s, "client_key", "ptlc_test")
@@ -225,7 +226,7 @@ def world(monkeypatch, tmp_path) -> World:
     main.app.state.backups = backups.BackupManager(main.app.state, main.vault, s)   # ohne Hintergrundaufgaben
     monkeypatch.setattr(main, "console_stream", fake_console)
     monkeypatch.setattr(main, "load_connection", noop)
-    monkeypatch.setattr(main, "PteroClient", lambda settings: ptero)
+    monkeypatch.setattr(main, "make_client", lambda settings: ptero)
 
     async def no_nodes(*a, **k):
         return []

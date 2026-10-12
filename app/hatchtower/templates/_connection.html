@@ -1,8 +1,17 @@
 {% macro panel_form(c, next) %}
-<form method="post" action="/admin/connection/panel" class="form">
+<form method="post" action="/admin/connection/panel" class="form" data-panel-form>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="next" value="{{ next }}">
-  <div class="howto">
+  <fieldset class="mode-choice panel-choice">
+    <legend>{{ _("Welches Panel nutzt du?") }}</legend>
+    {% for p in c.panels %}
+    <label class="mode-option">
+      <input type="radio" name="panel_type" value="{{ p.key }}" data-panel-choice {% if p.key == c.panel_type %}checked{% endif %}>
+      <span><strong>{{ p.name }}</strong><span class="faint small">{{ _("ein API-Key mit Admin- und Server-Rechten") if p.single_key else _("Application-Key (nur lesen) und Client-Key") }} · {{ _("getestet mit {version}", version=p.tested) }}</span></span>
+    </label>
+    {% endfor %}
+  </fieldset>
+  <div class="howto" data-panel-howto="pterodactyl" {% if c.panel_type != 'pterodactyl' %}hidden{% endif %}>
     <strong>{{ _("So bekommst du den Application-API-Key") }}</strong>
     <ol>
       <li>{{ _("Im Pterodactyl-Panel oben rechts auf das") }} <strong>{{ _("Zahnrad") }}</strong> {{ _("(Admin-Bereich) klicken.") }}</li>
@@ -11,14 +20,32 @@
       <li>{{ _("Speichern und den Key kopieren. Er beginnt mit") }} <span class="mono">ptla_</span> {{ _("und wird nur einmal angezeigt.") }}</li>
     </ol>
   </div>
+  <div class="howto" data-panel-howto="pelican" {% if c.panel_type != 'pelican' %}hidden{% endif %}>
+    <strong>{{ _("So bekommst du den Application-API-Key") }}</strong>
+    <ol>
+      <li>{{ _("Im Pelican-Panel in den") }} <strong>{{ _("Admin-Bereich") }}</strong> {{ _("wechseln und links") }} <strong>{{ _("API Keys") }}</strong> {{ _("öffnen.") }}</li>
+      <li>{{ _("Einen neuen Key anlegen, als Beschreibung z. B. „Hatchtower“, und") }} <strong>{{ _("alle Rechte auf „Read“") }}</strong> {{ _("stellen. Hatchtower braucht hier nichts anderes.") }}</li>
+      <li>{{ _("Speichern und den Key kopieren. Er beginnt mit") }} <span class="mono">papp_</span> {{ _("und wird nur einmal angezeigt.") }}</li>
+    </ol>
+  </div>
+  <div class="howto" data-panel-howto="calagopus" {% if c.panel_type != 'calagopus' %}hidden{% endif %}>
+    <strong>{{ _("So bekommst du den API-Key") }}</strong>
+    <ol>
+      <li>{{ _("Calagopus kennt nur eine Art API-Key. Lege dafür am besten einen eigenen Benutzer nur für Hatchtower an, z. B. „hatchtower-service“, mit Admin-Rechten und einem langen Zufallspasswort.") }}</li>
+      <li>{{ _("Mit diesem Benutzer anmelden, im Konto") }} <strong>{{ _("API Keys") }}</strong> {{ _("öffnen und einen Key erstellen.") }}</li>
+      <li>{{ _("Rechte:") }} <strong>{{ _("Admin") }}</strong> <span class="mono">servers.read</span>, <span class="mono">nodes.read</span>; <strong>{{ _("Rechte|Benutzer") }}</strong> <span class="mono">servers.read</span>; <strong>{{ _("Server") }}</strong> {{ _("alles unter") }} <span class="mono">control</span>, <span class="mono">files</span> {{ _("(ohne sftp und query-raw) sowie") }} <span class="mono">startup.read</span> {{ _("und") }} <span class="mono">activity.read</span>.</li>
+      <li>{{ _("Bei") }} <strong>{{ _("Allowed IPs") }}</strong> {% if c.manager_ip %}<span class="mono">{{ c.manager_ip }}</span> {{ _("eintragen, das ist die Adresse dieses Servers") }}{% else %}{{ _("die IP dieses Servers eintragen") }}{% endif %}{{ _(", dann den Key kopieren. Er wird nur einmal angezeigt.") }}</li>
+    </ol>
+    <p class="faint small">{{ _("Hatchtower nutzt die Admin-Rechte nur lesend. Konsole, Uploads und Downloads laufen über den Wings-Proxy von Calagopus oder direkt über Wings, je nachdem, was am Node eingestellt ist.") }}</p>
+  </div>
   <label>{{ _("Adresse des Panels") }}
     <input name="panel_url" value="{{ c.panel_url }}" placeholder="https://panel.example.com" required spellcheck="false">
   </label>
-  <label>{{ _("Application-API-Key") }}
+  <label><span data-panel-label="multi" {% if c.panel.single_key %}hidden{% endif %}>{{ _("Application-API-Key") }}</span><span data-panel-label="single" {% if not c.panel.single_key %}hidden{% endif %}>{{ _("API-Key") }}</span>
     <input name="app_key" type="password" autocomplete="off" spellcheck="false"
-           placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.app_key_masked) if c.app_key_masked else 'ptla_…' }}">
+           placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.app_key_masked) if c.app_key_masked else _('API-Key einfügen') }}">
   </label>
-  <p class="faint small">{{ _("Die Adresse, unter der der Hatchtower-Server das Panel erreicht. Im Heimnetz kann das auch eine IP sein, z. B. http://192.168.1.10. Beim Speichern wird die Verbindung sofort getestet.") }}</p>
+  <p class="faint small">{{ _("Die Adresse, unter der der Hatchtower-Server das Panel erreicht. Im Heimnetz kann das auch eine IP sein, z. B. http://192.168.1.10. Beim Speichern wird die Verbindung sofort getestet.") }} {{ _("Wechselst du das Panel, musst du den Key neu eintragen.") }}</p>
   <button class="btn btn-primary" type="submit">{{ _("Testen und speichern") }}</button>
 </form>
 {% endmacro %}
@@ -32,18 +59,22 @@
     <ol>
       <li>{{ _("Im Panel unter") }} <strong>{{ _("Admin → Users") }}</strong> {{ _("einen eigenen Benutzer nur für Hatchtower anlegen, z. B. „hatchtower-service“, mit einem langen Zufallspasswort.") }}</li>
       <li><strong>{{ _("Administrator: Yes") }}</strong> {{ _("setzen. Dann sieht Hatchtower automatisch alle Server, auch neue.") }}</li>
+      {% if c.panel_type == 'pelican' %}
+      <li>{{ _("Mit diesem Benutzer anmelden, das") }} <strong>{{ _("Profil") }}</strong> {{ _("öffnen, dann") }} <strong>{{ _("API Keys") }}</strong>.</li>
+      {% else %}
       <li>{{ _("Mit diesem Benutzer anmelden, oben rechts auf das") }} <strong>{{ _("Konto-Symbol") }}</strong>{{ _(", dann") }} <strong>{{ _("API Credentials") }}</strong>.</li>
+      {% endif %}
       <li>{{ _("Einen Key erstellen. Bei") }} <strong>{{ _("Allowed IPs") }}</strong> {% if c.manager_ip %}<span class="mono">{{ c.manager_ip }}</span> {{ _("eintragen, das ist die Adresse dieses Servers") }}{% else %}{{ _("die IP dieses Servers eintragen") }}{% endif %}.</li>
-      <li>{{ _("Den Key kopieren. Er beginnt mit") }} <span class="mono">ptlc_</span> {{ _("und wird nur einmal angezeigt.") }}</li>
+      <li>{{ _("Den Key kopieren. Er beginnt mit") }} <span class="mono">{{ c.panel.client_prefix }}</span> {{ _("und wird nur einmal angezeigt.") }}</li>
     </ol>
     <div class="key-warning">
-      <p><strong>{{ _("Wichtig:") }}</strong> {{ _("Pterodactyl kann Client-Keys nicht einschränken. Der Key darf alles, was der Benutzer darf. Bei einem Administrator heißt das: Er kann alle Server steuern, Dateien löschen und Server neu installieren. Den wirksamsten Schutz bietet die") }} <strong>{{ _("Allowed IP") }}</strong>{{ _(": Der Key funktioniert dann nur von diesem Server aus. Nutze den Benutzer nur für Hatchtower und gib ihm ein langes Passwort mit 2FA.") }}</p>
-      <p><strong>{{ _("Vorsichtiger:") }}</strong> {{ _("Den Benutzer nicht zum Administrator machen, sondern nur als Subuser zu den gewünschten Servern hinzufügen. Pterodactyl begrenzt dann selbst, was möglich ist. Neue Server musst du aber jedes Mal zuweisen.") }}</p>
+      <p><strong>{{ _("Wichtig:") }}</strong> {{ _("{panel} kann Client-Keys nicht einschränken. Der Key darf alles, was der Benutzer darf. Bei einem Administrator heißt das: Er kann alle Server steuern, Dateien löschen und Server neu installieren. Den wirksamsten Schutz bietet die") }} <strong>{{ _("Allowed IP") }}</strong>{{ _(": Der Key funktioniert dann nur von diesem Server aus. Nutze den Benutzer nur für Hatchtower und gib ihm ein langes Passwort mit 2FA.") }}</p>
+      <p><strong>{{ _("Vorsichtiger:") }}</strong> {{ _("Den Benutzer nicht zum Administrator machen, sondern nur als Subuser zu den gewünschten Servern hinzufügen. {panel} begrenzt dann selbst, was möglich ist. Neue Server musst du aber jedes Mal zuweisen.") }}</p>
     </div>
   </div>
   <label>{{ _("Client-API-Key") }}
     <input name="client_key" type="password" autocomplete="off" spellcheck="false"
-           placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.client_key_masked) if c.client_key_masked else 'ptlc_…' }}">
+           placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.client_key_masked) if c.client_key_masked else c.panel.client_prefix ~ '…' }}">
   </label>
   <button class="btn btn-primary" type="submit">{{ _("Testen und speichern") }}</button>
 </form>
@@ -85,7 +116,7 @@
     <legend>{{ _("Modus") }}</legend>
     <label class="mode-option">
       <input type="radio" name="mode" value="read-only" {% if c.mode != 'read-write' %}checked{% endif %}>
-      <span><strong>{{ _("Nur lesen") }}</strong><span class="faint small">{{ _("Übersicht, Konsole mitlesen, Dateien ansehen und herunterladen. Hatchtower verändert nichts in Pterodactyl. Gut zum Ausprobieren.") }}</span></span>
+      <span><strong>{{ _("Nur lesen") }}</strong><span class="faint small">{{ _("Übersicht, Konsole mitlesen, Dateien ansehen und herunterladen. Hatchtower verändert nichts in {panel}. Gut zum Ausprobieren.") }}</span></span>
     </label>
     <label class="mode-option">
       <input type="radio" name="mode" value="read-write" {% if c.mode == 'read-write' %}checked{% endif %}>

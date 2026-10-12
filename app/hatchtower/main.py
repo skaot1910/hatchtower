@@ -22,6 +22,7 @@ from starlette.datastructures import UploadFile as FormFile
 from . import (APP_NAME, __version__, audit, automation, backups, db, extras, i18n, legal, logarchive, logos, retention,
                security, notify, setup, statusfeed, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, load_settings, parse_proxies
+from .panels import PANELS, make_client
 from .monitor import Monitor
 from .permissions import (BY_KEY, PERMISSIONS, UserContext, describe_access, grouped_permissions, load_assignments,
                           load_default_group, load_grants, load_groups, save_assignments, save_default_group, save_group,
@@ -64,13 +65,14 @@ def load_connection() -> None:
     with db.connect() as con:
         values = {r["key"]: r["value"] for r in con.execute("SELECT key, value FROM app_settings WHERE key LIKE 'conn_%'")}
     apply_db_values(settings, values, vault.decrypt)
+    i18n.set_panel(settings.panel.name)
 
 
 async def apply_connection() -> None:
-    """Baut die Verbindung zu Pterodactyl mit den aktuellen Einstellungen neu auf (ohne Neustart)."""
+    """Baut die Verbindung zum Panel mit den aktuellen Einstellungen neu auf (ohne Neustart)."""
     load_connection()
     old = app.state.ptero
-    new = PteroClient(settings)
+    new = make_client(settings)
     app.state.ptero = new
     app.state.monitor.client = new
     app.state.automation.client = new
@@ -94,7 +96,7 @@ def record_finished_update() -> None:
 async def lifespan(app: FastAPI):
     db.init(settings.db_path)
     load_connection()
-    app.state.ptero = PteroClient(settings)
+    app.state.ptero = make_client(settings)
     app.state.monitor = Monitor(app.state.ptero, vault, settings.poll_interval, settings.sync_interval)
     app.state.automation = automation.Automation(app.state.ptero, settings.timezone, vault)
     app.state.logarchive = logarchive.LogArchive(app.state.ptero)
@@ -115,7 +117,7 @@ async def lifespan(app: FastAPI):
     record_finished_update()
     cleanup_task = asyncio.create_task(retention.run_forever(), name="hatchtower-retention")
     log.info("%s %s gestartet (Modus: %s, Ziel: %s %s)", APP_NAME, __version__, settings.manager_mode,
-             "Pterodactyl", settings.pterodactyl_url)
+             settings.panel.name, settings.pterodactyl_url)
     yield
     cleanup_task.cancel()
     await app.state.backups.stop()
@@ -294,7 +296,8 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("flash", request.query_params.get("ok"))
     context.setdefault("brand", load_brand())
     context.setdefault("lang", i18n.current())
-    context.setdefault("i18n_browser", {"locale": i18n.locale_tag(), "texts": i18n.browser_catalog()})
+    context.setdefault("i18n_browser", {"locale": i18n.locale_tag(), "texts": i18n.browser_catalog(),
+                                        "panel": settings.panel.name})
     context.setdefault("here", request.url.path + (f"?{request.url.query}" if request.url.query else ""))
     context.setdefault("legal_links", legal.links())
     context.setdefault("discord_url", community_discord())
@@ -342,7 +345,7 @@ async def _read_only(request: Request, exc: ReadOnlyViolation):
     if request.url.path.startswith("/api/"):
         return JSONResponse({"error": i18n.t("Der Manager ist im Read-Only-Modus.")}, status_code=403)
     return render(request, "error.html", status=403, title="Read-Only-Modus",
-                  message="Der Manager ist im Read-Only-Modus. Schreibzugriffe auf Pterodactyl sind gesperrt.")
+                  message="Der Manager ist im Read-Only-Modus. Schreibzugriffe auf {panel} sind gesperrt.")
 
 
 def load_servers(user: UserContext) -> list[dict]:
@@ -443,6 +446,13 @@ async def login(request: Request, username: str = Form(""), password: str = Form
 SETUP_STEPS = [("owner", "Konto"), ("panel", "Panel"), ("client", "Client-Key"), ("nodes", "Wings"), ("options", "Optionen")]
 
 
+def setup_steps() -> list[tuple[str, str]]:
+    """Schritte des Assistenten; Panels mit nur einem API-Key (Calagopus) brauchen keinen Client-Key-Schritt."""
+    if settings.panel.single_key:
+        return [s for s in SETUP_STEPS if s[0] != "client"]
+    return SETUP_STEPS
+
+
 def login_response(request: Request, user_id: int, username: str, target: str) -> RedirectResponse:
     token, _ = security.create_session(user_id, ip_of(request), request.headers.get("user-agent", ""))
     response = RedirectResponse(target, status_code=303)
@@ -454,19 +464,20 @@ def login_response(request: Request, user_id: int, username: str, target: str) -
 async def connection_context(step: str | None) -> dict:
     """Daten für die Formulare von Assistent und Verbindungsseite."""
     ctx = {
+        "panel_type": settings.panel_type, "panel": settings.panel, "panels": list(PANELS.values()),
         "panel_url": settings.pterodactyl_url,
         "app_key_masked": setup.mask_key(settings.app_key), "client_key_masked": setup.mask_key(settings.client_key),
         "manager_ip": setup.manager_ip_towards(settings.pterodactyl_url) if settings.pterodactyl_url else None,
         "mode": settings.manager_mode, "public_host": db.get_setting("public_host"),
         "trusted_proxies": ", ".join(str(p) for p in settings.trusted_proxies), "timezone": settings.timezone,
         "timezones": setup.timezone_choices(), "nodes": [], "nodes_error": None,
-        "steps": SETUP_STEPS[1:], "step": step,
+        "steps": setup_steps()[1:], "step": step,
     }
     if step in (None, "nodes") and settings.pterodactyl_url and settings.app_key:
         try:
             ctx["nodes"] = await setup.node_checks(app.state.ptero, settings.node_overrides)
         except PteroError as exc:
-            ctx["nodes_error"] = setup.explain(exc, "Application-Key")
+            ctx["nodes_error"] = setup.explain(exc, "API-Key" if settings.panel.single_key else "Application-Key")
     return ctx
 
 
@@ -477,16 +488,16 @@ async def setup_page(request: Request, step: str = ""):
     user = current_user(request)
     if not user.is_owner:
         deny(request, user, "setup")
-    if step not in dict(SETUP_STEPS) or step == "owner":
+    if step not in dict(setup_steps()) or step == "owner":
         step = ("panel" if not (settings.pterodactyl_url and settings.app_key)
                 else "client" if not settings.client_key else "nodes")
-    return render(request, "setup.html", conn=await connection_context(step), step=step, steps=SETUP_STEPS[1:],
+    return render(request, "setup.html", conn=await connection_context(step), step=step, steps=setup_steps()[1:],
                   error=None)
 
 
 def owner_step(request: Request, error: str | None, username: str) -> HTMLResponse:
     token = security.prelogin_token(settings.secret_key)
-    response = render(request, "setup.html", status=400 if error else 200, step="owner", steps=SETUP_STEPS[1:],
+    response = render(request, "setup.html", status=400 if error else 200, step="owner", steps=setup_steps()[1:],
                       error=error, username=username, prelogin=token)
     response.set_cookie(security.PRELOGIN_COOKIE, token, httponly=True, samesite="strict",
                         secure=is_https(request), max_age=1800)
@@ -536,28 +547,38 @@ def connection_back(target: str, message: str) -> RedirectResponse:
 
 
 @app.post("/admin/connection/panel")
-async def connection_panel(request: Request, panel_url: str = Form(""),
+async def connection_panel(request: Request, panel_url: str = Form(""), panel_type: str = Form(""),
                            app_key: str = Form(""), next: str = Form("/admin/connection")):
     owner = require_owner(request)
     await check_csrf(request)
+    panel = PANELS.get(panel_type) or settings.panel
     url = setup.normalize_url(panel_url)
     if url is None:
         return connection_back(next, "Bitte die Panel-Adresse vollständig angeben, z. B. https://panel.example.de")
-    key = app_key.strip() or settings.app_key
+    # Beim Wechsel des Panels passt der gespeicherte Key nicht mehr
+    key = app_key.strip() or (settings.app_key if panel.key == settings.panel_type else "")
+    key_label = "API-Key" if panel.single_key else "Application-Key"
     if not key:
-        return connection_back(next, "Bitte den Application-API-Key eintragen")
-    problem = setup.key_problem(key, "ptla_")
+        return connection_back(next, "Bitte den API-Key eintragen" if panel.single_key
+                               else "Bitte den Application-API-Key eintragen")
+    problem = setup.key_problem(key, panel.app_prefix)
     if problem:
         return connection_back(next, problem)
     try:
-        result = await setup.test_panel(settings, url, key)
+        result = await setup.test_panel(settings, panel.key, url, key)
     except PteroError as exc:
-        return connection_back(next, i18n.t("Verbindung fehlgeschlagen: {grund}", grund=setup.explain(exc, "Application-Key")))
-    setup.save_values({"panel_url": url, "app_key": key}, vault, owner.id)
+        return connection_back(next, i18n.t("Verbindung fehlgeschlagen: {grund}",
+                                            grund=setup.explain(exc, key_label, panel.name)))
+    values = {"panel_type": panel.key, "panel_url": url, "app_key": key}
+    if panel.single_key:
+        values["client_key"] = key
+    elif panel.key != settings.panel_type:
+        values["client_key"] = ""
+    setup.save_values(values, vault, owner.id)
     await apply_connection()
     audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
-                 detail={"panel": url, "app_key": "neu" if app_key.strip() else "unverändert"})
-    return connection_back(next.replace("step=panel", "step=client"),
+                 detail={"panel": f"{panel.name} {url}", "app_key": "neu" if app_key.strip() else "unverändert"})
+    return connection_back(next.replace("step=panel", "step=nodes" if panel.single_key else "step=client"),
                            i18n.t("Verbunden: {nodes} Node(s), {servers} Server gefunden", nodes=len(result["nodes"]), servers=result["servers"]))
 
 
@@ -565,10 +586,13 @@ async def connection_panel(request: Request, panel_url: str = Form(""),
 async def connection_client(request: Request, client_key: str = Form(""), next: str = Form("/admin/connection")):
     owner = require_owner(request)
     await check_csrf(request)
+    if settings.panel.single_key:
+        return connection_back(next.replace("step=client", "step=nodes"),
+                               i18n.t("{panel} braucht nur einen API-Key, der ist schon gespeichert"))
     key = client_key.strip() or settings.client_key
     if not key:
         return connection_back(next, "Bitte den Client-API-Key eintragen")
-    problem = setup.key_problem(key, "ptlc_")
+    problem = setup.key_problem(key, settings.panel.client_prefix)
     if problem:
         return connection_back(next, problem)
     if not settings.pterodactyl_url:
@@ -945,7 +969,7 @@ async def api_power(request: Request, ident: str):
     if signal in ("start", "restart"):
         app.state.monitor.request_light_sync()   # beim Start übernommene Limits gleich mitlesen
     audit.record(f"power.{signal}", user_id=user.id, username=user.username, ip=ip_of(request), server=ident)
-    return {"ok": True, "message": i18n.t("{action} für {name} an Pterodactyl gesendet.", action=POWER_LABELS[signal], name=server["name"])}
+    return {"ok": True, "message": i18n.t("{action} für {name} an {panel} gesendet.", action=POWER_LABELS[signal], name=server["name"])}
 
 
 @app.post("/api/servers/{ident}/command")
@@ -1501,7 +1525,7 @@ def announce_new_servers(idents: list[str]) -> None:
                      detail={"server": name, "automatisch freigegeben": [f"{u['username']} ({u['group_name']})" for u in auto]})
         who = ", ".join(u["username"] for u in auto) or i18n.t("niemand (nur Owner)")
         notify.emit(vault, "new_server", ident, i18n.t(
-            "Neuer Server „{name}“ in Pterodactyl. Automatisch freigegeben für: {wer}. Statusseite und Neustart nach"
+            "Neuer Server „{name}“ in {panel}. Automatisch freigegeben für: {wer}. Statusseite und Neustart nach"
             " Absturz sind für ihn noch aus.", name=name, wer=who))
 
 
@@ -1925,8 +1949,9 @@ async def admin_system(request: Request):
         res = await ptero.resources(servers[0].identifier)
         return i18n.t("Status von „{name}“ lesbar: {state}", name=servers[0].name, state=res["state"])
 
-    await check("Application-API (nur lesen)", app_api())
-    await check("Client-API (nur lesen)", client_api())
+    single = settings.panel.single_key
+    await check("Admin-API (nur lesen)" if single else "Application-API (nur lesen)", app_api())
+    await check("Server-API (nur lesen)" if single else "Client-API (nur lesen)", client_api())
     try:
         node_list = await setup.node_checks(ptero, settings.node_overrides) if settings.configured else []
     except PteroError:

@@ -157,8 +157,8 @@ Grundregeln:
 | Methode | Pfad | CSRF | Zweck |
 |---|---|---|---|
 | GET | `/setup` | – | Einrichtungsassistent (vor dem ersten Konto öffentlich) |
-| GET | `/admin/connection` | – | Verbindung zu Pterodactyl |
-| POST | `/admin/connection/panel` | Formular | Panel-Adresse und Application-Key |
+| GET | `/admin/connection` | – | Verbindung zum Panel (Pterodactyl, Pelican, Calagopus) |
+| POST | `/admin/connection/panel` | Formular | Panel-Art, Panel-Adresse und Application-Key |
 | POST | `/admin/connection/client` | Formular | Client-Key |
 | POST | `/admin/connection/nodes` | Formular | Abweichende Wings-Adressen |
 | POST | `/admin/connection/options` | Formular | Modus, öffentliche Adresse, Proxy, Zeitzone |

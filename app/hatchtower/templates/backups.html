@@ -2,7 +2,7 @@
 {% block title %}{{ _("Backups") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ _("Backups") }}</h1><p class="muted">{{ _("Hatchtower liest die Dateien über Pterodactyl und legt sie als ZIP ab – eine Datei pro Server und Lauf. Mehrere Backups laufen nacheinander.") }}</p></div>
+  <div><h1>{{ _("Backups") }}</h1><p class="muted">{{ _("Hatchtower liest die Dateien über {panel} und legt sie als ZIP ab – eine Datei pro Server und Lauf. Mehrere Backups laufen nacheinander.") }}</p></div>
 </div>
 {% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Backups laufen trotzdem, nur Jobs, die den Server vorher stoppen, schlagen fehl.") }}</div>{% endif %}
 

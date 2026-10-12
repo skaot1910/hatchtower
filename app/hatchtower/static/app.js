@@ -8,8 +8,9 @@
   })();
   var LOCALE = I18N.locale || "de-DE";
   var TEXTS = I18N.texts || {};
+  var PANEL = I18N.panel || "Pterodactyl";
   function tr(text, values) {
-    var out = TEXTS[text] || text;
+    var out = (TEXTS[text] || text).split("{panel}").join(PANEL);
     if (values) Object.keys(values).forEach(function (k) { out = out.split("{" + k + "}").join(values[k]); });
     return out;
   }
@@ -112,7 +113,7 @@
         .catch(function () {});
     }
     window.hatchtowerRefresh = tick;
-    // Liest nur die lokale Datenbank von Hatchtower, nicht Pterodactyl: alle 5 s ist günstig
+    // Liest nur die lokale Datenbank von Hatchtower, nicht das Panel: alle 5 s ist günstig
     setInterval(function () { if (!document.hidden) tick(); }, 5000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) tick(); });
   }
@@ -210,7 +211,7 @@
         try { msg = JSON.parse(ev.data); } catch (e) { return; }
         if (msg.type === "line") addLine(msg.text, msg.source === "console output" ? "" : "sys");
         else if (msg.type === "stats") document.dispatchEvent(new CustomEvent("hatchtower:stats", { detail: msg }));
-        else if (msg.type === "status") addLine("[Hatchtower] " + tr("Status laut Pterodactyl: {state}", { state: msg.state }), "sys");
+        else if (msg.type === "status") addLine("[Hatchtower] " + tr("Status laut {panel}: {state}", { state: msg.state }), "sys");
         else if (msg.type === "error") { addLine("[Hatchtower] " + msg.text, "err"); stateEl.textContent = tr("getrennt"); }
       };
       es.onerror = function () {
@@ -1004,7 +1005,7 @@
         });
         chain.then(function () {
           bar.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
-          if (ok) toast(tr("{n} Server: Befehl an Pterodactyl gesendet.", { n: ok }), true);
+          if (ok) toast(tr("{n} Server: Befehl an {panel} gesendet.", { n: ok }), true);
           failed.forEach(function (f) { toast(f, false); });
           if (window.hatchtowerRefresh) {
             var n = 0;
@@ -1238,7 +1239,7 @@
           info = a.percent + " % · " + fmtBytes(a.done) + " / " + fmtBytes(a.total) + " · " +
             tr("{n} von {m} Dateien", { n: a.files_done, m: a.files_total }) +
             (a.rate ? " · " + fmtBytes(a.rate, true) : "");
-          if (a.throttled) info += " · " + tr("wartet kurz auf Pterodactyl (Anfragen-Limit)");
+          if (a.throttled) info += " · " + tr("wartet kurz auf {panel} (Anfragen-Limit)");
         }
         row.appendChild(el("div", "faint small", info));
         list.appendChild(row);
@@ -1288,6 +1289,23 @@
     });
   }
 
+  // ---- Einrichtung: Panel-Auswahl ------------------------------------------------
+  // Zeigt zur gewählten Panel-Art die passende Anleitung und Beschriftung des Key-Felds.
+  var SINGLE_KEY_PANELS = ["calagopus"];
+  function startPanelChoice() {
+    document.querySelectorAll("[data-panel-form]").forEach(function (form) {
+      function update() {
+        var picked = form.querySelector("[data-panel-choice]:checked");
+        if (!picked) return;
+        var single = SINGLE_KEY_PANELS.indexOf(picked.value) >= 0;
+        form.querySelectorAll("[data-panel-howto]").forEach(function (el) { el.hidden = el.dataset.panelHowto !== picked.value; });
+        form.querySelectorAll("[data-panel-label]").forEach(function (el) { el.hidden = (el.dataset.panelLabel === "single") !== single; });
+      }
+      form.querySelectorAll("[data-panel-choice]").forEach(function (r) { r.addEventListener("change", update); });
+      update();
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     startAnnouncements();
     startFavorites();
@@ -1312,5 +1330,6 @@
     startConsole();
     startPermissions();
     startGroupEditor();
+    startPanelChoice();
   });
 })();

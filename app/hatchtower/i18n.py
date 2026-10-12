@@ -6,6 +6,8 @@ Fehlt eine Übersetzung, wird der deutsche Text angezeigt.
 
 Platzhalter wie {name} werden nach der Übersetzung eingesetzt:
     t("Gruppe „{name}“ gespeichert", name=gruppe)
+{panel} steht für den Namen des angebundenen Panels (Pterodactyl, Pelican oder Calagopus)
+und wird automatisch eingesetzt.
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ DEFAULT = "de"
 _current: ContextVar[str] = ContextVar("hatchtower_lang", default=DEFAULT)
 _catalogs: dict[str, dict[str, str]] = {}
 _js_catalogs: dict[str, dict[str, str]] = {}
+_panel_name = "Pterodactyl"
 
 
 def _load() -> None:
@@ -49,6 +52,16 @@ def use_default() -> None:
         set_language(db.get_setting("default_language"))
     except Exception:
         set_language(DEFAULT)
+
+
+def set_panel(name: str) -> None:
+    """Name des angebundenen Panels für den Platzhalter {panel}."""
+    global _panel_name
+    _panel_name = name
+
+
+def panel_name() -> str:
+    return _panel_name
 
 
 def current() -> str:
@@ -82,6 +95,8 @@ def t(text: str, **values) -> str:
     if found is None:
         context, sep, rest = text.partition("|")
         found = rest if sep and context.isalpha() else text
+    if "{panel}" in found and "panel" not in values:
+        found = found.replace("{panel}", _panel_name)
     return found.format(**values) if values else found
 
 

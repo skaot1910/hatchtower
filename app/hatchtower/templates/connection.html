@@ -6,14 +6,16 @@
 <a class="backlink" href="/admin/system">{{ _("← System") }}</a>
 <div class="page-head">
   <div>
-    <h1>{{ _("Verbindung zu Pterodactyl") }}</h1>
+    <h1>{{ _("Verbindung zu {panel}") }}</h1>
     <p class="muted">{{ _("Panel, API-Keys, Wings-Server und Modus. Gespeicherte Keys werden nie wieder angezeigt, nur ersetzt.") }}</p>
   </div>
   <a class="btn btn-ghost" href="/admin/connection">{{ _("Erneut prüfen") }}</a>
 </div>
 
-<section class="card"><h2 class="card-h">{{ _("Panel und Application-API-Key") }}</h2>{{ cf.panel_form(conn, '/admin/connection') }}</section>
+<section class="card"><h2 class="card-h">{{ _("Panel und API-Key") if conn.panel.single_key else _("Panel und Application-API-Key") }}</h2>{{ cf.panel_form(conn, '/admin/connection') }}</section>
+{% if not conn.panel.single_key %}
 <section class="card"><h2 class="card-h">{{ _("Client-API-Key") }}</h2>{{ cf.client_form(conn, '/admin/connection') }}</section>
+{% endif %}
 <section class="card"><h2 class="card-h">{{ _("Wings-Server") }}</h2>{{ cf.nodes_form(conn, '/admin/connection') }}</section>
 <section class="card"><h2 class="card-h">{{ _("Modus und Optionen") }}</h2>{{ cf.options_form(conn, '/admin/connection') }}</section>
 {% endblock %}

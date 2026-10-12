@@ -11,7 +11,7 @@
       {% if brand.logo_login %}<img class="login-logo" src="/branding/{{ brand.logo_login }}" alt="{{ brand.name }}">{% else %}{{ hm.mark("hatch-mark-lg") }}{% endif %}
       {% if brand.custom and brand.show_name %}<h1>{{ brand.custom }}</h1><p class="login-product">{{ _("läuft mit") }} <strong>{{ brand.product }}</strong></p>
       {% elif brand.logo_login %}<p class="login-product">{{ brand.product }}</p>
-      {% else %}<h1>{{ brand.product }}</h1><p class="login-product">{{ _("Game-Server-Management für Pterodactyl") }}</p>{% endif %}
+      {% else %}<h1>{{ brand.product }}</h1><p class="login-product">{{ _("Game-Server-Management für {panel}") }}</p>{% endif %}
     </div>
     {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
     <form method="post" action="/login" class="form">

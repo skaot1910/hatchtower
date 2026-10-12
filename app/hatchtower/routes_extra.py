@@ -26,6 +26,7 @@ from . import (APP_NAME, __version__, accounts, audit, db, extras, i18n, legal, 
 from .main import (BACKUP_SUFFIX, SYSTEM_TABS, LoginRequired, app, apply_connection, back, check_csrf, check_csrf_header, clean_path,
                    current_user, file_action, files_back, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
+from .panels import PANELS
 from .permissions import load_grants
 from .views import fmt_dt, is_stale, monogram
 
@@ -89,7 +90,7 @@ def owner_audit(request: Request, owner, action: str, **kw) -> None:
 # == Öffentliche Seiten ======================================================================
 
 # Was die Statusseite zeigen darf (gilt für alle Server gleich)
-STATUS_FIELDS = {"name": "Servername aus Pterodactyl", "ingame": "Ingame-Servername", "status": "Status",
+STATUS_FIELDS = {"name": "Servername aus {panel}", "ingame": "Ingame-Servername", "status": "Status",
                  "started": "Gestartet/Gestoppt (Uhrzeit)", "address": "Adresse (IP und Port)",
                  "password": "Serverpasswort",
                  "uptime": "Verfügbarkeitsbalken (30 Tage)",
@@ -308,7 +309,8 @@ async def about_page(request: Request):
     import platform
     import sqlite3
     return render(request, "about.html", packages=third_party(), python_version=platform.python_version(),
-                  sqlite_version=sqlite3.sqlite_version, license_file=LICENSE_FILE.is_file())
+                  sqlite_version=sqlite3.sqlite_version, license_file=LICENSE_FILE.is_file(),
+                  supported_panels=list(PANELS.values()))
 
 
 @app.get("/about/licenses.txt")

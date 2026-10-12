@@ -3,6 +3,17 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.21.0 – 2026-10-12
+
+- **Pelican und Calagopus werden unterstützt:** Hatchtower lässt sich jetzt neben Pterodactyl auch mit [Pelican](https://pelican.dev) und [Calagopus](https://calagopus.com) verbinden. Eine Installation verwaltet weiterhin die Server eines Panels
+  - Im Einrichtungsassistenten und unter System → Verbindung wählst du das Panel; zu jedem steht, wo es den API-Key gibt und welche Rechte er braucht
+  - **Pelican:** gleiche Funktionen wie mit Pterodactyl, Keys beginnen mit `papp_` bzw. `pacc_`
+  - **Calagopus:** nur ein API-Key (Admin-Rechte werden nur gelesen), der Schritt „Client-Key“ entfällt. Konsole, Uploads und Downloads laufen auch über den Wings-Proxy von Calagopus
+  - Alle Texte nennen das verbundene Panel statt immer „Pterodactyl“ (z. B. „Pelican antwortet nicht“, „Status laut Calagopus“)
+  - Die Seite **Über Hatchtower** (Fußzeile → Lizenzen) zeigt die unterstützten Panels mit den getesteten Versionen und welches verbunden ist
+- Bestehende Installationen bleiben ohne Zutun mit Pterodactyl verbunden
+- Wechsel des Panels: Wer mit seinen Servern von Pterodactyl zu Pelican oder Calagopus umzieht, trägt unter System → Verbindung das neue Panel samt Key ein. Server mit gleicher Kennung (bei Pelican-Umzügen üblich) behalten Rechte, Zeitpläne und Verlauf
+
 ## 0.20.1 – 2026-10-12
 
 - **Abstürze werden jetzt auch erkannt, wenn Wings den Server selbst sofort neu startet** (bei Pterodactyl die Standardeinstellung). Bisher fiel das zwischen zwei Abfragen oft durch: keine Meldung per Discord/E-Mail, kein Eintrag bei den Abstürzen, kein roter Balken in der Verfügbarkeit. Gewollte Neustarts (Hatchtower, Panel, Zeitplan, Backup, Konsolenbefehl `restart`) zählen weiterhin nicht als Absturz
