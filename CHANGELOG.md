@@ -3,6 +3,18 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.25.0 – 2026-10-13
+
+- **E-Mail-Adressen in der Benutzerverwaltung:** Die Benutzerliste zeigt die hinterlegten Adressen (mit „nicht bestätigt“, „ohne E-Mail-Adresse“ oder „E-Mail-Adresse fehlt“). Auf der Benutzerseite können Owner eine Adresse eintragen, ändern oder entfernen – mit Bestätigungslink oder direkt als bestätigt
+  - Beim direkten Anlegen eines Benutzers lässt sich gleich eine Adresse angeben; sie bekommt einen Bestätigungslink
+- **E-Mail-Pflicht einstellbar:** Ist E-Mail eingeschaltet, brauchen neue Benutzer (direkt angelegt oder per Einladung) eine Adresse – außer unter Benutzer ist „Benutzer ohne E-Mail-Adresse erlauben“ angehakt
+  - Einzelne Benutzer lassen sich „ohne E-Mail-Adresse“ anlegen oder darauf umstellen; sie brauchen keine und können selbst keine hinterlegen
+  - Ist E-Mail ausgeschaltet, sind alle Felder zum Hinzufügen gesperrt; vorhandene Adressen lassen sich weiterhin entfernen
+- **Verständlichere E-Mail-Fehler:** Statt „Connection unexpectedly closed“ erklärt Hatchtower, ob die Anmeldung abgelehnt wurde (z. B. App-Passwort bei Gmail nötig), Port und Verschlüsselung nicht zusammenpassen oder der Absender abgelehnt wird
+- **Absenderadresse optional:** Leer gelassen, ist die Login-Adresse der Absender; ein Hinweis erklärt, warum andere Absender oft nicht gehen
+- Ein fehlgeschlagener Bestätigungslink zeigt keine „ausstehende Bestätigung“ mehr an
+- **Kopfzeile:** Der eigene Name ist jetzt ein Knopf mit Zahnrad, der deutlich zu „Mein Konto und Einstellungen“ führt. Im Handy-Menü gibt es dafür eine eigene Kontokarte; Darstellung und Sprache brechen um, und „Abmelden“ wird nicht mehr abgeschnitten
+
 ## 0.24.0 – 2026-10-13
 
 - **Mehrere Benachrichtigungs-Webhooks:** Unter System → Benachrichtigungen lassen sich beliebig viele Webhooks anlegen, jeder mit **Titel** und **Beschreibung** (z. B. welcher Discord-Kanal), eigenem Format (Discord oder JSON), eigenen Ereignissen und optional nur für bestimmte Server
