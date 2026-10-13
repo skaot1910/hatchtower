@@ -699,7 +699,7 @@
     }
 
     select.addEventListener("change", function () {
-      try { localStorage.setItem("hatchtower.sort", select.value); } catch (e) { /* egal */ }
+      try { localStorage.setItem("hatchtower.sort", select.value); } catch (e) { /* Speicher nicht verfügbar (z. B. privater Modus) */ }
       apply();
     });
     window.hatchtowerSort = apply;
@@ -795,7 +795,7 @@
     buttons.forEach(function (b) {
       b.addEventListener("click", function () {
         apply(b.dataset.view);
-        try { localStorage.setItem("hatchtower.view", b.dataset.view); } catch (e) { /* egal */ }
+        try { localStorage.setItem("hatchtower.view", b.dataset.view); } catch (e) { /* Speicher nicht verfügbar (z. B. privater Modus) */ }
       });
     });
   }
@@ -945,7 +945,7 @@
       try { if (localStorage.getItem(key)) { box.remove(); return; } } catch (e) { /* ohne Speicher: zeigen */ }
       var btn = box.querySelector("[data-ann-close]");
       if (btn) btn.addEventListener("click", function () {
-        try { localStorage.setItem(key, "1"); } catch (e) { /* egal */ }
+        try { localStorage.setItem(key, "1"); } catch (e) { /* Speicher nicht verfügbar (z. B. privater Modus) */ }
         box.remove();
       });
     });

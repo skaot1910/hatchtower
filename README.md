@@ -14,6 +14,7 @@ alles an einem Ort, für dich und dein Team.
 ![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
 ![Debian](https://img.shields.io/badge/Debian-12%20%7C%2013-a80030)
 ![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN-22c55e)
+![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0-8b5cf6)
 
 <img src="docs/screenshots/dashboard.png" alt="Übersicht aller Server in Hatchtower" width="100%">
 
@@ -276,14 +277,10 @@ sudo bash installer/install.sh
 | `--allow "192.168.1.5,192.168.1.10"` | Port nur für diese IPs öffnen (eigene nftables-Tabelle, deine Firewall bleibt unberührt) |
 
 <details>
-<summary><b>Repository ist privat? So geht's mit GitHub-Token</b></summary>
+<summary><b>Installation mit Zugangs-Token (solange das Repository privat ist)</b></summary>
 
-Solange das Repository privat ist, braucht der Download einen Lese-Token.
-
-**Token anlegen:** GitHub → **Settings → Developer settings → Personal access tokens →
-Fine-grained tokens → Generate new token**. Als Repository nur `hatchtower` wählen, unter
-*Permissions* bei **Contents** „Read-only“ einstellen. Der Token darf damit nur lesen und nur
-dieses eine Repository.
+Das Repository ist derzeit nicht öffentlich. Für Installation und Updates brauchst du deshalb
+einen **Lese-Token**, den du vom Projekt erhältst. Er erlaubt nur das Lesen dieses einen Repositorys.
 
 **Installieren** (der Token wird nicht angezeigt und landet nicht im Verlauf):
 
@@ -299,7 +296,10 @@ Für Weg 🅱 stattdessen die Adresse
 `https://api.github.com/repos/skaot1910/hatchtower/contents/installer/get.sh` verwenden.
 
 Für spätere Updates hinterlegst du den Token auf dem Server mit `hatchtower github-token`.
-Ist das Repository öffentlich, braucht es keinen Token mehr.
+
+**Token erstellen (für den Inhaber des Repositorys):** GitHub → **Settings → Developer settings →
+Personal access tokens → Fine-grained tokens → Generate new token**. Als Repository nur `hatchtower`
+wählen, unter *Permissions* bei **Contents** „Read-only“ einstellen und ein Ablaufdatum setzen.
 </details>
 
 ---
@@ -355,7 +355,7 @@ automatisch – nur, wenn du es willst.
 | `hatchtower reset-password` | Passwort eines Benutzers neu setzen und Konto entsperren |
 | `hatchtower create-owner` | Owner-Konto auf der Konsole anlegen |
 | `hatchtower setup-token` | Neuen Einrichtungscode erzeugen (nur solange noch kein Konto existiert) |
-| `hatchtower github-token` | Lese-Token für ein privates Repository hinterlegen (`--remove` entfernt ihn) |
+| `hatchtower github-token` | Lese-Token für Updates hinterlegen, solange das Repository privat ist (`--remove` entfernt ihn) |
 | `journalctl -u hatchtower -f` | Log des Dienstes live ansehen |
 
 <details>
@@ -363,11 +363,11 @@ automatisch – nur, wenn du es willst.
 
 | Pfad | Inhalt |
 |---|---|
-| `/opt/hatchtower` | Programm, Python-Umgebung, Installer, Werkzeuge |
+| `/opt/hatchtower` | Programm, Python-Umgebung, Installer, Lizenztext (`LICENSE`) |
 | `/etc/hatchtower/hatchtower.env` | interne Schlüssel und Port (nicht weitergeben!) |
 | `/var/lib/hatchtower/hatchtower.db` | Datenbank (SQLite) inkl. verschlüsselter API-Keys |
 | `/var/backups/hatchtower/` | tägliches Backup um 03:30 (14 Tage) und Backups vor Updates |
-| `/etc/hatchtower/github-token` | optional: Lese-Token für Updates aus einem privaten Repository |
+| `/etc/hatchtower/github-token` | optional: Lese-Token für Updates, solange das Repository privat ist |
 
 </details>
 
@@ -430,10 +430,8 @@ Hatchtower läuft auch auf einem Server im Internet. Damit es dort sicher ist:
 | Werkzeug | Zweck |
 |---|---|
 | `bash tools/release.sh` | Neue Version veröffentlichen: Tag, Paket aus Git, Prüfsumme, GitHub-Release (Text aus `CHANGELOG.md`) |
-| `tools\build-release.ps1` | Testpaket aus dem Arbeitsordner bauen → `dist\hatchtower-<version>.tar.gz` |
-| `tools\deploy.ps1 [-Target host]` | Paket bauen und per `hatchtower update` auf einen Server ausrollen |
-| `tools/smoketest.sh` | Rauchtest auf dem Server, eigene Test-Datenbank, immer nur lesend |
-| `tools/devserver.sh` | Test-Instanz auf Port 8001 für Oberflächentests (per SSH-Tunnel) |
+| `tools/third_party_licenses.py` | Erzeugt bei der Installation `THIRD_PARTY_LICENSES.txt` |
+| `tests/` | Tests mit pytest, u. a. die Rechte-Matrix aller Routen (`tests/routes.py` → `docs/rechte-matrix.md`) |
 
 **Neue Version veröffentlichen:** Version in `app/hatchtower/__init__.py` und `VERSION` erhöhen,
 Abschnitt in `CHANGELOG.md` ergänzen, committen, dann in Git Bash `bash tools/release.sh`.
@@ -451,7 +449,13 @@ Fehlt eine Übersetzung, erscheint der deutsche Text.
 
 ## Lizenz
 
-Die Lizenz von Hatchtower selbst ist noch nicht festgelegt.
+Hatchtower ist freie Software unter der **GNU Affero General Public License v3.0** (AGPL-3.0),
+siehe [`LICENSE`](LICENSE). Copyright © 2026 skaot1910.
+
+Du darfst Hatchtower nutzen, verändern und weitergeben, auch kommerziell. Veränderte oder
+weitergegebene Fassungen müssen wieder unter der AGPL-3.0 stehen. Wer eine veränderte Fassung
+über das Netz für andere bereitstellt, muss diesen Nutzern auch den Quellcode anbieten.
+Hatchtower wird ohne Gewährleistung bereitgestellt.
 
 Alle Abhängigkeiten stehen unter freien, permissiven Lizenzen (MIT, BSD-3-Clause, Apache-2.0,
 PSF-2.0, HPND/MIT-CMU, MPL-2.0 für certifi). Hatchtower enthält keine fremden Schriften, Icons,

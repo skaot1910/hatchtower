@@ -1522,7 +1522,13 @@
   "leer = Benutzername": "empty = username",
   "Absenderadresse leer lassen, dann ist der Benutzername (die Login-Adresse) der Absender. Eine andere Adresse geht nur, wenn dein Postfach sie erlaubt – Gmail etwa nur mit einer unter „Senden als“ bestätigten Adresse, sonst setzt Gmail die Login-Adresse ein.": "Leave the sender address empty to use the username (the login address) as sender. A different address only works if your mailbox allows it – Gmail, for example, only with an address confirmed under “Send mail as”; otherwise Gmail uses the login address.",
   "Mein Konto: Passwort, E-Mail, Benachrichtigungen und Darstellung": "My account: password, email, notifications and appearance",
-  "Mein Konto und Einstellungen": "My account and settings"
+  "Mein Konto und Einstellungen": "My account and settings",
+  "Lizenz von Hatchtower": "Hatchtower license",
+  "Hatchtower ist freie Software unter der GNU Affero General Public License, Version 3 (AGPL-3.0). Copyright © 2026 skaot1910.": "Hatchtower is free software under the GNU Affero General Public License, version 3 (AGPL-3.0). Copyright © 2026 skaot1910.",
+  "Du darfst Hatchtower nutzen, verändern und weitergeben, auch kommerziell. Weitergegebene oder veränderte Fassungen müssen wieder unter der AGPL-3.0 stehen und mit Quellcode geliefert werden.": "You may use, modify and share Hatchtower, including commercially. Shared or modified versions must again be licensed under the AGPL-3.0 and come with their source code.",
+  "Wer eine veränderte Fassung über das Netz für andere bereitstellt, muss diesen Nutzern den Quellcode der veränderten Fassung anbieten.": "Anyone who makes a modified version available to others over a network must offer those users the source code of the modified version.",
+  "Hatchtower wird ohne jede Gewährleistung bereitgestellt. Der vollständige Lizenztext liegt als Datei LICENSE im Installationsordner.": "Hatchtower comes without any warranty. The full license text is included as the file LICENSE in the installation folder.",
+  "Lizenztext bei der Free Software Foundation": "License text at the Free Software Foundation"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

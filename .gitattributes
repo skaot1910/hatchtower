@@ -16,3 +16,4 @@
 .gitignore export-ignore
 docs/ export-ignore
 tests/ export-ignore
+tools/release.sh export-ignore

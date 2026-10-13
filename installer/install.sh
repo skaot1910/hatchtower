@@ -121,6 +121,8 @@ rm -rf "$APP_DIR/app.old"
 mv "$APP_DIR/app.new" "$APP_DIR/app"
 rm -rf "$APP_DIR/installer"; mv "$APP_DIR/installer.new" "$APP_DIR/installer"
 echo "$VERSION" > "$APP_DIR/VERSION"
+# Lizenztext von Hatchtower (AGPL-3.0) mitliefern
+[ -f "$SRC/LICENSE" ] && install -m 644 "$SRC/LICENSE" "$APP_DIR/LICENSE"
 
 say "Python-Umgebung einrichten"
 [ -x "$APP_DIR/venv/bin/python" ] || python3 -m venv "$APP_DIR/venv"
