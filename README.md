@@ -1,330 +1,326 @@
 <div align="center">
 
-<img src="app/hatchtower/static/favicon.svg" width="88" alt="Hatchtower-Logo">
+<img src="app/hatchtower/static/favicon.svg" width="88" alt="Hatchtower logo">
 
 # Hatchtower
 
-**Die schöne, sichere Oberfläche für deine Game-Server auf Pterodactyl, Pelican oder Calagopus.**
+**English** · [Deutsch](README.de.md)
 
-Server starten, Konsole mitlesen, Dateien bearbeiten, Rechte vergeben –
-alles an einem Ort, für dich und dein Team.
+**A clean, secure web interface for your game servers on Pterodactyl, Pelican or Calagopus.**
+
+Start servers, follow the console, edit files, hand out permissions –
+all in one place, for you and your team.
 
 ![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
 ![Pelican](https://img.shields.io/badge/Pelican-1.0-2563eb)
 ![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
 ![Debian](https://img.shields.io/badge/Debian-12%20%7C%2013-a80030)
-![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN-22c55e)
-![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0-8b5cf6)
+![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE-22c55e)
+![License](https://img.shields.io/badge/License-AGPL--3.0-8b5cf6)
+![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-d97757)
 
-<img src="docs/screenshots/dashboard.png" alt="Übersicht aller Server in Hatchtower" width="100%">
+<sub>🤖 Hatchtower was built together with <a href="https://claude.ai">Claude</a> (Anthropic) –
+without it, this project would not have been possible in this form.</sub>
+
+<img src="docs/screenshots/dashboard.png" alt="Overview of all servers in Hatchtower" width="100%">
 
 </div>
 
 ---
 
-## Was ist Hatchtower?
+## What is Hatchtower?
 
-Du betreibst Game-Server mit **Pterodactyl**, **Pelican** oder **Calagopus** und möchtest Freunden,
-Moderatoren oder deiner Community Zugriff geben – aber nicht gleich auf alles? Genau dafür gibt es Hatchtower.
+You want to give friends, moderators or your community access to your game servers –
+but not to everything? That's what Hatchtower is for.
 
-Hatchtower ist ein **Begleiter** für dein Panel, **kein Ersatz**. Das Panel bleibt
-die Stelle, an der deine Server wirklich laufen. Hatchtower legt sich darüber und bringt:
+Hatchtower **complements** your panel, it doesn't replace it. Your servers keep running in the
+panel; Hatchtower sits on top and adds:
 
-- 👥 **eigene Benutzer** mit genau den Rechten, die du ihnen gibst – pro Server
-- 📈 **Live-Monitoring** mit Verlauf von CPU, RAM und Netzwerk
-- ⏰ **Automationen** wie Neustart bei Absturz oder nächtliche Neustarts
-- 💾 **Backups** von ganzen Servern oder einzelnen Spielständen – auf ein Laufwerk, eine SMB-Freigabe oder direkt in den Browser
-- 📜 ein **Audit-Log**, das festhält, wer wann was getan hat
-- 🔒 einen **Nur-Lesen-Modus**, mit dem garantiert nichts am Panel verändert wird
+- 👥 **its own users** with exactly the permissions you give them – per server
+- 📈 **live monitoring** with CPU, RAM and network history
+- ⏰ **automations** such as restart after a crash or nightly restarts
+- 💾 **backups** of whole servers or just the save games – to a drive, an SMB share or straight to your browser
+- 📜 an **audit log** that records who did what and when
+- 🔒 a **read-only mode** that guarantees nothing is changed on the panel
 
-### Unterstützte Panels
+### Supported panels
 
-| Panel | Getestet mit | Anbindung |
+| Panel | Tested with | Connection |
 |---|---|---|
-| [Pterodactyl](https://pterodactyl.io) | Panel 1.15.1, Wings 1.13.3 | Application-Key (nur lesen) und Client-Key |
-| [Pelican](https://pelican.dev) | Panel und Wings 1.0.0-rc.1 | Application-Key (nur lesen) und Client-Key |
-| [Calagopus](https://calagopus.com) | Panel und Wings 1.2.5 (integrierte oder eigene Wings) | ein API-Key mit Admin-Lese- und Server-Rechten |
+| [Pterodactyl](https://pterodactyl.io) | Panel 1.15.1, Wings 1.13.3 | Application key (read only) and client key |
+| [Pelican](https://pelican.dev) | Panel and Wings 1.0.0-rc.1 | Application key (read only) and client key |
+| [Calagopus](https://calagopus.com) | Panel and Wings 1.2.5 (built-in or separate Wings) | one API key with admin read and server permissions |
 
-Eine Hatchtower-Installation verwaltet die Server **eines** Panels. Welches, wählst du im
-Einrichtungsassistenten; wechseln kannst du später unter **System → Panel**.
+One installation manages **one** panel. You pick it during setup and can switch later under
+**System → Panel**.
 
-> **In 5 Minuten startklar:** Ein Befehl installiert alles, danach führt dich ein Assistent im
-> Browser Schritt für Schritt durch die Einrichtung.
-
----
-
-## 🥚 Warum eigentlich „Hatchtower“?
-
-Pterodactyl ist bekanntlich ein Flugsaurier. Und wie es sich für einen ordentlichen Saurier
-gehört, ist in seiner Welt alles voller Urzeit-Biologie: Die Server-Vorlagen heißen **Eggs**,
-die liegen in **Nests**, und der Dienst, der alles antreibt, heißt **Wings**. 🦖
-
-Irgendjemand muss auf diese ganzen Eier aufpassen. Also: ein Turm. 🗼
-
-- **Hatch** – das Schlüpfen. Aus einem Egg wird ein laufender Server, und jemand sollte
-  dabei zusehen, ob er gesund schlüpft oder nachts um drei abstürzt.
-- **Tower** – der Wachturm. Von oben hat man den besten Blick auf alle Nester, sieht sofort,
-  wer gerade schlüpft, wer schläft und wer schon wieder Unfug in der Konsole treibt.
-
-Zusammen: **Hatchtower**, der Wachturm über der Brutstation. Deshalb ist das Logo auch ein Ei
-mit einem Riss. Es schlüpft gerade, keine Sorge, das ist so gewollt. 🐣
+> **Up and running in 5 minutes:** one command installs everything, then a wizard in your
+> browser walks you through the setup.
 
 ---
 
-## Ein Blick hinein
+## A look inside
 
-### Alle Server auf einen Blick
+### All servers at a glance
 
-Liste oder Kacheln, nach Status oder eigenen Tags filtern, Favoriten oben anheften – und
-mehrere Server mit einem Klick gleichzeitig starten, stoppen oder neu starten.
+List or tiles, filter by status and your own tags, favorites on top. Start, stop or restart
+several servers at once.
 
-<img src="docs/screenshots/dashboard-tiles.png" alt="Kachelansicht im hellen Theme" width="100%">
+<img src="docs/screenshots/dashboard-tiles.png" alt="Tile view" width="100%">
 
-### Jeder Server im Detail
+### Every server in detail
 
-Status, Adresse, Passwort, Online-Zeit der letzten 30 Tage, ein Verlauf über bis zu 72 Stunden
-und die **Live-Konsole** – inklusive Suche und Download als Textdatei.
+Status, address, uptime over the last 30 days, history of up to 72 hours and the
+**live console** with search and download.
 
-<img src="docs/screenshots/server.png" alt="Detailseite eines Servers mit Verlauf und Live-Konsole" width="100%">
+<img src="docs/screenshots/server.png" alt="Server detail page with history and live console" width="100%">
 
-### Dateien direkt im Browser
+### Files right in the browser
 
-Ansehen, hochladen, herunterladen (auch mehrere als ZIP), umbenennen, löschen und bearbeiten.
-Beim Speichern bleibt die alte Fassung als `.bak` liegen – ein Klick, und sie ist wieder da.
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/files.png" alt="Dateiverwaltung"></td>
-    <td width="50%"><img src="docs/screenshots/editor.png" alt="Datei bearbeiten"></td>
-  </tr>
-</table>
-
-### Benutzer und Rechte – so fein, wie du willst
-
-Lege Gruppen wie „Moderator“ oder „Spieler“ an und weise sie pro Server zu. Wer nur sehen soll,
-ob der Server läuft, sieht genau das – und sonst nichts. Neue Leute lädst du per
-**Einladungslink** ein, ganz ohne Passwörter zu verschicken.
+View, upload, download (also as ZIP), rename, delete and edit. When you save, the previous
+version is kept as `.bak` and can be restored with one click.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/users.png" alt="Benutzerverwaltung"></td>
-    <td width="50%"><img src="docs/screenshots/groups.png" alt="Rechtegruppen"></td>
+    <td width="50%"><img src="docs/screenshots/files.png" alt="File manager"></td>
+    <td width="50%"><img src="docs/screenshots/editor.png" alt="Editing a file"></td>
   </tr>
 </table>
 
-### Automationen
+### Users and permissions – as fine-grained as you like
 
-Stürzt ein Server ab, startet Hatchtower ihn auf Wunsch neu. Zeitpläne (wöchentlich oder
-einmalig) starten, stoppen oder starten Server neu – mit Vorwarnung im Spiel, z. B.
-„Neustart in 15 Minuten!“.
+Create groups like "Moderator" or "Player" and assign them per server. Someone who should only
+see whether the server is running sees exactly that. New people join via an **invite link**,
+no passwords to send around.
 
-<img src="docs/screenshots/automation.png" alt="Automationen und Zeitpläne" width="100%">
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/users.png" alt="User management"></td>
+    <td width="50%"><img src="docs/screenshots/groups.png" alt="Permission groups"></td>
+  </tr>
+</table>
+
+### Automations
+
+Restart after a crash and schedules (weekly or one-off) to start, stop and restart – with an
+in-game warning such as "Restart in 15 minutes!".
+
+<img src="docs/screenshots/automation.png" alt="Automations and schedules" width="100%">
 
 ### Backups
 
-Sichere ganze Server oder nur das, was wirklich zählt – zum Beispiel die Spielstände. Dateien und
-Ordner kreuzt du einfach im Datei-Explorer an und fügst sie einem Backup-Job hinzu. Gespeichert
-wird als ZIP auf einem Laufwerk (z. B. Proxmox-Mountpoint, USB, NFS), auf einer SMB-Freigabe
-(Windows, NAS) oder direkt als Download im Browser. Auf Wunsch wird der Server vorher gestoppt –
-mit Vorwarnung im Spiel – und danach wieder gestartet.
+Back up whole servers or just the save games – simply tick files in the file manager. Target:
+a drive, an SMB share or a download in the browser. Optionally the server is stopped first and
+started again afterwards.
 
-### Audit-Log
+### Audit log
 
-Jede Aktion wird festgehalten und lässt sich nicht nachträglich verändern. Filtern nach Aktion,
-Benutzer und Server, Export als CSV oder TXT.
+Every action is recorded and cannot be changed afterwards. Filter by action, user and server,
+export as CSV or TXT.
 
-<img src="docs/screenshots/audit.png" alt="Audit-Log" width="100%">
+<img src="docs/screenshots/audit.png" alt="Audit log" width="100%">
 
-### Öffentliche Statusseite, Handy und Login
+### Public status page, mobile and login
 
-Eine Statusseite für deine Spieler (abschaltbar, ohne Passwörter und ohne Steuerung).
-Auf dem Handy passt sich Hatchtower automatisch an.
+A status page for your players (can be turned off, display only). On phones Hatchtower adapts
+automatically.
 
 <table>
   <tr>
-    <td width="62%"><img src="docs/screenshots/status.png" alt="Öffentliche Statusseite"><br><br>
-                    <img src="docs/screenshots/login.png" alt="Anmeldung"></td>
-    <td width="38%"><img src="docs/screenshots/mobile.png" alt="Ansicht auf dem Handy"></td>
+    <td width="62%"><img src="docs/screenshots/status.png" alt="Public status page"><br><br>
+                    <img src="docs/screenshots/login.png" alt="Login"></td>
+    <td width="38%"><img src="docs/screenshots/mobile.png" alt="Mobile view"></td>
   </tr>
 </table>
 
-<sub>Alle Screenshots stammen aus einer Demo-Instanz mit erfundenen Servern und Benutzern.</sub>
+<sub>All screenshots come from a demo instance with made-up servers and users.</sub>
 
 ---
 
-## Alle Funktionen
+## All features
 
 <details>
-<summary><b>Komplette Liste aufklappen</b></summary>
+<summary><b>Show the full list</b></summary>
 
-**Server**
-- Übersicht als Liste oder Kacheln, Statusfilter, Sortierung, Live-Werte (CPU bezogen aufs Limit, RAM, Speicher)
-- Start, Stop, Restart, Kill (nur Owner), Konsolenbefehle
-- Mehrere Server auf einmal starten, stoppen oder neu starten
-- Live-Konsole und Verlauf von CPU, RAM und Netzwerk (live bis 72 Stunden)
-- Favoriten und eigene Tags
-- Verfügbarkeit: Online-Zeit und Abstürze der letzten 30 Tage
-- Log-Archiv: Konsole laufender Server wird mitgeschrieben (1–90 Tage oder aus), durchsuchbar, Fehler farbig, Download als .txt (eigenes Recht „Konsolen-Archiv sehen“)
+**Servers**
+- Overview as list or tiles, status filter, sorting, live values (CPU relative to the limit, RAM, storage)
+- Start, stop, restart, kill (owner only), console commands
+- Start, stop or restart several servers at once
+- Live console and CPU, RAM and network history (live up to 72 hours)
+- Favorites and your own tags
+- Availability: uptime and crashes over the last 30 days
+- Log archive: the console of running servers is recorded (1–90 days or off), searchable, errors highlighted, download as .txt (separate permission "View console archive")
 
-**Dateien**
-- Ansehen, herunterladen (auch mehrere als ZIP), hochladen, bearbeiten, umbenennen, löschen
-- Automatische `.bak`-Sicherung beim Bearbeiten, Wiederherstellen mit einem Klick
+**Files**
+- View, download (several as ZIP), upload, edit, rename, delete
+- Automatic `.bak` copy when editing, restore with one click
 
-**Benutzer und Sicherheit**
-- Eigene Benutzer und Rechte pro Server, selbst erstellte Rechtegruppen
-- Einladungslinks statt Startpasswort: 1–90 Tage oder unbegrenzt gültig, einmal bis unbegrenzt nutzbar, mit interner Beschreibung; Nutzung und Ablauf stehen im Audit-Log
-- Optional E-Mail: eigene Adresse pro Benutzer mit Bestätigung, „Passwort vergessen“, Einladungen per Mail
-- Audit-Log, das sich nicht verändern lässt
-- Read-Only-Modus: Hatchtower kann komplett nur lesend betrieben werden
+**Users and security**
+- Own users and per-server permissions, custom permission groups
+- Invite links instead of initial passwords: valid 1–90 days or unlimited, single to unlimited use, with an internal description; use and expiry are recorded in the audit log
+- Optional email: own address per user with confirmation, "forgot password", invites by email
+- Audit log that cannot be altered
+- Read-only mode: Hatchtower can run entirely read-only
 
-**Automationen und Benachrichtigungen**
-- Neustart bei Absturz
-- Wöchentliche und einmalige Zeitpläne mit Vorwarnung
-- Benachrichtigungen per Discord/Webhook und E-Mail: Absturz, Neustart, Neustart fehlgeschlagen,
-  Speicher fast voll, RAM dauerhaft hoch, Zeitplan fehlgeschlagen
+**Automations and notifications**
+- Restart after a crash
+- Weekly and one-off schedules with warning
+- Notifications via Discord/webhook and email: crash, restart, restart failed,
+  storage almost full, RAM constantly high, schedule failed
 
 **Backups**
-- Backup-Jobs für einen, mehrere oder alle Server (auch künftige), ganze Server oder ausgewählte Dateien und Ordner, mit Ausschlüssen (z. B. `logs/`, `*.log`)
-- Dateien und Ordner direkt im Datei-Explorer zu einem Backup-Job hinzufügen
-- Ziele: Laufwerk im Hatchtower-Container (z. B. Proxmox-Mountpoint, USB, NFS), SMB-Freigabe (Windows, NAS, Samba) oder Direktdownload im Browser
-- Von Hand oder per Zeitplan, mit Fortschrittsanzeige; laufende Backups lassen sich abbrechen
-- Server vorher stoppen (mit Vorwarnung im Spiel) und danach wieder starten
-- Aufbewahrung nach Anzahl oder Tagen, Platzprüfung vorab, Meldung per Webhook/E-Mail
-- Eigene Rechte: Backups sehen, starten und herunterladen, Backup-Jobs verwalten
-- Schont das Anfragen-Limit des Panels, damit Statusabfragen nicht ausfallen
+- Backup jobs for one, several or all servers (including future ones), whole servers or selected files and folders, with exclusions (e.g. `logs/`, `*.log`)
+- Add files and folders to a backup job right from the file manager
+- Targets: a drive in the Hatchtower container (e.g. Proxmox mount point, USB, NFS), an SMB share (Windows, NAS, Samba) or direct download in the browser
+- Manual or scheduled, with progress display; running backups can be cancelled
+- Stop the server first (with in-game warning) and start it again afterwards
+- Retention by count or days, free-space check beforehand, report via webhook/email
+- Separate permissions: view, run and download backups, manage backup jobs
+- Respects the panel's request limit so status updates don't drop out
 
 **Community**
-- Öffentliche Statusseite (abschaltbar): Name, Spiel, Status und Adresse ausgewählter Server
-- Server-Status in Discord, auch in mehreren Kanälen – jeder mit eigener Server-Auswahl und Überschrift
-- Ankündigungen oben auf jeder Seite, mit geplantem Beginn und Ende
+- Public status page (can be turned off): name, game, status and address of selected servers
+- Server status in Discord, also in several channels – each with its own server selection and heading
+- Announcements at the top of every page, with scheduled start and end
 
-**Aussehen und Sprache**
-- 3 Themes (Dunkel, Mittel, Hell), pro Benutzer gespeichert
-- Eigener Name und eigene Logos (z. B. die deiner Community)
-- Deutsch und Englisch, automatisch nach Browsersprache oder per Umschalter
-- Optimiert für Handy und Tablet
+**Look and language**
+- 3 themes (dark, medium, light), saved per user
+- Your own name and logos (e.g. your community's)
+- English and German, automatically by browser language or via a switch
+- Optimized for phones and tablets
 
-**Datenschutz und Umzug**
-- Einstellbare Aufbewahrung (Audit-Log Standard 30 Tage)
-- Impressum und Datenschutzerklärung mit Vorlagen, Datenauskunft pro Benutzer
-- Datenumzug: alle Benutzer, Rechte, Logos und Einstellungen verschlüsselt exportieren und in einer neuen Instanz einspielen
+**Privacy and migration**
+- Configurable retention (audit log 30 days by default)
+- Legal notice and privacy policy with templates, data export per user
+- Migration: export all users, permissions, logos and settings encrypted and import them into a new instance
 
 </details>
 
 ---
 
-## Was du brauchst
+## Requirements
 
 | | |
 |---|---|
-| **System** | Debian 12 oder 13 (gerne als Proxmox-LXC) |
-| **Leistung** | 1 CPU-Kern, 512 MB RAM, 2 GB Speicher reichen |
-| **Netzwerk** | Zugriff auf das Panel **und** die Wings-Server (Daemon-Port meist `8080`, SFTP meist `2022`; bei Calagopus mit Wings-Proxy reicht das Panel) |
-| **Panel** | Pterodactyl, Pelican oder Calagopus mit einem Admin-Zugang, um die API-Keys anzulegen (siehe [Unterstützte Panels](#unterstützte-panels)) |
+| **System** | Debian 12 or 13 (tested, ideally as a Proxmox LXC); Ubuntu should work too |
+| **Resources** | 1 CPU core, 512 MB RAM, 2 GB storage |
+| **Network** | Access to the panel **and** the Wings nodes (usually ports `8080` and `2022`; with the Calagopus Wings proxy the panel is enough) |
+| **Panel** | Admin access to create the API keys (see [Supported panels](#supported-panels)) |
 
 ---
 
 ## Installation
 
-Wähle **einen** der drei Wege.
+Pick **one** of the three ways. Run all commands as **root**.
 
-### 🅰 Auf Proxmox VE – ein Befehl
+> 🔒 **While the repository is private**, the commands for 🅰 and 🅱 won't work directly.
+> Use the [installation with access token](#installation-with-access-token) further down instead.
 
-In der Shell des Proxmox-Hosts (als root):
+### 🅰 Proxmox VE: new container with one command
+
+In the shell of the **Proxmox host** (not inside a container):
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/skaot1910/hatchtower/main/proxmox/install.sh)"
 ```
 
-Das Skript fragt Container-ID, Hostname, CPU, RAM, Speicher, Netzwerk und Port ab – jeweils mit
-Vorschlag, **Enter** übernimmt ihn. Danach legt es einen Debian-Container an, lädt die neueste
-Version, prüft die Prüfsumme und installiert alles.
+The script asks for container ID, network, port etc. (**Enter** accepts the suggestion),
+creates a Debian container and installs Hatchtower in it. The prompts are in German.
 
 <details>
-<summary>Ohne Rückfragen installieren</summary>
+<summary>Install without prompts</summary>
 
 ```bash
 HT_YES=1 HT_CTID=120 HT_IP=192.168.1.50/24 HT_GW=192.168.1.1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/skaot1910/hatchtower/main/proxmox/install.sh)"
 ```
 
-Alle Variablen stehen oben in `proxmox/install.sh`.
+All variables are listed at the top of `proxmox/install.sh`.
 </details>
 
-### 🅱 Auf einem vorhandenen Debian/Ubuntu-Server oder LXC
+### 🅱 Existing server or container
+
+In the shell of the server that should run Hatchtower:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/skaot1910/hatchtower/main/installer/get.sh)"
 ```
 
-Optionen hängst du so an: `bash -c "$(curl …)" _ --allow "192.168.1.5"`
+### 🅲 From a package (no internet access to GitHub)
 
-### 🅲 Aus einem Paket (ohne Internetzugriff auf GitHub)
-
-Lade `hatchtower-<version>.tar.gz` unter **Releases** herunter, dann:
+Download `hatchtower-<version>.tar.gz` from **Releases**, copy it to the server, then:
 
 ```bash
 tar -xzf hatchtower-<version>.tar.gz
 cd hatchtower-<version>
-sudo bash installer/install.sh
+bash installer/install.sh
 ```
-
-**Optionen für den Installer**
-
-| Option | Bedeutung |
-|---|---|
-| `--port 8000` | Port der Oberfläche |
-| `--bind 0.0.0.0` | Adresse, auf der Hatchtower lauscht |
-| `--allow "192.168.1.5,192.168.1.10"` | Port nur für diese IPs öffnen (eigene nftables-Tabelle, deine Firewall bleibt unberührt) |
 
 <details>
-<summary><b>Installation mit Zugangs-Token (solange das Repository privat ist)</b></summary>
+<summary>Options for 🅱 and 🅲</summary>
 
-Das Repository ist derzeit nicht öffentlich. Für Installation und Updates brauchst du deshalb
-einen **Lese-Token**, den du vom Projekt erhältst. Er erlaubt nur das Lesen dieses einen Repositorys.
+| Option | Meaning |
+|---|---|
+| `--port 8000` | Port of the web interface |
+| `--bind 0.0.0.0` | Address Hatchtower listens on |
+| `--allow "192.168.1.5,192.168.1.10"` | Open the port only for these IPs (own nftables table, your firewall stays untouched) |
 
-**Installieren** (der Token wird nicht angezeigt und landet nicht im Verlauf):
+For 🅱 append them like this: `bash -c "$(curl …)" _ --allow "192.168.1.5"`
+</details>
+
+### Installation with access token
+
+While the repository is private, you need a **read token** from the project. The commands here
+**replace** the command from 🅰 or 🅱. First enter the token (it won't be shown):
 
 ```bash
-read -rsp "GitHub-Token: " GITHUB_TOKEN && export GITHUB_TOKEN && echo
+read -rsp "GitHub token: " GITHUB_TOKEN && export GITHUB_TOKEN HATCHTOWER_SAVE_TOKEN=1 && echo
 ```
+
+Then **for 🅰** (shell of the Proxmox host):
 
 ```bash
 bash -c "$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" https://api.github.com/repos/skaot1910/hatchtower/contents/proxmox/install.sh)"
 ```
 
-Für Weg 🅱 stattdessen die Adresse
-`https://api.github.com/repos/skaot1910/hatchtower/contents/installer/get.sh` verwenden.
+**or for 🅱** (shell of the server):
 
-Für spätere Updates hinterlegst du den Token auf dem Server mit `hatchtower github-token`.
+```bash
+bash -c "$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" https://api.github.com/repos/skaot1910/hatchtower/contents/installer/get.sh)"
+```
 
-**Token erstellen (für den Inhaber des Repositorys):** GitHub → **Settings → Developer settings →
-Personal access tokens → Fine-grained tokens → Generate new token**. Als Repository nur `hatchtower`
-wählen, unter *Permissions* bei **Contents** „Read-only“ einstellen und ein Ablaufdatum setzen.
+So that later updates work, the token is stored on the Hatchtower server (with 🅰 the script asks
+first, **Enter** = yes). For 🅲 or when it has expired: `hatchtower github-token`.
+
+<details>
+<summary>Create a token (for the repository owner)</summary>
+
+GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
+Generate new token**. Repository: only `hatchtower`, **Contents** "Read-only", set an expiry date.
 </details>
 
 ---
 
-## Einrichtung im Browser
+## Setup in the browser
 
-Am Ende der Installation siehst du die **Adresse** und einen **Einrichtungscode**. Öffne die
-Adresse im Browser – ein Assistent führt dich durch fünf Schritte:
+At the end of the installation you'll see the **address** and a **setup code**. Open the address
+in your browser – a wizard guides you through five steps:
 
-1. **Owner-Konto** anlegen (mit dem Einrichtungscode)
-2. **Panel** wählen (Pterodactyl, Pelican oder Calagopus), **Adresse** und **API-Key** eintragen –
-   der Assistent zeigt für jedes Panel, wo es den Key gibt und welche Rechte er braucht
-3. **Client-API-Key** eines eigenen Panel-Benutzers eintragen (mit *Allowed IP*; entfällt bei Calagopus)
-4. **Wings-Server** prüfen – werden automatisch aus dem Panel gelesen, mehrere sind kein Problem
-5. **Optionen** wählen: Modus, öffentliche Adresse für Spieler, Reverse-Proxy, Zeitzone
+1. Create the **owner account** (with the setup code)
+2. Choose the **panel** (Pterodactyl, Pelican or Calagopus), enter **address** and **API key** –
+   the wizard shows for each panel where to get the key and which permissions it needs
+3. Enter the **client API key** of a dedicated panel user (with *Allowed IP*; not needed for Calagopus)
+4. Check the **Wings nodes** – read automatically from the panel, several are no problem
+5. Choose **options**: mode, public address for players, reverse proxy, time zone
 
-Fertig! 🎉
+Done! 🎉
 
-> 💡 Neue Installationen starten sicherheitshalber im Modus **Nur lesen**. Umstellen kannst du das
-> jederzeit unter **System → Panel → Modus**.
+> 💡 New installations start in **Read only** mode to be safe. You can change that any time
+> under **System → Panel → Mode**.
 >
-> API-Keys werden verschlüsselt gespeichert und nie wieder angezeigt.
+> API keys are stored encrypted and never shown again.
 
-**Eigener Look:** Unter **Auftritt → Erscheinungsbild** hinterlegst du den Namen und die Logos
-deiner Community. Theme und Sprache wählt jeder Benutzer selbst oben rechts.
+**Your own look:** under **Presentation → Appearance** you set your community's name and logos.
+Each user picks theme and language at the top right.
 
 ---
 
@@ -334,135 +330,128 @@ deiner Community. Theme und Sprache wählt jeder Benutzer selbst oben rechts.
 hatchtower update
 ```
 
-Das war's. Hatchtower lädt die neueste Version, prüft die Prüfsumme, **sichert vorher die
-Datenbank** und kehrt automatisch zur alten Version zurück, falls die neue nicht startet.
-Benutzer, Rechte, Logos, Zeitpläne und Verlauf bleiben erhalten.
+That's it. Hatchtower downloads the latest version, verifies the checksum, **backs up the
+database first** and automatically rolls back if the new version doesn't start. Users,
+permissions, logos, schedules and history are kept.
 
-Unter **System** zeigt Hatchtower an, wenn eine neue Version bereitsteht. Installiert wird nie
-automatisch – nur, wenn du es willst.
+Under **System** Hatchtower shows when a new version is available. Nothing is ever installed
+automatically – only when you want it.
 
 ---
 
-## Befehle auf dem Server
+## Commands on the server
 
-| Befehl | Was er tut |
+| Command | What it does |
 |---|---|
-| `hatchtower update` | Neueste Version installieren |
-| `hatchtower update --check` | Nur nachsehen, ob es ein Update gibt |
-| `hatchtower update <paket>` | Ein vorhandenes Paket installieren |
-| `hatchtower selftest` | Verbindung zu Panel und Wings prüfen (nur lesend) |
-| `hatchtower version` | Installierte Version anzeigen |
-| `hatchtower reset-password` | Passwort eines Benutzers neu setzen und Konto entsperren |
-| `hatchtower create-owner` | Owner-Konto auf der Konsole anlegen |
-| `hatchtower setup-token` | Neuen Einrichtungscode erzeugen (nur solange noch kein Konto existiert) |
-| `hatchtower github-token` | Lese-Token für Updates hinterlegen, solange das Repository privat ist (`--remove` entfernt ihn) |
-| `journalctl -u hatchtower -f` | Log des Dienstes live ansehen |
+| `hatchtower update` | Install the latest version |
+| `hatchtower update --check` | Only check whether an update is available |
+| `hatchtower update <package>` | Install an existing package |
+| `hatchtower selftest` | Check the connection to panel and Wings (read only) |
+| `hatchtower version` | Show the installed version |
+| `hatchtower reset-password` | Reset a user's password and unlock the account |
+| `hatchtower create-owner` | Create an owner account on the console |
+| `hatchtower setup-token` | Generate a new setup code (only while no account exists) |
+| `hatchtower github-token` | Store a read token for updates while the repository is private (`--remove` deletes it) |
+| `journalctl -u hatchtower -f` | Follow the service log live |
 
 <details>
-<summary>Wo liegt was?</summary>
+<summary>Where is what?</summary>
 
-| Pfad | Inhalt |
+| Path | Contents |
 |---|---|
-| `/opt/hatchtower` | Programm, Python-Umgebung, Installer, Lizenztext (`LICENSE`) |
-| `/etc/hatchtower/hatchtower.env` | interne Schlüssel und Port (nicht weitergeben!) |
-| `/var/lib/hatchtower/hatchtower.db` | Datenbank (SQLite) inkl. verschlüsselter API-Keys |
-| `/var/backups/hatchtower/` | tägliches Backup um 03:30 (14 Tage) und Backups vor Updates |
-| `/etc/hatchtower/github-token` | optional: Lese-Token für Updates, solange das Repository privat ist |
+| `/opt/hatchtower` | Program, Python environment, installer, license text (`LICENSE`) |
+| `/etc/hatchtower/hatchtower.env` | internal keys and port (do not share!) |
+| `/var/lib/hatchtower/hatchtower.db` | database (SQLite) incl. encrypted API keys |
+| `/var/backups/hatchtower/` | daily backup at 03:30 (14 days) and backups before updates |
+| `/etc/hatchtower/github-token` | optional: read token for updates while the repository is private |
 
 </details>
 
 ---
 
-## Sicherheit
+## Security
 
-- 🔑 Starke Passwörter (Argon2id), Sperre nach Fehlversuchen, Sitzungs-Timeouts
-- 🛡️ CSRF-Schutz, strenge Content-Security-Policy, kein Einbetten in fremde Seiten
-- 🚫 „Alles verboten, was nicht erlaubt ist“ – Rechte pro Benutzer und Server
-- 👀 Der Nur-Lesen-Modus ist technisch erzwungen: Schreibende Anfragen erreichen das Panel gar nicht erst
-- 🌐 Für den Zugriff von außen bitte einen Reverse-Proxy mit HTTPS nutzen (z. B. Pangolin, Nginx, Traefik)
+- 🔑 Strong passwords (Argon2id), lockout after failed attempts, session timeouts
+- 🛡️ CSRF protection, strict Content Security Policy, no embedding in other sites
+- 🚫 "Everything not allowed is forbidden" – permissions per user and server
+- 👀 Read-only mode is enforced technically: write requests never reach the panel
+- 🌐 For access from outside, please use a reverse proxy with HTTPS (e.g. Pangolin, Nginx, Traefik)
 
-> ⚠️ Der Client-Key eines Panel-**Admins** darf technisch alles. Schütze ihn mit *Allowed IP*,
-> Nur-Lesen-Modus und Audit-Log. Noch vorsichtiger: Lege einen eigenen Panel-Benutzer an und füge
-> ihn nur als Subuser zu den gewünschten Servern hinzu.
+> ⚠️ The client key of a panel **admin** can technically do everything. Protect it with
+> *Allowed IP*, read-only mode and the audit log. Even safer: create a dedicated panel user and
+> add it only as a subuser to the servers you want.
 
 <details>
-<summary><b>Auf einem öffentlichen Server (VPS, Root-Server) betreiben</b></summary>
+<summary><b>Running on a public server (VPS, dedicated server)</b></summary>
 
-Hatchtower läuft auch auf einem Server im Internet. Damit es dort sicher ist:
+Hatchtower also runs on a server on the internet. To keep it safe there:
 
-1. **Nur auf localhost lauschen**, wenn der Reverse-Proxy auf demselben Server läuft:
-   `sudo bash installer/install.sh --bind 127.0.0.1`. Sonst Port 8000 per Firewall
-   (oder `--allow`) nur für den Proxy öffnen. Der Proxy darf sich nicht umgehen lassen.
-2. **HTTPS über einen Reverse-Proxy.** Hatchtower selbst spricht nur HTTP. Beispiel mit Caddy
-   (holt das Zertifikat automatisch):
+1. **Listen on localhost only** if the reverse proxy runs on the same server:
+   `bash installer/install.sh --bind 127.0.0.1`. Otherwise open port 8000 only for the proxy
+   via firewall (or `--allow`). It must not be possible to bypass the proxy.
+2. **HTTPS via a reverse proxy.** Hatchtower itself only speaks HTTP. Example with Caddy
+   (gets the certificate automatically):
 
    ```
-   hatchtower.example.de {
+   hatchtower.example.com {
      reverse_proxy 127.0.0.1:8000
    }
    ```
 
-3. **Einrichtung sofort abschließen.** Solange kein Konto existiert, kann jeder mit dem
-   Einrichtungscode den Owner anlegen. Den Code also nicht weitergeben und gleich nach der
-   Installation einrichten.
-4. **Proxy-IP eintragen** unter **System → Netzwerk → Reverse-Proxy-IPs** (bei Caddy auf
-   demselben Server: `127.0.0.1`). Das ist im Internet Pflicht, nicht optional: Erst dann
-   - erkennt Hatchtower HTTPS und setzt die Cookies mit `Secure` sowie HSTS,
-   - sieht es die echten IPs der Besucher. Ohne Eintrag kommen alle von der Proxy-IP, und ein
-     Angreifer mit zehn falschen Anmeldungen sperrt damit alle Besucher aus.
+3. **Finish the setup right away.** As long as no account exists, anyone with the setup code
+   can create the owner. Don't share the code and complete the setup right after installing.
+4. **Enter the proxy IP** under **System → Network → Reverse proxy IPs** (for Caddy on the same
+   server: `127.0.0.1`). On the internet this is mandatory, not optional. Only then does Hatchtower
+   - detect HTTPS and set cookies with `Secure` as well as HSTS,
+   - see the real visitor IPs. Without it, everyone comes from the proxy IP, and an attacker
+     with ten failed logins locks out all visitors.
 
-   Erlaubt sind IP-Adressen und Netze (z. B. `172.16.0.0/12` für Docker). `X-Forwarded-For` wird nur von diesen
-   Adressen angenommen, gefälschte Angaben anderer Clients zählen nicht.
-5. **Verbindung zum Panel und zu Wings:** Hatchtower muss das Panel und die Wings (meist Port
-   `8080`) erreichen. Liegen sie nicht im selben Rechenzentrum, verbinde die Server lieber über
-   einen VPN-Tunnel (z. B. WireGuard), statt den Wings-Port offen ins Internet zu stellen.
-   Im Panel beim Client-Key *Allowed IP* auf die Adresse von Hatchtower setzen.
+   IP addresses and networks are allowed (e.g. `172.16.0.0/12` for Docker). `X-Forwarded-For`
+   is only accepted from these addresses; forged headers from other clients don't count.
+5. **Connection to panel and Wings:** Hatchtower must reach the panel and the Wings nodes
+   (usually port `8080`). If they are not in the same data center, better connect them through a
+   VPN tunnel (e.g. WireGuard) instead of exposing the Wings port to the internet.
+   In the panel, set the client key's *Allowed IP* to Hatchtower's address.
 
 </details>
 
 ---
 
-## Für Entwickler
+## For developers
 
 <details>
-<summary>Werkzeuge und Aufbau</summary>
+<summary>Tools and structure</summary>
 
-| Werkzeug | Zweck |
+| Tool | Purpose |
 |---|---|
-| `bash tools/release.sh` | Neue Version veröffentlichen: Tag, Paket aus Git, Prüfsumme, GitHub-Release (Text aus `CHANGELOG.md`) |
-| `tools/third_party_licenses.py` | Erzeugt bei der Installation `THIRD_PARTY_LICENSES.txt` |
-| `tests/` | Tests mit pytest, u. a. die Rechte-Matrix aller Routen (`tests/routes.py` → `docs/rechte-matrix.md`) |
+| `bash tools/release.sh` | Publish a new version: tag, package from Git, checksum, GitHub release (text from `CHANGELOG.md`) |
+| `tools/third_party_licenses.py` | Generates `THIRD_PARTY_LICENSES.txt` during installation |
+| `tests/` | Tests with pytest, incl. the permission matrix of all routes (`tests/routes.py` → `docs/rechte-matrix.md`) |
 
-**Neue Version veröffentlichen:** Version in `app/hatchtower/__init__.py` und `VERSION` erhöhen,
-Abschnitt in `CHANGELOG.md` ergänzen, committen, dann in Git Bash `bash tools/release.sh`.
+**Structure** (`app/hatchtower/`): `main.py` (web), `panels.py` (supported panels),
+`ptero.py` (adapter for Pterodactyl and Pelican with read-only lock), `calagopus.py` (adapter for
+Calagopus), `wings.py` (console), `monitor.py` (sync, history), `automation.py`,
+`permissions.py`, `security.py`, `setup.py` (setup wizard), `themes.py`, `db.py` (migrations).
 
-**Aufbau** (`app/hatchtower/`): `main.py` (Web), `panels.py` (unterstützte Panels),
-`ptero.py` (Adapter für Pterodactyl und Pelican mit Read-Only-Sperre), `calagopus.py` (Adapter für Calagopus), `wings.py` (Konsole), `monitor.py` (Abgleich, Verlauf), `automation.py`,
-`permissions.py`, `security.py`, `setup.py` (Einrichtung), `themes.py`, `db.py` (Migrationen).
-
-**Übersetzungen** liegen in `app/hatchtower/locales/<sprache>.json` (deutscher Text → Übersetzung).
-Fehlt eine Übersetzung, erscheint der deutsche Text.
+**Code, comments and commits are in German.** German UI text is the translation key;
+translations live in `app/hatchtower/locales/<language>.json`. If a translation is missing,
+the German text is shown.
 
 </details>
 
 ---
 
-## Lizenz
+## License
 
-Hatchtower ist freie Software unter der **GNU Affero General Public License v3.0** (AGPL-3.0),
-siehe [`LICENSE`](LICENSE). Copyright © 2026 skaot1910.
+Hatchtower is free software under the **GNU Affero General Public License v3.0** (AGPL-3.0),
+see [`LICENSE`](LICENSE). Copyright © 2026 skaot1910.
 
-Du darfst Hatchtower nutzen, verändern und weitergeben, auch kommerziell. Veränderte oder
-weitergegebene Fassungen müssen wieder unter der AGPL-3.0 stehen. Wer eine veränderte Fassung
-über das Netz für andere bereitstellt, muss diesen Nutzern auch den Quellcode anbieten.
-Hatchtower wird ohne Gewährleistung bereitgestellt.
+In short: you may use, modify and share it, also commercially. Modified versions must again be
+licensed under the AGPL-3.0 – even if you only offer them over a network. No warranty.
 
-Alle Abhängigkeiten stehen unter freien, permissiven Lizenzen (MIT, BSD-3-Clause, Apache-2.0,
-PSF-2.0, HPND/MIT-CMU, MPL-2.0 für certifi). Hatchtower enthält keine fremden Schriften, Icons,
-Bilder oder JavaScript-Bibliotheken; die Panels werden nur über ihre API angebunden. Die verwendeten
-Bibliotheken und ihre Lizenzen findest du in der Oberfläche unter **Lizenzen** (Fußzeile) und als
-vollständige Texte in `THIRD_PARTY_LICENSES.txt`, die bei jeder Installation neu erzeugt wird.
+All dependencies use free licenses (MIT, BSD, Apache-2.0, PSF, MPL-2.0). The list is in the
+interface under **Licenses** (footer), the full texts in `THIRD_PARTY_LICENSES.txt` on the server.
 
 <div align="center">
-<sub>Hatchtower ist ein unabhängiges Projekt und steht in keiner Verbindung zu den Projekten Pterodactyl, Pelican oder Calagopus.</sub>
+<sub>Hatchtower is an independent project and is not affiliated with Pterodactyl, Pelican or Calagopus.</sub>
 </div>
