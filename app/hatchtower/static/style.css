@@ -3,9 +3,9 @@
    gesetzt als <html data-theme="...">.
    ===================================================================== */
 :root, [data-theme="nacht"] {
-  --bg: #08070c; --bg-2: #0e0c15; --card: #13111b; --card-2: #181522;
-  --line: #262036; --line-2: #352c4d;
-  --text: #ece9f6; --muted: #a39cbc; --faint: #6f6887; --strong: #fff;
+  --bg: #08070c; --bg-2: #0e0c15; --card: #15121e; --card-2: #1b1826;
+  --line: #3a3150; --line-2: #4a3f67;
+  --text: #ece9f6; --muted: #aaa3c2; --faint: #8c85a6; --strong: #fff;
   --violet: #8b5cf6; --violet-2: #a78bfa; --violet-3: #c4b5fd; --violet-bg: #1d1736;
   --accent-line: #4c3d8f; --accent-line-2: #5b3fb0;
   --accent-strong: #7c3aed; --accent-strong-2: #6d28d9; --accent-deep: #5b21b6; --accent-deeper: #4c1d95;
@@ -31,8 +31,8 @@
 /* Mittel: Grautöne (heller und dunkler) mit gedecktem Petrol */
 [data-theme="mittel"] {
   --bg: #1f2226; --bg-2: #25292e; --card: #2b3036; --card-2: #31363d;
-  --line: #3c424a; --line-2: #4a515b;
-  --text: #e9ecef; --muted: #b0b7bf; --faint: #858d97; --strong: #ffffff;
+  --line: #4b525b; --line-2: #5c646e;
+  --text: #e9ecef; --muted: #b7bec6; --faint: #9aa1ab; --strong: #ffffff;
   --violet: #5e9c94; --violet-2: #7fb6ae; --violet-3: #b9dbd5; --violet-bg: #263a39;
   --accent-line: #456f6a; --accent-line-2: #548680;
   --accent-strong: #4f8c84; --accent-strong-2: #437a73; --accent-deep: #386760; --accent-deeper: #2d544f;
@@ -52,10 +52,10 @@
 
 /* Hell: warm und hell, ohne grelles Weiß, mit Terrakotta-Akzent */
 [data-theme="hell"] {
-  --bg: #f3eee6; --bg-2: #ece5da; --card: #faf7f1; --card-2: #fdfaf5;
-  --line: #e2d9cb; --line-2: #d3c7b5;
-  --text: #2d2822; --muted: #6a6157; --faint: #978d80; --strong: #1c1814;
-  --violet: #c06a3e; --violet-2: #b05d33; --violet-3: #8e4523; --violet-bg: #f5e3d6;
+  --bg: #efe8dc; --bg-2: #e8e0d2; --card: #fbf8f3; --card-2: #fefcf8;
+  --line: #d8cdbc; --line-2: #c6b8a2;
+  --text: #2d2822; --muted: #5f564c; --faint: #6f6558; --strong: #1c1814;
+  --violet: #c06a3e; --violet-2: #a5552d; --violet-3: #8e4523; --violet-bg: #f5e3d6;
   --accent-line: #e2b99c; --accent-line-2: #d19b76;
   --accent-strong: #b8622f; --accent-strong-2: #a15326; --accent-deep: #8a461f; --accent-deeper: #6f3818;
   --mono-a: #f1dccb; --mono-b: #e7c9b1; --chip-bg: #f6ebe1; --chip-line: #e2c8b3; --glow-bg: #f0dcc9;
@@ -77,12 +77,12 @@
 [data-theme="hell"] .topbar-menu { box-shadow: 0 24px 40px -20px rgba(60, 40, 20, .3); }
 
 /* Theme-Umschalter in der Kopfzeile */
-.theme-switch { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; overflow: hidden; flex: none; }
-.theme-switch a { padding: 2px 9px; font-size: 13px; line-height: 1.6; color: var(--faint); text-decoration: none; }
-.theme-switch a:hover { color: var(--text); }
-.theme-switch a.is-current { background: color-mix(in srgb, var(--accent-strong) 22%, transparent); color: var(--text); }
+.theme-switch, .view-switch { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; overflow: hidden; flex: none; }
+.theme-switch a, .view-switch a { padding: 2px 9px; font-size: 13px; line-height: 1.6; color: var(--muted); text-decoration: none; }
+.theme-switch a:hover, .view-switch a:hover { color: var(--text); }
+.theme-switch a.is-current, .view-switch a.is-current { background: color-mix(in srgb, var(--accent-strong) 30%, transparent); color: var(--strong); }
 @media (max-width: 720px), (pointer: coarse) and (max-height: 540px) {
-  .theme-switch a { padding: 5px 13px; font-size: 15px; }
+  .theme-switch a, .view-switch a { padding: 5px 13px; font-size: 15px; }
 }
 
 /* Theme-Auswahl im Konto */
@@ -443,6 +443,8 @@ a.file-link:hover { color: var(--violet-3); }
 .event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13.5px; }
 .event-list li { display: grid; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--hair); }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.form-grid > label { min-width: 0; }
+.form-grid select { min-width: 0; width: 100%; }
 .weekdays { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; gap: 14px; flex-wrap: wrap; margin: 0; }
 .weekdays legend { color: var(--muted); font-size: 13px; padding: 0 6px; }
 .weekdays .check { display: flex; gap: 6px; align-items: center; color: var(--text); }
@@ -1153,3 +1155,26 @@ a.file-link:hover { color: var(--violet-3); }
 .feed-buttons { justify-content: flex-start; gap: 8px; }
 .warn-text { color: var(--amber); }
 .dns-result { margin-top: 12px; }
+
+/* Einfache Ansicht: pro Server nur Status, Adresse, Passwort und Start/Stopp */
+.simple-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.simple-card { gap: 16px; padding: 20px; }
+.simple-card .card-title { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.simple-card .card-title h2 { font-size: 19px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.simple-card .kv, .simple-join .kv { font-size: 15px; padding: 7px 0; }
+.simple-card .kv > span:first-child, .simple-join .kv > span:first-child { color: var(--muted); }
+.simple-card .power { gap: 8px; }
+.simple-card .pbtn { flex: 1; padding: 11px 14px; font-size: 15px; }
+.is-simple .server-head .pbtn { padding: 11px 18px; font-size: 15px; }
+.simple-join { max-width: 640px; }
+.list-view .simple-card { grid-template-columns: minmax(220px, 1.2fr) minmax(260px, 1.6fr) minmax(200px, auto); padding: 14px 18px; }
+.list-view .simple-card .card-head, .list-view .simple-card .facts { grid-row: auto; }
+.list-view .simple-card .card-title { flex-direction: row; align-items: center; gap: 10px; }
+.list-view .simple-card .card-title h2 { font-size: 16px; }
+.list-view .simple-card .facts .kv { font-size: 14px; padding: 2px 0; }
+.list-view .simple-card .power { grid-column: 3; grid-row: 1; justify-content: flex-end; }
+.list-view .simple-card .pbtn { flex: none; padding: 8px 16px; font-size: 14px; }
+@media (max-width: 1100px) {
+  .list-view .simple-card .pbtn { flex: 1; }
+  .list-view .simple-card .card-title { flex-direction: column; align-items: flex-start; gap: 6px; }
+}

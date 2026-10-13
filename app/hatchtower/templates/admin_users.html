@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_viewmode.html" as vm with context %}
 {% block title %}{{ _("Benutzer") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -57,6 +58,7 @@
         </select>
       </label>
     </div>
+    {{ vm.fields() }}
     <label>{{ _("Beschreibung (optional, nur intern)") }}<input name="note" maxlength="200" autocomplete="off" placeholder="{{ _("z. B. für wen der Link ist") }}"></label>
     {% if mail_ready %}
     <label>{{ _("Per E-Mail schicken an (optional)") }}<input name="email" type="email" maxlength="254" autocomplete="off"></label>
@@ -68,7 +70,7 @@
   <ul class="plain-list">
     {% for i in invites %}
     <li class="invite-row">
-      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {% if i.expires %}{{ _("gültig bis {date}", date=i.expires) }}{% else %}{{ _("unbegrenzt gültig") }}{% endif %}</span></span>
+      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.view %} · {{ _("Ansicht") }}: {{ _("Einfach") if i.view == 'simple' else _("Alles") }}{% if i.view_locked %} ({{ _("festgelegt") }}){% endif %}{% endif %}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {% if i.expires %}{{ _("gültig bis {date}", date=i.expires) }}{% else %}{{ _("unbegrenzt gültig") }}{% endif %}</span></span>
       {% if i.link %}<details class="invite-link"><summary class="chip chip-sm">{{ _("Link anzeigen") }}</summary>
         <input class="mono copy-field" value="{{ i.link }}" readonly data-select-on-focus aria-label="{{ _("Einladungslink") }}">
       </details>{% else %}<span class="faint small">{{ _("Link nicht mehr abrufbar (vor Version 0.19.2 erstellt)") }}</span>{% endif %}
@@ -92,6 +94,7 @@
         <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
       </select>
     </label>
+    {{ vm.fields() }}
     <label>{{ _("E-Mail-Adresse") if email_required else _("E-Mail-Adresse (optional)") }}<input name="email" type="email" maxlength="254" autocomplete="off"{% if not mail_ready %} disabled{% endif %}></label>
     <label class="check"><input type="checkbox" name="no_email" value="1"> {{ _("Ohne E-Mail-Adresse anlegen (der Benutzer kann dann auch selbst keine hinterlegen)") }}</label>
     <p class="faint small">{% if mail_ready %}{{ _("An die Adresse geht ein Bestätigungslink.") }}{% else %}{{ _("E-Mail ist in Hatchtower nicht eingeschaltet – eine Adresse kann erst danach hinterlegt werden.") }}{% endif %}</p>

@@ -1528,7 +1528,21 @@
   "Du darfst Hatchtower nutzen, verändern und weitergeben, auch kommerziell. Weitergegebene oder veränderte Fassungen müssen wieder unter der AGPL-3.0 stehen und mit Quellcode geliefert werden.": "You may use, modify and share Hatchtower, including commercially. Shared or modified versions must again be licensed under the AGPL-3.0 and come with their source code.",
   "Wer eine veränderte Fassung über das Netz für andere bereitstellt, muss diesen Nutzern den Quellcode der veränderten Fassung anbieten.": "Anyone who makes a modified version available to others over a network must offer those users the source code of the modified version.",
   "Hatchtower wird ohne jede Gewährleistung bereitgestellt. Der vollständige Lizenztext liegt als Datei LICENSE im Installationsordner.": "Hatchtower comes without any warranty. The full license text is included as the file LICENSE in the installation folder.",
-  "Lizenztext bei der Free Software Foundation": "License text at the Free Software Foundation"
+  "Lizenztext bei der Free Software Foundation": "License text at the Free Software Foundation",
+  "Ansicht geändert": "View changed",
+  "Einfach": "Simple",
+  "Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp": "Just the essentials: status, address, password, start and stop",
+  "Alle Angaben, Diagramme und Werkzeuge": "All details, charts and tools",
+  "Beitreten": "Join",
+  "„Einfach“ zeigt pro Server nur Status, Adresse, Passwort und die Knöpfe zum Starten und Stoppen. „Alles“ zeigt zusätzlich Auslastung, Diagramme, Filter und Protokolle.": "“Simple” shows only the status, address, password and the start and stop buttons for each server. “Everything” also shows usage, charts, filters and logs.",
+  "Die Darstellung (Dunkel, Mittel, Hell) und die Ansicht wählst du auch oben rechts in der Kopfzeile.": "You can also choose the appearance (Dark, Medium, Light) and the view at the top right of the header.",
+  "Standard der Instanz": "Instance default",
+  "Einfach: nur Status, Adresse, Passwort, Start/Stopp": "Simple: only status, address, password, start/stop",
+  "Standard-Ansicht für Benutzer": "Default view for users",
+  "Die einfache Ansicht zeigt pro Server nur Status, Adresse, Passwort und Start/Stopp. Owner sehen immer alles, solange sie nichts anderes wählen; jeder kann oben rechts umschalten.": "The simple view shows only the status, address, password and start/stop for each server. Owners always see everything unless they choose otherwise; anyone can switch at the top right.",
+  "Ansicht festlegen: der Benutzer kann nicht selbst umschalten (gilt nicht für Owner)": "Lock view: the user cannot switch it themselves (does not apply to owners)",
+  "festgelegt": "locked",
+  "Deine Ansicht ist festgelegt: {ansicht}. Ändern kann sie nur ein Owner.": "Your view is locked: {ansicht}. Only an owner can change it."
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

@@ -25,6 +25,12 @@
 
 {% macro facts(s) %}
 <div class="kv kv-ingame"><span>{{ _("Ingame-Servername") }}</span><span data-f="ingame_name">{{ s.ingame_name }}</span></div>
+{{ join_facts(s) }}
+<div class="kv kv-time"><span data-f="time_label">{{ s.time_label }}</span><span data-f="time_value">{{ s.time_value }}</span></div>
+{% endmacro %}
+
+{# Was man zum Beitreten braucht: Adresse und Passwort #}
+{% macro join_facts(s) %}
 <div class="kv kv-address"><span>{{ _("Adresse") }}</span><span class="mono copyable" data-copy="{{ s.address }}" data-f="address">{{ s.address }}</span></div>
 {% if s.show_password_row %}
 <div class="kv kv-password"><span>{{ _("Passwort") }}</span>
@@ -32,5 +38,4 @@
   {% else %}<span class="faint">{{ _("nicht gesetzt") }}</span>{% endif %}
 </div>
 {% endif %}
-<div class="kv kv-time"><span data-f="time_label">{{ s.time_label }}</span><span data-f="time_value">{{ s.time_value }}</span></div>
 {% endmacro %}

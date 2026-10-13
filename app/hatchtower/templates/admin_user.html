@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_viewmode.html" as vm with context %}
 {% block title %}{{ target.username }} · {{ _("Benutzer") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -99,6 +100,7 @@
         </select>
       </label>
       <label class="check"><input type="checkbox" name="is_active" value="1" {% if target.is_active %}checked{% endif %}> {{ _("Konto aktiv") }}</label>
+      {{ vm.fields(target.view_mode or "", target.view_locked) }}
       <label>{{ _("Notiz (nur für Owner sichtbar)") }}
         <textarea name="note" rows="2" maxlength="500" placeholder="{{ _("z. B. wer das ist oder woher das Konto kommt") }}">{{ target.note or '' }}</textarea>
       </label>

@@ -517,6 +517,15 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE users ADD COLUMN no_email INTEGER NOT NULL DEFAULT 0;
     """,
+    # Ansicht pro Benutzer: 'simple' (nur das Wichtigste), 'full' oder NULL (Standard der Instanz)
+    """
+    ALTER TABLE users ADD COLUMN view_mode TEXT;
+    INSERT OR IGNORE INTO app_settings (key, value) VALUES ('default_view', 'full');
+    """,
+    # Ansicht vom Owner festgelegt: der Benutzer kann nicht selbst umschalten
+    """
+    ALTER TABLE users ADD COLUMN view_locked INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

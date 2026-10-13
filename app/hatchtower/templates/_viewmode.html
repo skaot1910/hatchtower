@@ -1,0 +1,12 @@
+{# Ansicht eines Benutzers wählen (Anlegen, Einladung, Bearbeiten) #}
+{% macro fields(mode="", locked=False) %}
+<input type="hidden" name="view_form" value="1">
+<label>{{ _("Ansicht") }}
+  <select name="view_mode">
+    <option value="" {% if not mode %}selected{% endif %}>{{ _("Standard der Instanz") }}</option>
+    <option value="simple" {% if mode == 'simple' %}selected{% endif %}>{{ _("Einfach: nur Status, Adresse, Passwort, Start/Stopp") }}</option>
+    <option value="full" {% if mode == 'full' %}selected{% endif %}>{{ _("Alles") }}</option>
+  </select>
+</label>
+<label class="check"><input type="checkbox" name="view_locked" value="1" {% if locked %}checked{% endif %}> {{ _("Ansicht festlegen: der Benutzer kann nicht selbst umschalten (gilt nicht für Owner)") }}</label>
+{% endmacro %}

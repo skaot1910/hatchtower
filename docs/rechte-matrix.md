@@ -76,6 +76,7 @@ Grundregeln:
 | GET | `/` | – | Übersicht (nur sichtbare Server); ?als= nur für Owner |
 | GET | `/api/overview` | – | Live-Werte der Übersicht (nur sichtbare Server) |
 | GET | `/theme/{key}` | – | Theme umschalten |
+| GET | `/view/{mode}` | – | Einfache oder vollständige Ansicht umschalten |
 | POST | `/logout` | Formular | Abmelden |
 | GET | `/logos/{filename}` | – | Serverlogos |
 | GET | `/about` | – | Über Hatchtower, Paketliste |

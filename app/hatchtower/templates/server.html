@@ -8,17 +8,23 @@
   {{ c.logo(server, "logo-lg") }}
   <div class="server-head-main">
     <div class="title-row"><h1>{{ server.name }}</h1>{{ c.state_pill(server) }}</div>
-    <div class="faint">{{ server.egg }} · {{ _("Kennung") }} {{ server.identifier }}{% if server.has_public_address and server.internal_address %} · {{ _("intern") }} {{ server.internal_address }}{% endif %}</div>
-    {% if server.tags %}<div class="tags">{% for t in server.tags %}<span class="tag">#{{ t }}</span>{% endfor %}</div>{% endif %}
+    {% if not simple_view %}<div class="faint">{{ server.egg }} · {{ _("Kennung") }} {{ server.identifier }}{% if server.has_public_address and server.internal_address %} · {{ _("intern") }} {{ server.internal_address }}{% endif %}</div>
+    {% if server.tags %}<div class="tags">{% for t in server.tags %}<span class="tag">#{{ t }}</span>{% endfor %}</div>{% endif %}{% endif %}
     <div class="actions">
       <button type="button" class="chip chip-fav" data-fav="{{ server.identifier }}" aria-pressed="{{ 'true' if server.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}">{{ '★' if server.favorite else '☆' }}</button>
       {% if server.can_files %}<a class="chip" href="/servers/{{ server.identifier }}/files">{{ _("Dateien") }}</a>{% endif %}
       {% if server.can_manage %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
     </div>
   </div>
-  {{ c.power(server, True) }}
+  {{ c.power(server, not simple_view) }}
 </div>
 
+{% if simple_view %}
+<section class="card simple-join">
+  <h2 class="card-h">{{ _("Beitreten") }}</h2>
+  <div class="facts">{{ c.join_facts(server) }}</div>
+</section>
+{% else %}
 <div class="two-col">
   <section class="card">
     <h2 class="card-h">{{ _("Server") }}</h2>
@@ -40,8 +46,10 @@
     <p class="faint small">{{ _("Stand:") }} <span data-f="updated_at">{{ server.updated_at }}</span> · {{ _("Status laut {panel}") }}</p>
   </section>
 </div>
+{% endif %}
 </div>
 
+{% if not simple_view %}
 <section class="card" id="verlauf" data-metrics="/api/servers/{{ server.identifier }}/metrics">
   <div class="chart-head">
     <h2 class="card-h">{{ _("Verlauf") }}</h2>
@@ -61,6 +69,7 @@
   </div>
   <p class="faint small chart-note" id="chart-note">{{ _("Live: letzte 2 Minuten, jede Sekunde aktualisiert, solange der Server läuft. Gespeichert werden 72 Stunden.") }}</p>
 </section>
+{% endif %}
 
 {% if server.can_console %}
 <section class="card console-card" id="konsole">
@@ -81,7 +90,7 @@
   {% elif settings.read_only %}<p class="faint small">{{ _("Read-only: Die Konsole kann nur mitgelesen werden.") }}</p>{% endif %}
 </section>
 {% endif %}
-{% if server.can_archive %}
+{% if server.can_archive and not simple_view %}
 <section class="card" id="log-archiv" data-logs="/api/servers/{{ server.identifier }}/logs" data-download="/servers/{{ server.identifier }}/logs.txt">
   <div class="console-toolbar">
     <h2 class="card-h">{{ _("Log-Archiv") }}</h2>
@@ -111,7 +120,7 @@
   {% endif %}
 </section>
 {% endif %}
-{% if server.can_log %}
+{% if server.can_log and not simple_view %}
 <section class="card" id="protokoll">
   <div class="console-toolbar">
     <h2 class="card-h">{{ _("Protokoll") }}</h2>

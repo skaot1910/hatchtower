@@ -3,6 +3,20 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.26.0 – 2026-10-14
+
+- **Einfache Ansicht:** Für alle, denen die volle Oberfläche zu viel ist. Pro Server stehen nur Status, Adresse,
+  Passwort und große Knöpfe zum Starten und Stoppen da; Auslastung, Diagramme, Log-Archiv, Protokoll und
+  Mehrfachauswahl sind ausgeblendet, die Konsole bleibt (mit Recht). Sortieren, Status- und Tag-Filter sowie
+  Kacheln/Liste gibt es auch hier
+  - Umschalten oben rechts in der Kopfzeile („Einfach | Alles“) oder im Konto unter „Ansicht“
+  - Standard für Benutzer unter Auftritt → Erscheinungsbild; Owner sehen alles, solange sie nichts anderes wählen
+  - Beim direkten Anlegen, in Einladungslinks und auf der Benutzerseite lässt sich die Ansicht vorgeben und auf
+    Wunsch festlegen – dann kann der Benutzer nicht selbst umschalten
+- **Bessere Kontraste:** Blasse Schrift erreicht in allen drei Themes den WCAG-Mindestkontrast (4,5:1), Kartenränder
+  und Flächen heben sich deutlicher ab, im hellen Theme ist die Akzentschrift dunkler
+- Auftritt: Auswahlfelder im Formular „Name und Design“ überlappen sich nicht mehr
+
 ## 0.25.1 – 2026-10-14
 
 - **Lizenz:** Hatchtower steht jetzt unter der GNU AGPL-3.0. Der Lizenztext liegt als `LICENSE` im Paket und unter

@@ -611,7 +611,9 @@ async def admin_users_email_policy(request: Request, optional: str = Form("")):
 
 @app.post("/admin/users/invite", response_class=HTMLResponse)
 async def admin_invite(request: Request, role: str = Form("user"), email: str = Form(""), days: int = Form(7),
-                       uses: int = Form(1), note: str = Form("")):
+                       uses: int = Form(1), note: str = Form(""), view_mode: str = Form(""),
+                       view_locked: str = Form("")):
+    from .main import view_choice
     owner = require_owner(request)
     await check_csrf(request)
     role = "owner" if role == "owner" else "user"
@@ -620,7 +622,9 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
     email, note = email.strip(), " ".join(note.split())[:200]
     if email and not mailer.valid_email(email):
         return back("/admin/users#einladen", "Bitte eine gültige E-Mail-Adresse eingeben")
-    raw = accounts.create("invite", email=email or None, data={"role": role}, created_by=owner.id,
+    view, locked = view_choice(view_mode, view_locked)
+    raw = accounts.create("invite", email=email or None, data={"role": role, "view": view, "view_locked": locked},
+                          created_by=owner.id,
                           hours=days * 24, max_uses=uses, note=note or None, encrypt=vault.encrypt)
     link = f"{link_base(request)}/invite/{raw}"
     message = "Einladung erstellt. Kopiere den Link, er wird nur jetzt angezeigt."
@@ -640,6 +644,7 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
             except mailer.MailError as exc:
                 message = i18n.t("E-Mail konnte nicht verschickt werden: {grund}", grund=exc)
     owner_audit(request, owner, "user.invite", detail={"role": role, "email": email or None, "invite": note or None,
+                                                       "ansicht": (view or "standard") + (" (festgelegt)" if locked else ""),
                                                        "days": days or "∞", "uses": uses or "∞"})
     from .main import admin_users
     request.state.invite_link = link
@@ -697,14 +702,17 @@ async def invite_accept(request: Request, token: str, username: str = Form(""), 
         return fail("Bitte gib eine E-Mail-Adresse an")
     if email and not mailer.valid_email(email):
         return fail("Bitte eine gültige E-Mail-Adresse eingeben")
-    role = "owner" if json.loads(row["data"] or "{}").get("role") == "owner" else "user"
+    data = json.loads(row["data"] or "{}")
+    role = "owner" if data.get("role") == "owner" else "user"
+    view = data.get("view") if data.get("view") in ("simple", "full") else None
     if not accounts.claim_invite(token):
         return RedirectResponse(f"/invite/{quote(token)}", status_code=303)
     try:
         with db.connect() as con:
-            user_id = con.execute("INSERT INTO users (username, password_hash, role, created_at, language)"
-                                  " VALUES (?, ?, ?, ?, ?)",
-                                  (username, security.hash_password(password), role, db.utcnow(), i18n.current())).lastrowid
+            user_id = con.execute("INSERT INTO users (username, password_hash, role, created_at, language, view_mode,"
+                                  " view_locked) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                  (username, security.hash_password(password), role, db.utcnow(), i18n.current(),
+                                   view, 1 if view and data.get("view_locked") else 0)).lastrowid
     except Exception:
         accounts.release_invite(token)
         throttle.record_failure(ip_of(request))

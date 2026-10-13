@@ -114,7 +114,7 @@ def load_session(token: str | None, settings: Settings, touch: bool = True):
     now = datetime.now(timezone.utc)
     with db.connect() as con:
         row = con.execute(
-            "SELECT s.*, u.username, u.role, u.is_active, u.theme, u.language FROM sessions s JOIN users u ON u.id = s.user_id"
+            "SELECT s.*, u.username, u.role, u.is_active, u.theme, u.language, u.view_mode, u.view_locked FROM sessions s JOIN users u ON u.id = s.user_id"
             " WHERE s.token_hash = ?",
             (th,),
         ).fetchone()

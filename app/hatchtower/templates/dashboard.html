@@ -10,14 +10,16 @@
     <p class="muted">{{ servers|length }} {{ _("Server sichtbar") }}</p>
   </div>
   <div class="head-tools">
-  {% if status_page_on and not preview %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} ↗</a>{% endif %}
+  {% if status_page_on and not preview and not simple_view %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} ↗</a>{% endif %}
   <div class="view-toggle" role="group" aria-label="{{ _("Ansicht") }}">
     <button type="button" data-view="tiles" aria-pressed="false">{{ _("▦ Kacheln") }}</button>
     <button type="button" data-view="list" aria-pressed="true">{{ _("☰ Liste") }}</button>
   </div>
+  {% if not simple_view %}
   <div class="monitor-status {% if not monitor.healthy %}is-bad{% endif %}" id="monitor-status">
     {% if monitor.healthy %}{{ _("Monitoring aktiv") }}{% elif monitor.last_error %}{{ _(monitor.last_error) }}{% else %}{{ _("Monitoring startet …") }}{% endif %}
   </div>
+  {% endif %}
   </div>
 </div>
 
@@ -26,7 +28,7 @@
   {{ _("Hatchtower bekommt keine aktuellen Daten. Die Server werden deshalb als „keine aktuellen Daten“ angezeigt – ob sie wirklich laufen, ist gerade nicht bekannt.") }}
 </div>
 
-{% for n in new_servers %}
+{% for n in (new_servers if not simple_view else []) %}
 <div class="new-server" role="note">
   <div>
     <strong>{{ _("Neuer Server: {name}", name=n.name) }}</strong> <span class="faint small">{{ n.egg }}</span>
@@ -51,7 +53,7 @@
 {% if servers %}
 <div class="list-tools">
 {% set ns = namespace(selectable=false) %}{% for s in servers %}{% if s.can_start or s.can_stop or s.can_restart %}{% set ns.selectable = true %}{% endif %}{% endfor %}
-{% if not preview and ns.selectable %}
+{% if not preview and ns.selectable and not simple_view %}
 <label class="bulk-all" title="{{ _("Alle sichtbaren Server für eine gemeinsame Aktion auswählen") }}">
   <input type="checkbox" class="bulk-box" id="bulk-all"> {{ _("Alle auswählen") }}
 </label>
@@ -81,7 +83,7 @@
 </div>
 {% endif %}
 <p class="filter-empty" id="filter-empty" hidden>{{ _("Kein Server passt zum gewählten Filter.") }}</p>
-{% if not preview %}
+{% if not preview and not simple_view %}
 <div class="bulk-bar" id="bulk-bar" hidden>
   <span id="bulk-count"></span>
   <button type="button" class="pbtn pbtn-start" data-bulk-action="start">{{ _("▶ Start") }}</button>
@@ -92,6 +94,22 @@
 {% endif %}
 {% endif %}
 
+{% if simple_view %}
+<div class="grid simple-grid list-view" id="server-grid" {% if not preview %}data-live="1"{% endif %}>
+  {% for s in servers %}
+  <article class="card server-card simple-card state-{{ s.state }}{% if s.favorite %} is-favorite{% endif %}" data-ident="{{ s.identifier }}" data-tags="{{ s.tags|join('|') }}" data-name="{{ s.name }}">
+    <div class="card-head">
+      <a class="card-head-link" href="/servers/{{ s.identifier }}" title="{{ s.name }}">
+        {{ c.logo(s) }}
+        <div class="card-title"><h2>{{ s.name }}</h2>{{ c.state_pill(s) }}</div>
+      </a>
+    </div>
+    <div class="facts">{{ c.join_facts(s) }}</div>
+    {% if not preview %}{{ c.power(s) }}{% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% else %}
 <div class="grid list-view" id="server-grid" {% if not preview %}data-live="1"{% endif %}>
   {% for s in servers %}
   <article class="card server-card state-{{ s.state }}{% if s.favorite %} is-favorite{% endif %}" data-ident="{{ s.identifier }}" data-tags="{{ s.tags|join('|') }}" data-name="{{ s.name }}">
@@ -118,4 +136,5 @@
   </article>
   {% endfor %}
 </div>
+{% endif %}
 {% endblock %}

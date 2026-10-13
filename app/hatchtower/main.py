@@ -267,6 +267,7 @@ def current_user(request: Request) -> UserContext:
     user = UserContext(
         id=row["user_id"], username=row["username"], role=row["role"], read_only=settings.read_only,
         grants=load_grants(row["user_id"]), theme=row["theme"], language=row["language"],
+        view_mode=row["view_mode"], view_locked=bool(row["view_locked"]),
     )
     if i18n.valid(row["language"]):
         i18n.set_language(row["language"])
@@ -361,8 +362,35 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
         if context["user"].is_owner:
             context.setdefault("proxy_warning", untrusted_proxy())
     user = context.get("user")
+    context.setdefault("simple_view", simple_view(user))
+    context.setdefault("view_locked", view_locked(user))
     context.setdefault("theme", themes.valid(getattr(user, "theme", None)) or themes.valid(db.get_setting("default_theme")) or themes.DEFAULT)
     return templates.TemplateResponse(request, template, context, status_code=status)
+
+
+VIEW_MODES = ("simple", "full")
+
+
+def view_choice(view_mode: str | None, view_locked: str | None) -> tuple[str | None, int]:
+    """Ansicht aus einem Owner-Formular: (Modus oder None = Standard, festgelegt 0/1).
+    Festlegen ohne eigenen Modus legt den aktuellen Standard der Instanz fest."""
+    mode = view_mode if view_mode in VIEW_MODES else None
+    if not view_locked:
+        return mode, 0
+    return mode or ("simple" if db.get_setting("default_view") == "simple" else "full"), 1
+
+
+def view_locked(user: UserContext | None) -> bool:
+    return user is not None and user.view_locked and not user.is_owner
+
+
+def simple_view(user: UserContext | None) -> bool:
+    """Einfache Ansicht: eigene Wahl des Benutzers, sonst der Standard der Instanz (gilt nicht für Owner)."""
+    if user is None:
+        return False
+    if user.view_mode in VIEW_MODES:
+        return user.view_mode == "simple"
+    return not user.is_owner and db.get_setting("default_view") == "simple"
 
 
 def back(url: str, message: str | None = None) -> RedirectResponse:
@@ -763,6 +791,20 @@ async def switch_theme(request: Request, key: str, next: str = "/"):
         with db.connect() as con:
             con.execute("UPDATE users SET theme = ? WHERE id = ?", (chosen, user.id))
         audit.record("theme.update", user_id=user.id, username=user.username, ip=ip_of(request), detail=chosen)
+    return RedirectResponse(target, status_code=303)
+
+
+@app.get("/view/{mode}")
+async def switch_view(request: Request, mode: str, next: str = "/"):
+    """Einfache oder vollständige Ansicht umschalten (Kopfzeile), im Konto gespeichert."""
+    user = current_user(request)
+    target = next if next.startswith("/") and not next.startswith("//") and "\\" not in next else "/"
+    if view_locked(user):
+        return RedirectResponse(target, status_code=303)
+    if mode in VIEW_MODES and mode != user.view_mode:
+        with db.connect() as con:
+            con.execute("UPDATE users SET view_mode = ? WHERE id = ?", (mode, user.id))
+        audit.record("view.update", user_id=user.id, username=user.username, ip=ip_of(request), detail=mode)
     return RedirectResponse(target, status_code=303)
 
 
@@ -1489,6 +1531,8 @@ async def admin_users(request: Request):
         return f"{base}/invite/{raw}" if raw else None
 
     invites = [{"hash": i["token_hash"], "role": __import__("json").loads(i["data"] or "{}").get("role", "user"),
+                "view": __import__("json").loads(i["data"] or "{}").get("view"),
+                "view_locked": __import__("json").loads(i["data"] or "{}").get("view_locked"),
                 "email": i["email"], "created": fmt_dt(i["created_at"], settings.timezone),
                 "expires": None if i["expires_at"] == accounts.NEVER else fmt_dt(i["expires_at"], settings.timezone),
                 "creator": i["creator"], "link": invite_link(i),
@@ -1505,7 +1549,8 @@ async def admin_users(request: Request):
 
 @app.post("/admin/users")
 async def admin_user_create(request: Request, username: str = Form(""), password: str = Form(""),
-                            role: str = Form("user"), email: str = Form(""), no_email: str = Form("")):
+                            role: str = Form("user"), email: str = Form(""), no_email: str = Form(""),
+                            view_mode: str = Form(""), view_locked: str = Form("")):
     from . import mailer
     from .routes_extra import send_verify_mail
     owner = require_owner(request)
@@ -1523,17 +1568,21 @@ async def admin_user_create(request: Request, username: str = Form(""), password
     if email and not mailer.valid_email(email):
         return back("/admin/users", "Bitte eine gültige E-Mail-Adresse eingeben")
     role = "owner" if role == "owner" else "user"
+    view, locked = view_choice(view_mode, view_locked)
     try:
         with db.connect() as con:
             cur = con.execute(
-                "INSERT INTO users (username, password_hash, role, created_at, email, no_email) VALUES (?, ?, ?, ?, ?, ?)",
-                (username, security.hash_password(password), role, db.utcnow(), email or None, 1 if no_email else 0),
+                "INSERT INTO users (username, password_hash, role, created_at, email, no_email, view_mode, view_locked)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (username, security.hash_password(password), role, db.utcnow(), email or None, 1 if no_email else 0,
+                 view, locked),
             )
             new_id = cur.lastrowid
     except Exception:
         return back("/admin/users", "Diesen Benutzernamen gibt es schon")
     audit.record("user.create", user_id=owner.id, username=owner.username, ip=ip_of(request),
-                 detail={"user": username, "role": role, "email": email or ("keine" if no_email else None)})
+                 detail={"user": username, "role": role, "email": email or ("keine" if no_email else None),
+                         "ansicht": (view or "standard") + (" (festgelegt)" if locked else "")})
     if email:
         error = await send_verify_mail(request, new_id, username, email)
         if error:
@@ -1714,7 +1763,8 @@ async def admin_group_delete(request: Request, group_id: int):
 
 @app.post("/admin/users/{user_id}/update")
 async def admin_user_update(request: Request, user_id: int, role: str = Form("user"), is_active: str = Form(""),
-                            note: str | None = Form(None)):
+                            note: str | None = Form(None), view_form: str = Form(""), view_mode: str = Form(""),
+                            view_locked: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     target = get_user_or_404(user_id)
@@ -1726,13 +1776,20 @@ async def admin_user_update(request: Request, user_id: int, role: str = Form("us
     if losing_owner and active_owner_count() <= 1:
         return back(f"/admin/users/{user_id}", "Es muss mindestens ein aktiver Owner bleiben")
     note = target["note"] if note is None else (note.strip()[:500] or None)
+    if not view_form:                     # Formular ohne Ansichtsfelder: unverändert lassen
+        view, locked = target["view_mode"], target["view_locked"]
+    else:
+        view, locked = view_choice(view_mode, view_locked)
     with db.connect() as con:
-        con.execute("UPDATE users SET role = ?, is_active = ?, note = ? WHERE id = ?", (role, active, note, user_id))
+        con.execute("UPDATE users SET role = ?, is_active = ?, note = ?, view_mode = ?, view_locked = ? WHERE id = ?",
+                    (role, active, note, view, locked, user_id))
     if not active:
         security.delete_user_sessions(user_id)
     detail = {"user": target["username"], "role": role, "active": bool(active)}
     if note != target["note"]:
         detail["note"] = note
+    if view != target["view_mode"] or locked != target["view_locked"]:
+        detail["ansicht"] = (view or "standard") + (" (festgelegt)" if locked else "")
     audit.record("user.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail=detail)
     return back(f"/admin/users/{user_id}", "Benutzer gespeichert")
 
@@ -1986,7 +2043,8 @@ async def branding_file(filename: str):
 
 @app.post("/admin/branding")
 async def admin_branding_save(request: Request, brand_name: str = Form(""), show_name: str = Form(""),
-                              default_theme: str = Form(""), discord: str = Form("")):
+                              default_theme: str = Form(""), discord: str = Form(""),
+                              default_view: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
     name = " ".join(brand_name.split())
@@ -1997,6 +2055,8 @@ async def admin_branding_save(request: Request, brand_name: str = Form(""), show
     db.set_setting("brand_show_name", "1" if show_name else "0", owner.id)
     if themes.valid(default_theme):
         db.set_setting("default_theme", default_theme, owner.id)
+    if default_view in VIEW_MODES:
+        db.set_setting("default_view", default_view, owner.id)
     discord = discord.strip()
     if discord and not discord.startswith("http"):
         discord = "https://discord.gg/" + discord      # nur der Einladungscode eingegeben
@@ -2006,7 +2066,7 @@ async def admin_branding_save(request: Request, brand_name: str = Form(""), show
     db.set_setting("community_discord", discord, owner.id)
     audit.record("settings.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"eigener_name": [old["custom"], name], "name_neben_logo": bool(show_name),
-                         "standard_theme": default_theme})
+                         "standard_theme": default_theme, "standard_ansicht": default_view})
     return back("/admin/appearance", "Erscheinungsbild gespeichert")
 
 
@@ -2103,6 +2163,7 @@ async def admin_appearance(request: Request):
     require_owner(request)
     return render(request, "admin_appearance.html", themes=themes.THEMES,
                   default_theme=themes.valid(db.get_setting("default_theme")) or themes.DEFAULT,
+                  default_view=db.get_setting("default_view", "full"),
                   default_language=i18n.valid(db.get_setting("default_language")) or i18n.DEFAULT,
                   timezones=setup.timezone_choices(), timezone=settings.timezone)
 

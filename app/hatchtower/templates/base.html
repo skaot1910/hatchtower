@@ -14,7 +14,7 @@
   <script type="application/json" id="i18n">{{ i18n_browser|tojson }}</script>
   <script src="/static/app.js?v={{ version|hash_version }}" defer></script>
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}{% if simple_view %} is-simple{% endif %}">
 {% if user %}
 <header class="topbar">
   <a class="brand" href="/">
@@ -47,6 +47,7 @@
   <div class="account">
     <div class="account-prefs">
       {% if discord_url %}<a class="discord-link" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Community-Discord") }}">{{ hm.discord_icon() }} <span>{{ _("Discord") }}</span></a>{% endif %}
+      {% if not view_locked %}<span class="view-switch" role="group" aria-label="{{ _("Ansicht") }}"><a href="/view/simple?next={{ here|urlencode }}" title="{{ _("Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp") }}"{% if simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Einfach") }}</a><a href="/view/full?next={{ here|urlencode }}" title="{{ _("Alle Angaben, Diagramme und Werkzeuge") }}"{% if not simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Alles") }}</a></span>{% endif %}
       {{ thm.switch(all_themes) }}
       {{ lng.switch() }}
     </div>

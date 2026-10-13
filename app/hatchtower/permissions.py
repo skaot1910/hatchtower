@@ -102,6 +102,8 @@ class UserContext:
     grants: dict[str, set[str]]
     theme: str | None = None
     language: str | None = None
+    view_mode: str | None = None
+    view_locked: bool = False
 
     @property
     def is_owner(self) -> bool:

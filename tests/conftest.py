@@ -275,7 +275,7 @@ def world(monkeypatch, tmp_path) -> World:
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
         "job_id": str(jid), "feed_id": str(fid), "hook_id": str(hid), "run_id": str(rid), "target_id": str(tid),
-        "token_hash": accounts._hash(invite), "kind": "header", "page": "impressum", "key": "hell", "code": "en",
+        "token_hash": accounts._hash(invite), "kind": "header", "page": "impressum", "key": "hell", "mode": "simple", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,
         "@reset": accounts.create("reset", user_id=victim),

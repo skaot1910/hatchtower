@@ -15,7 +15,20 @@
   </form>
 </section>
 
-<p class="faint small">{{ _("Die Darstellung (Dunkel, Mittel, Hell) wählst du oben rechts in der Kopfzeile.") }}</p>
+<section class="card narrow" id="ansicht">
+  <h2 class="card-h">{{ _("Ansicht") }}</h2>
+  <p class="muted small">{{ _("„Einfach“ zeigt pro Server nur Status, Adresse, Passwort und die Knöpfe zum Starten und Stoppen. „Alles“ zeigt zusätzlich Auslastung, Diagramme, Filter und Protokolle.") }}</p>
+  {% if view_locked %}
+  <p class="hint">{{ _("Deine Ansicht ist festgelegt: {ansicht}. Ändern kann sie nur ein Owner.", ansicht=_("Einfach") if simple_view else _("Alles")) }}</p>
+  {% else %}
+  <div class="form-row">
+    <a class="btn {{ 'btn-primary' if simple_view else 'btn-ghost' }}" href="/view/simple?next=/account%23ansicht">{{ _("Einfach") }}</a>
+    <a class="btn {{ 'btn-ghost' if simple_view else 'btn-primary' }}" href="/view/full?next=/account%23ansicht">{{ _("Alles") }}</a>
+  </div>
+  {% endif %}
+</section>
+
+<p class="faint small">{{ _("Die Darstellung (Dunkel, Mittel, Hell) und die Ansicht wählst du auch oben rechts in der Kopfzeile.") }}</p>
 
 <section class="card narrow">
   <h2 class="card-h">{{ _("Passwort ändern") }}</h2>

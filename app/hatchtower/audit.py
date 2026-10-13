@@ -56,6 +56,7 @@ ACTION_LABELS = {
     "setup.owner": "Einrichtung: Owner angelegt",
     "connection.update": "Verbindung geändert",
     "theme.update": "Theme geändert",
+    "view.update": "Ansicht geändert",
     "group.delete": "Rechtegruppe gelöscht",
     "user.invite": "Einladung erstellt",
     "user.invite_revoke": "Einladung zurückgezogen",

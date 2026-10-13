@@ -80,6 +80,7 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/", "login", "Übersicht (nur sichtbare Server); ?als= nur für Owner"),
     R("GET", "/api/overview", "login", "Live-Werte der Übersicht (nur sichtbare Server)"),
     R("GET", "/theme/{key}", "login", "Theme umschalten"),
+    R("GET", "/view/{mode}", "login", "Einfache oder vollständige Ansicht umschalten"),
     R("POST", "/logout", "login", "Abmelden", csrf="form"),
     R("GET", "/logos/{filename}", "login", "Serverlogos"),
     R("GET", "/about", "login", "Über Hatchtower, Paketliste"),

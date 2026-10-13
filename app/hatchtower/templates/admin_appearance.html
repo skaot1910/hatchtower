@@ -19,12 +19,19 @@
           {% for t in themes %}<option value="{{ t.key }}" {% if t.key == default_theme %}selected{% endif %}>{{ _(t.name) }}</option>{% endfor %}
         </select>
       </label>
+      <label>{{ _("Standard-Ansicht für Benutzer") }}
+        <select name="default_view">
+          <option value="full" {% if default_view != 'simple' %}selected{% endif %}>{{ _("Alles") }}</option>
+          <option value="simple" {% if default_view == 'simple' %}selected{% endif %}>{{ _("Einfach") }}</option>
+        </select>
+      </label>
       <label>{{ _("Community-Discord (Einladungslink oder Code, leer = ausblenden)") }}
         <input name="discord" value="{{ discord_url }}" maxlength="80" placeholder="https://discord.gg/…" spellcheck="false">
       </label>
       <label class="check brand-check"><input type="checkbox" name="show_name" value="1" {% if brand.show_name %}checked{% endif %}> {{ _("Eigenen Namen neben dem Logo anzeigen") }}</label>
     </div>
     <p class="faint small">{{ _("Dein eigener Name steht groß in der Kopfzeile und auf der Login-Seite, „Hatchtower“ dezent darunter und in der Fußzeile. Ohne eigenen Namen steht dort einfach „Hatchtower“. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.") }}</p>
+    <p class="faint small">{{ _("Die einfache Ansicht zeigt pro Server nur Status, Adresse, Passwort und Start/Stopp. Owner sehen immer alles, solange sie nichts anderes wählen; jeder kann oben rechts umschalten.") }}</p>
     <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
   </form>
 </section>
