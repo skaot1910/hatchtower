@@ -1127,3 +1127,7 @@ a.file-link:hover { color: var(--violet-3); }
 .feed-cols { margin-bottom: 0; }
 .feed-actions { justify-content: flex-start; }
 .target-check { margin-top: 2px; }
+.feed > summary .feed-desc { flex-basis: 100%; }
+.feed-buttons { justify-content: flex-start; gap: 8px; }
+.warn-text { color: var(--amber); }
+.dns-result { margin-top: 12px; }

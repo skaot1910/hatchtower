@@ -56,9 +56,28 @@ def thresholds() -> dict[str, int]:
             "cpu_minutes": num("notify_cpu_minutes", 5, 1, 60)}
 
 
-def webhook_events() -> set[str]:
-    raw = db.get_setting("notify_webhook_events", ",".join(EVENTS))
-    return {e for e in raw.split(",") if e in EVENTS}
+def load_webhooks() -> list:
+    with db.connect() as con:
+        return con.execute("SELECT * FROM notify_webhooks ORDER BY title COLLATE NOCASE, id").fetchall()
+
+
+def hook_events(hook) -> set[str]:
+    return {e for e in (hook["events"] or "").split(",") if e in EVENTS}
+
+
+def hook_servers(hook) -> set[str]:
+    """Leere Menge = alle Server, auch künftige."""
+    return {i for i in (hook["servers"] or "").split(",") if i}
+
+
+def hook_wants(hook, event: str, ident: str | None) -> bool:
+    if event == "test":
+        return True
+    if not hook["enabled"] or event not in hook_events(hook):
+        return False
+    servers = hook_servers(hook)
+    # Meldungen ohne Server (Panel) und „Neuer Server“ gehen an jeden Webhook mit dem Ereignis
+    return not servers or not ident or event == "new_server" or ident in servers
 
 
 def _cooldown_ok(key: str, seconds: int) -> bool:
@@ -113,29 +132,37 @@ async def _post_webhook(url: str, kind: str, event: str, title: str, text: str, 
         raise RuntimeError(i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code))
 
 
-async def deliver(vault, event: str, ident: str | None, detail: str = "", *, only: str | None = None) -> list[str]:
-    """Verschickt eine Meldung sofort. only = 'webhook' oder 'mail' für Testnachrichten."""
+async def deliver(vault, event: str, ident: str | None, detail: str = "", *, only: str | None = None,
+                  hook_id: int | None = None) -> list[str]:
+    """Verschickt eine Meldung sofort. only = 'webhook' oder 'mail' für Testnachrichten,
+    hook_id = nur an diesen einen Webhook."""
     previous = i18n.current()
     i18n.use_default()
     try:
-        return await _deliver(vault, event, ident, detail, only=only)
+        return await _deliver(vault, event, ident, detail, only=only, hook_id=hook_id)
     finally:
         i18n.set_language(previous)    # bei einer Testnachricht läuft danach die Anfrage weiter
 
 
-async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: str | None) -> list[str]:
+async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: str | None,
+                   hook_id: int | None = None) -> list[str]:
     name = _server_name(ident)
     title = i18n.t(EVENTS.get(event, "Testnachricht"))
     if name:
         title = f"{title}: {name}"
     text = detail or title
     errors = []
-    url = vault.decrypt(db.get_setting("notify_webhook_url_enc"))
-    if url and only in (None, "webhook") and (event == "test" or event in webhook_events()):
-        try:
-            await _post_webhook(url, db.get_setting("notify_webhook_type", "discord"), event, title, text, ident, name)
-        except Exception as exc:
-            errors.append(f"Webhook: {exc}")
+    if only in (None, "webhook"):
+        for hook in load_webhooks():
+            if (hook_id is not None and hook["id"] != hook_id) or not hook_wants(hook, event, ident):
+                continue
+            url = vault.decrypt(hook["url_enc"])
+            if not url:
+                continue
+            try:
+                await _post_webhook(url, hook["kind"], event, title, text, ident, name)
+            except Exception as exc:
+                errors.append(f"Webhook „{hook['title']}“: {exc}")
     if only in (None, "mail"):
         cfg = mailer.load_config(vault)
         recipients = _email_recipients(event, ident) if only is None else []

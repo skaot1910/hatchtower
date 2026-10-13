@@ -365,7 +365,12 @@
     var action = document.getElementById("sched-action");
     var cmdField = document.getElementById("sched-command");
     if (action && cmdField) {
-      var sync = function () { cmdField.hidden = action.value !== "command"; };
+      var sync = function () {
+        var update = action.value === "update";
+        cmdField.hidden = action.value !== "command";
+        ["sched-update"].forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = !update; });
+        ["sched-only-running", "sched-warn"].forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = update; });
+      };
       action.addEventListener("change", sync);
       sync();
       // Nur Aktionen anbieten, für die der Benutzer auf dem gewählten Server das Recht hat

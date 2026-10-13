@@ -262,6 +262,8 @@ def world(monkeypatch, tmp_path) -> World:
         fid = con.execute("INSERT INTO status_feeds (name, url_enc, fields, created_at) VALUES ('Clan', ?, 'name,status', ?)",
                           (main.vault.encrypt(FEED_URL), db.utcnow())).lastrowid
         con.execute("INSERT INTO status_feed_servers (feed_id, identifier) VALUES (?, 'srv-a')", (fid,))
+        hid = con.execute("INSERT INTO notify_webhooks (title, url_enc, events, created_at) VALUES ('Alarm', ?, 'crash', ?)",
+                          (main.vault.encrypt(FEED_URL), db.utcnow())).lastrowid
     (tmp_path / "bk" / "Welt" / "Server_srv-a").mkdir(parents=True)
     (tmp_path / "bk" / "Welt" / "Server_srv-a" / "alt.zip").write_bytes(b"PK\x05\x06" + b"\x00" * 18)
     for key, value in {"brand_logo_header": "f" * 32 + ".webp", "mail_password_enc": main.vault.encrypt("smtp"),
@@ -272,7 +274,7 @@ def world(monkeypatch, tmp_path) -> World:
     invite = accounts.create("invite", data={"role": "user"}, created_by=1)
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
-        "job_id": str(jid), "feed_id": str(fid), "run_id": str(rid), "target_id": str(tid),
+        "job_id": str(jid), "feed_id": str(fid), "hook_id": str(hid), "run_id": str(rid), "target_id": str(tid),
         "token_hash": accounts._hash(invite), "kind": "header", "page": "impressum", "key": "hell", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,

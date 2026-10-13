@@ -46,7 +46,7 @@
       <tr class="{% if not x.s.enabled %}row-off{% endif %}">
         <td><strong>{{ x.s.name }}</strong>{% if not x.s.enabled %} <span class="badge">{{ _("pausiert") }}</span>{% endif %}</td>
         <td data-label="{{ _("Server") }}">{{ x.server }}</td>
-        <td data-label="{{ _("Aktion") }}">{{ x.action }}{% if x.s.command %} <span class="mono faint small">{{ x.s.command }}</span>{% endif %}{% if x.s.only_if_running and x.s.action != 'start' %}<div class="faint small">{{ _("nur wenn gestartet") }}</div>{% endif %}</td>
+        <td data-label="{{ _("Aktion") }}">{{ x.action }}{% if x.duration %} <span class="faint small">{{ _("für {dauer}", dauer=x.duration) }}</span>{% endif %}{% if x.until %}<div class="small good">{{ _("läuft, Stopp um {zeit}", zeit=x.until) }}</div>{% endif %}{% if x.s.command %} <span class="mono faint small">{{ x.s.command }}</span>{% endif %}{% if x.s.only_if_running and x.s.action not in ('start', 'update') %}<div class="faint small">{{ _("nur wenn gestartet") }}</div>{% endif %}</td>
         <td class="nowrap" data-label="{{ _("Wann") }}">{{ x.when }}</td>
         <td data-label="{{ _("Vorwarnung") }}">{% if x.s.warn_minutes %}{{ _("{n} Min. vorher", n=x.s.warn_minutes) }}<div class="mono faint small">{{ x.s.warn_command }}</div>{% else %}<span class="faint">–</span>{% endif %}</td>
         <td class="faint small" data-label="{{ _("Zuletzt") }}">{{ x.s.last_result or '–' }}</td>
@@ -90,12 +90,20 @@
         <label>{{ _("Uhrzeit") }}<input name="time" type="time" required value="05:00"></label>
       </div>
       <label id="sched-command">{{ _("Befehl (nur bei Aktion „Befehl“)") }}<input name="command" maxlength="500" placeholder="save"></label>
+      <div id="sched-update" hidden>
+        <label>{{ _("Dauer des Update-Fensters") }}
+          <select name="duration">
+            {% for m, label in durations.items() %}<option value="{{ m }}" {% if m == 60 %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <p class="faint small">{{ _("Das Update-Fenster startet den Server zur gewählten Zeit, damit er Spiel-Updates laden kann, und stoppt ihn nach der Dauer wieder. Es greift nur, wenn der Server in dem Moment aus ist. Startet ihn jemand während des Fensters in Hatchtower von Hand, bleibt er danach an.") }}</p>
+      </div>
       <fieldset class="weekdays" id="sched-weekdays">
         <legend>{{ _("Wochentage") }}</legend>
         {% for d in weekdays %}<label class="check"><input type="checkbox" name="weekdays" value="{{ loop.index0 }}" checked> {{ d }}</label>{% endfor %}
       </fieldset>
-      <label class="check"><input type="checkbox" name="only_if_running" value="1" checked> {{ _("Nur ausführen, wenn der Server läuft (gilt nicht für Start)") }}</label>
-      <div class="form-grid">
+      <label class="check" id="sched-only-running"><input type="checkbox" name="only_if_running" value="1" checked> {{ _("Nur ausführen, wenn der Server läuft (gilt nicht für Start)") }}</label>
+      <div class="form-grid" id="sched-warn">
         <label>{{ _("Vorwarnung (Minuten vorher, optional)") }}<input name="warn_minutes" inputmode="numeric" placeholder="5"></label>
         <label>{{ _("Vorwarn-Befehl") }}<input name="warn_command" maxlength="300" placeholder="{{ _("say Neustart in {minuten} Minuten!") }}"></label>
       </div>

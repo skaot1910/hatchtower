@@ -460,6 +460,59 @@ MIGRATIONS: list[str] = [
     """
     CREATE INDEX audit_server ON audit_log(server, id);
     """,
+    # 22: Mehrere Benachrichtigungs-Webhooks mit Titel, Beschreibung und optionaler Server-Auswahl
+    #     (leer = alle Server). Der bisherige einzelne Webhook wird übernommen.
+    #     Zeitpläne bekommen die Aktion „Update-Fenster“ (Start für eine Dauer, danach Stopp).
+    """
+    CREATE TABLE notify_webhooks (
+        id          INTEGER PRIMARY KEY,
+        title       TEXT NOT NULL,
+        description TEXT,
+        kind        TEXT NOT NULL DEFAULT 'discord',
+        url_enc     TEXT NOT NULL,
+        events      TEXT NOT NULL,
+        servers     TEXT NOT NULL DEFAULT '',
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT
+    );
+    INSERT INTO notify_webhooks (title, kind, url_enc, events, created_at)
+        SELECT 'Webhook', COALESCE((SELECT value FROM app_settings WHERE key = 'notify_webhook_type'), 'discord'),
+               u.value,
+               COALESCE((SELECT value FROM app_settings WHERE key = 'notify_webhook_events'),
+                        'crash,restarted,restart_failed,disk,ram,cpu,schedule_failed,panel_down,panel_up,new_server,backup_failed,backup_ok'),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')
+        FROM app_settings u WHERE u.key = 'notify_webhook_url_enc' AND COALESCE(u.value, '') != '';
+    DELETE FROM app_settings WHERE key IN ('notify_webhook_url_enc', 'notify_webhook_type', 'notify_webhook_events');
+
+    CREATE TABLE schedules_new (
+        id               INTEGER PRIMARY KEY,
+        identifier       TEXT NOT NULL,
+        name             TEXT NOT NULL,
+        action           TEXT NOT NULL CHECK (action IN ('start', 'stop', 'restart', 'command', 'update')),
+        command          TEXT,
+        weekdays         TEXT NOT NULL,
+        time             TEXT NOT NULL,
+        only_if_running  INTEGER NOT NULL DEFAULT 1,
+        warn_minutes     INTEGER,
+        warn_command     TEXT,
+        enabled          INTEGER NOT NULL DEFAULT 1,
+        last_run         TEXT,
+        last_warn        TEXT,
+        last_result      TEXT,
+        created_by       INTEGER,
+        created_at       TEXT NOT NULL,
+        run_at           TEXT,
+        duration_minutes INTEGER,
+        window_until     TEXT
+    );
+    INSERT INTO schedules_new (id, identifier, name, action, command, weekdays, time, only_if_running, warn_minutes,
+                               warn_command, enabled, last_run, last_warn, last_result, created_by, created_at, run_at)
+        SELECT id, identifier, name, action, command, weekdays, time, only_if_running, warn_minutes,
+               warn_command, enabled, last_run, last_warn, last_result, created_by, created_at, run_at FROM schedules;
+    DROP TABLE schedules;
+    ALTER TABLE schedules_new RENAME TO schedules;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

@@ -158,6 +158,7 @@ Grundregeln:
 | Methode | Pfad | CSRF | Zweck |
 |---|---|---|---|
 | GET | `/setup` | – | Einrichtungsassistent (vor dem ersten Konto öffentlich) |
+| POST | `/setup/legal` | Formular | Assistent: Vorlagen für Impressum/Datenschutz anlegen (bleiben aus) |
 | GET | `/admin/connection` | – | System → Panel: Verbindung zum Panel (Pterodactyl, Pelican, Calagopus) |
 | POST | `/admin/connection/panel` | Formular | Panel-Art, Panel-Adresse und Application-Key |
 | POST | `/admin/connection/client` | Formular | Client-Key |
@@ -206,8 +207,11 @@ Grundregeln:
 | POST | `/admin/mail/password/delete` | Formular | SMTP-Passwort entfernen |
 | POST | `/admin/mail/test` | Formular | Testmail senden |
 | GET | `/admin/notify` | – | Benachrichtigungen |
-| POST | `/admin/notify` | Formular | Benachrichtigungen speichern |
-| POST | `/admin/notify/test` | Formular | Test-Webhook senden |
+| POST | `/admin/notify` | Formular | Schwellenwerte für Benachrichtigungen |
+| POST | `/admin/notify/webhook` | Formular | Webhook hinzufügen (Titel, Beschreibung, Ereignisse, Server) |
+| POST | `/admin/notify/webhook/{hook_id}` | Formular | Webhook ändern |
+| POST | `/admin/notify/webhook/{hook_id}/delete` | Formular | Webhook entfernen |
+| POST | `/admin/notify/webhook/{hook_id}/test` | Formular | Testnachricht an einen Webhook |
 | GET | `/admin/data` | – | System → Daten: Aufbewahrung und Datenumzug |
 | POST | `/admin/data/retention` | Formular | Aufbewahrungsfristen |
 | POST | `/admin/data/export` | Formular | Alle Daten verschlüsselt exportieren (Passwort nötig) |

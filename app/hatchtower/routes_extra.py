@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -713,12 +713,15 @@ async def admin_mail_test(request: Request, to: str = Form("")):
 # == System: Netzwerk (Adressen und Reverse-Proxy) ===================================================
 
 @app.get("/admin/network", response_class=HTMLResponse)
-async def admin_network(request: Request):
+async def admin_network(request: Request, pruefen: str = ""):
     from .config import format_proxies
     require_owner(request)
     cfg = mail_config()
+    host = urlsplit(cfg.base_url or link_base(request)).hostname or ""
+    dns = await setup.dns_check(host) if pruefen and host else None
     return render(request, "admin_network.html", base_url=cfg.base_url, suggested_base=link_base(request),
-                  public_host=db.get_setting("public_host"), trusted_proxies=format_proxies(settings.trusted_proxies))
+                  public_host=db.get_setting("public_host"), trusted_proxies=format_proxies(settings.trusted_proxies),
+                  dns=dns, dns_host=host)
 
 
 @app.post("/admin/network")
@@ -747,63 +750,143 @@ async def admin_network_save(request: Request, base_url: str = Form(""), public_
 
 # == System: Benachrichtigungen ======================================================================
 
+NOTIFY = "/admin/notify"
+
+
 @app.get("/admin/notify", response_class=HTMLResponse)
 async def admin_notify(request: Request):
     require_owner(request)
-    url = vault.decrypt(db.get_setting("notify_webhook_url_enc")) or ""
+    hooks = []
+    for h in notify.load_webhooks():
+        url = vault.decrypt(h["url_enc"]) or ""
+        hooks.append({"h": h, "events": notify.hook_events(h), "servers": notify.hook_servers(h),
+                      "hint": (url[:40] + "…") if url else ""})
     with db.connect() as con:
         subscribers = con.execute("SELECT username FROM users WHERE notify_email = 1 AND email_verified = 1"
                                   " AND is_active = 1 ORDER BY username").fetchall()
-    return render(request, "admin_notify.html", events=notify.EVENTS, active=notify.webhook_events(),
-                  webhook_set=bool(url), webhook_hint=(url[:40] + "…") if url else "",
-                  webhook_type=db.get_setting("notify_webhook_type", "discord"), limits=notify.thresholds(),
-                  subscribers=[r["username"] for r in subscribers], mail_ready=mail_config().ready)
+    return render(request, "admin_notify.html", events=notify.EVENTS, hooks=hooks, servers=present_servers(),
+                  limits=notify.thresholds(), subscribers=[r["username"] for r in subscribers],
+                  mail_ready=mail_config().ready)
 
 
 @app.post("/admin/notify")
-async def admin_notify_save(request: Request, webhook_url: str = Form(""), webhook_type: str = Form("discord"),
-                            disk_pct: str = Form("90"), ram_pct: str = Form("90"), ram_minutes: str = Form("5"),
-                            cpu_pct: str = Form("90"), cpu_minutes: str = Form("5"), remove_webhook: str = Form("")):
+async def admin_notify_save(request: Request, disk_pct: str = Form("90"), ram_pct: str = Form("90"),
+                            ram_minutes: str = Form("5"), cpu_pct: str = Form("90"), cpu_minutes: str = Form("5")):
     owner = require_owner(request)
     await check_csrf(request)
-    form = await request.form()
-    url = webhook_url.strip()
-    if url and (not url.startswith(("https://", "http://")) or len(url) > 500 or any(c.isspace() for c in url)):
-        return back("/admin/notify", "Bitte eine gültige Webhook-Adresse eingeben (https://…)")
     numbers = {}
     for key, value, lo, hi in (("disk", disk_pct, 50, 99), ("ram", ram_pct, 50, 99), ("ram_minutes", ram_minutes, 1, 60),
                                  ("cpu", cpu_pct, 50, 100), ("cpu_minutes", cpu_minutes, 1, 60)):
         if not value.strip().isdigit() or not lo <= int(value) <= hi:
-            return back("/admin/notify", i18n.t("Bitte prüfen: {list}", list=i18n.t("Schwellenwerte")))
+            return back(NOTIFY, i18n.t("Bitte prüfen: {list}", list=i18n.t("Schwellenwerte")))
         numbers[key] = value.strip()
-    if url:
-        db.set_setting("notify_webhook_url_enc", vault.encrypt(url), owner.id)
-    elif remove_webhook:
-        db.set_setting("notify_webhook_url_enc", "", owner.id)
-    db.set_setting("notify_webhook_type", webhook_type if webhook_type in notify.WEBHOOK_TYPES else "discord", owner.id)
-    db.set_setting("notify_webhook_events", ",".join(e for e in notify.EVENTS if form.get(f"event__{e}")), owner.id)
     db.set_setting("notify_disk_pct", numbers["disk"], owner.id)
     db.set_setting("notify_ram_pct", numbers["ram"], owner.id)
     db.set_setting("notify_ram_minutes", numbers["ram_minutes"], owner.id)
     db.set_setting("notify_cpu_pct", numbers["cpu"], owner.id)
     db.set_setting("notify_cpu_minutes", numbers["cpu_minutes"], owner.id)
-    owner_audit(request, owner, "settings.notify", detail={"webhook": "neu" if url else ("entfernt" if remove_webhook else "unverändert"),
-                                                            "type": webhook_type, **numbers})
-    return back("/admin/notify", "Benachrichtigungen gespeichert")
+    owner_audit(request, owner, "settings.notify", detail=numbers)
+    return back(NOTIFY, "Schwellenwerte gespeichert")
 
 
-@app.post("/admin/notify/test")
-async def admin_notify_test(request: Request):
+def webhook_form(form, hook=None) -> tuple[dict | None, str | None]:
+    """Liest das Formular eines Webhooks. Leere Adresse behält beim Bearbeiten die gespeicherte."""
+    title = " ".join(str(form.get("title", "")).split())[:60]
+    description = str(form.get("description", "")).strip()[:300]
+    url = str(form.get("url", "")).strip()
+    if not title:
+        return None, "Bitte einen Titel für den Webhook angeben"
+    if (url or hook is None) and (not url.startswith(("https://", "http://")) or len(url) > 500
+                                  or any(c.isspace() for c in url)):
+        return None, "Bitte eine gültige Webhook-Adresse eingeben (https://…)"
+    kind = str(form.get("kind", "discord"))
+    known = server_names()
+    servers = sorted({k.split("__", 1)[1] for k in form.keys() if k.startswith("server__")} & set(known))
+    values = {"title": title, "description": description or None,
+              "kind": kind if kind in notify.WEBHOOK_TYPES else "discord",
+              "events": ",".join(e for e in notify.EVENTS if form.get(f"event__{e}")),
+              "servers": "" if form.get("all_servers") else ",".join(servers),
+              "enabled": 1 if form.get("enabled") else 0}
+    if not form.get("all_servers") and not servers:
+        return None, "Bitte Server wählen oder „Alle Server, auch künftige“ ankreuzen"
+    if url:
+        values["url_enc"] = vault.encrypt(url)
+    return values, None
+
+
+def webhook_audit(values: dict) -> dict:
+    known = server_names()
+    return {"webhook": values["title"], "aktiv": bool(values["enabled"]), "format": values["kind"],
+            "ereignisse": values["events"].split(",") if values["events"] else [],
+            "servers": sorted(known.get(i, i) for i in values["servers"].split(",") if i) or "alle",
+            "adresse": "neu" if "url_enc" in values else "unverändert"}
+
+
+def load_webhook(hook_id: int):
+    with db.connect() as con:
+        return con.execute("SELECT * FROM notify_webhooks WHERE id = ?", (hook_id,)).fetchone()
+
+
+@app.post("/admin/notify/webhook")
+async def admin_webhook_create(request: Request):
     owner = require_owner(request)
     await check_csrf(request)
-    if not db.get_setting("notify_webhook_url_enc"):
-        return back("/admin/notify", "Es ist noch kein Webhook eingetragen")
-    errors = await notify.deliver(vault, "test", None, i18n.t("Testnachricht von Hatchtower: Benachrichtigungen funktionieren."),
-                                  only="webhook")
-    owner_audit(request, owner, "settings.notify", detail="Testnachricht", result="error" if errors else "ok")
+    values, error = webhook_form(await request.form())
+    if error:
+        return back(NOTIFY + "#webhooks", error)
+    values["created_at"] = values["updated_at"] = db.utcnow()
+    with db.connect() as con:
+        con.execute(f"INSERT INTO notify_webhooks ({', '.join(values)}) VALUES ({', '.join('?' * len(values))})",
+                    tuple(values.values()))
+    owner_audit(request, owner, "settings.notify", detail={**webhook_audit(values), "neu": True})
+    return back(NOTIFY + "#webhooks", i18n.t("Webhook „{name}“ angelegt", name=values["title"]))
+
+
+@app.post("/admin/notify/webhook/{hook_id}")
+async def admin_webhook_update(request: Request, hook_id: int):
+    owner = require_owner(request)
+    await check_csrf(request)
+    hook = load_webhook(hook_id)
+    if hook is None:
+        return back(NOTIFY + "#webhooks")
+    values, error = webhook_form(await request.form(), hook)
+    if error:
+        return back(NOTIFY + "#webhooks", error)
+    values["updated_at"] = db.utcnow()
+    with db.connect() as con:
+        con.execute(f"UPDATE notify_webhooks SET {', '.join(f'{k} = ?' for k in values)} WHERE id = ?",
+                    (*values.values(), hook_id))
+    owner_audit(request, owner, "settings.notify", detail=webhook_audit(values))
+    return back(NOTIFY + "#webhooks", i18n.t("Webhook „{name}“ gespeichert", name=values["title"]))
+
+
+@app.post("/admin/notify/webhook/{hook_id}/delete")
+async def admin_webhook_delete(request: Request, hook_id: int):
+    owner = require_owner(request)
+    await check_csrf(request)
+    hook = load_webhook(hook_id)
+    if hook is None:
+        return back(NOTIFY + "#webhooks")
+    with db.connect() as con:
+        con.execute("DELETE FROM notify_webhooks WHERE id = ?", (hook_id,))
+    owner_audit(request, owner, "settings.notify", detail={"webhook": hook["title"], "geloescht": True})
+    return back(NOTIFY + "#webhooks", i18n.t("Webhook „{name}“ entfernt", name=hook["title"]))
+
+
+@app.post("/admin/notify/webhook/{hook_id}/test")
+async def admin_webhook_test(request: Request, hook_id: int):
+    owner = require_owner(request)
+    await check_csrf(request)
+    hook = load_webhook(hook_id)
+    if hook is None:
+        return back(NOTIFY + "#webhooks")
+    errors = await notify.deliver(vault, "test", None, i18n.t("Testnachricht von Hatchtower an „{name}“: Benachrichtigungen funktionieren.",
+                                                             name=hook["title"]), only="webhook", hook_id=hook_id)
+    owner_audit(request, owner, "settings.notify", detail={"webhook": hook["title"], "test": True},
+                result="error" if errors else "ok")
     if errors:
-        return back("/admin/notify", i18n.t("Fehlgeschlagen: {grund}", grund="; ".join(errors)))
-    return back("/admin/notify", "Testnachricht verschickt")
+        return back(NOTIFY + "#webhooks", i18n.t("Fehlgeschlagen: {grund}", grund="; ".join(errors)))
+    return back(NOTIFY + "#webhooks", i18n.t("Testnachricht an „{name}“ verschickt", name=hook["title"]))
 
 
 # == System: Statusseite und Discord ===================================================================

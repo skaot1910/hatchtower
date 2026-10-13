@@ -18,17 +18,21 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from . import __version__, db
+from .notify import EVENTS
 
 MAGIC = b"HATCHTOWER-EXPORT-1\n"
 FORMAT = "hatchtower-export"
-SECRET_SETTINGS = ("conn_app_key", "conn_client_key", "mail_password_enc", "notify_webhook_url_enc")
+SECRET_SETTINGS = ("conn_app_key", "conn_client_key", "mail_password_enc")
 SKIP_SETTINGS = ("setup_token_hash", "setup_token_created")
 # Exporte älterer Versionen hatten genau einen Discord-Webhook in den Einstellungen
 LEGACY_DISCORD = ("status_discord_url_enc", "status_discord_enabled", "status_discord_fields", "status_discord_msg")
+# … und genau einen Benachrichtigungs-Webhook
+LEGACY_NOTIFY = ("notify_webhook_url_enc", "notify_webhook_type", "notify_webhook_events")
+URL_TABLES = ("status_feeds", "notify_webhooks")    # Webhook-Adresse steht verschlüsselt in url_enc
 TABLES = ("users", "perm_groups", "perm_group_items", "user_server_permissions", "user_server_groups",
           "favorites", "server_meta", "automation_settings", "schedules", "announcements",
           "user_default_access", "backup_targets", "backup_jobs", "backup_job_items", "status_feeds",
-          "status_feed_servers")
+          "status_feed_servers", "notify_webhooks")
 LOGO_NAME = re.compile(r"^[0-9a-f]{32}\.webp$")
 MAX_IMPORT_BYTES = 50 * 1024 * 1024
 
@@ -65,7 +69,7 @@ def build_export(vault, logo_dir: Path, passphrase: str) -> bytes:
             if table == "backup_targets":
                 for row in rows:
                     row["smb_password"] = vault.decrypt(row.pop("smb_password_enc", None))
-            if table == "status_feeds":
+            if table in URL_TABLES:
                 for row in rows:
                     row["url"] = vault.decrypt(row.pop("url_enc", None))
             data["tables"][table] = rows
@@ -128,7 +132,7 @@ def apply_import(data: dict, vault, logo_dir: Path) -> None:
                 if table == "backup_targets":
                     password = row.pop("smb_password", None)
                     row["smb_password_enc"] = vault.encrypt(password) if password else None
-                if table == "status_feeds":
+                if table in URL_TABLES:
                     url = row.pop("url", None)
                     if not url:
                         continue
@@ -151,8 +155,14 @@ def apply_import(data: dict, vault, logo_dir: Path) -> None:
                  db.utcnow())).lastrowid
             con.execute("INSERT INTO status_feed_servers (feed_id, identifier)"
                         " SELECT ?, identifier FROM server_meta WHERE on_status = 1", (feed_id,))
+        legacy_hook = data.get("secrets", {}).get("notify_webhook_url_enc")
+        if legacy_hook and "notify_webhooks" not in data["tables"]:
+            settings = data.get("settings", {})
+            con.execute("INSERT INTO notify_webhooks (title, kind, url_enc, events, created_at) VALUES (?, ?, ?, ?, ?)",
+                        ("Webhook", settings.get("notify_webhook_type") or "discord", vault.encrypt(legacy_hook),
+                         settings.get("notify_webhook_events", ",".join(EVENTS)), db.utcnow()))
         for key, value in values.items():
-            if key in SKIP_SETTINGS or key in LEGACY_DISCORD:
+            if key in SKIP_SETTINGS or key in LEGACY_DISCORD or key in LEGACY_NOTIFY:
                 continue
             con.execute("INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)"
                         " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",

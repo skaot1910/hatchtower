@@ -489,7 +489,8 @@ async def login(request: Request, username: str = Form(""), password: str = Form
 
 # -- Einrichtung (Assistent) und Verbindung ------------------------------------------
 
-SETUP_STEPS = [("owner", "Konto"), ("panel", "Panel"), ("client", "Client-Key"), ("nodes", "Wings"), ("options", "Optionen")]
+SETUP_STEPS = [("owner", "Konto"), ("panel", "Panel"), ("client", "Client-Key"), ("nodes", "Wings"), ("options", "Optionen"),
+               ("legal", "Rechtliches")]
 
 
 def setup_steps() -> list[tuple[str, str]]:
@@ -708,8 +709,27 @@ async def connection_options(request: Request, mode: str = Form("read-only"), pu
     await apply_connection()
     audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail=detail)
     if next.startswith("/setup"):
-        return back("/", "Einrichtung abgeschlossen. Willkommen bei Hatchtower!")
+        return back("/setup?step=legal", "Optionen gespeichert")
     return connection_back(next, "Modus gespeichert")
+
+
+@app.post("/setup/legal")
+async def setup_legal(request: Request, sprache: str = Form("")):
+    """Letzter Schritt des Assistenten (optional): Vorlagen für Impressum und Datenschutzerklärung übernehmen.
+    Die Seiten bleiben ausgeschaltet, bis der Owner die Angaben ergänzt und sie unter Rechtliches einschaltet."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    form = await request.form()
+    lang = sprache if sprache in i18n.LANGUAGES else i18n.current()
+    chosen = [page for page in legal.PAGES if form.get(f"page__{page}")]
+    for page in chosen:
+        if not legal.text(page):                 # vorhandene Texte nie überschreiben
+            db.set_setting(legal.PAGES[page] + "_text", legal.template(page, lang), owner.id)
+    if not chosen:
+        return back("/", "Einrichtung abgeschlossen. Willkommen bei Hatchtower!")
+    audit.record("settings.legal", user_id=owner.id, username=owner.username, ip=ip_of(request),
+                 detail={"vorlage": chosen, "sprache": lang})
+    return back("/admin/legal", "Einrichtung abgeschlossen. Ergänze jetzt die Angaben in eckigen Klammern und schalte die Seiten ein.")
 
 
 def proxies_problem(value: str) -> str | None:
@@ -1796,6 +1816,8 @@ async def admin_automation(request: Request):
         "s": s, "server": names.get(s["identifier"], s["identifier"]), "when": automation.describe(s),
         "action": i18n.t(automation.ACTIONS.get(s["action"], s["action"])),
         "editable": user.schedule_allowed(s["identifier"], s["action"]),
+        "duration": automation.duration_text(s["duration_minutes"]) if s["action"] == "update" else "",
+        "until": (fmt_dt(s["window_until"], settings.timezone) if s["window_until"] else ""),
     } for s in schedules]
     crash_view = [{"server": names.get(c["identifier"], c["identifier"]),
                    "at": fmt_dt(c["detected_at"], settings.timezone), "outcome": c["outcome"]} for c in crashes]
@@ -1805,6 +1827,7 @@ async def admin_automation(request: Request):
     return render(request, "admin_automation.html", servers=servers, crash=settings_rows, schedules=sched_view,
                   crashes=crash_view, weekdays=[i18n.t(d) for d in automation.WEEKDAYS],
                   actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()}, allowed_actions=allowed_actions,
+                  durations={m: automation.duration_text(m) for m in automation.DURATIONS},
                   tz_offset=setup.utc_offset_label(settings.timezone))
 
 
@@ -1833,7 +1856,8 @@ async def admin_automation_crash(request: Request):
 async def admin_schedule_create(request: Request, identifier: str = Form(""), name: str = Form(""),
                                 action: str = Form(""), command: str = Form(""), time_: str = Form("", alias="time"),
                                 only_if_running: str = Form(""), warn_minutes: str = Form(""),
-                                warn_command: str = Form(""), repeat: str = Form("weekly"), date: str = Form("")):
+                                warn_command: str = Form(""), repeat: str = Form("weekly"), date: str = Form(""),
+                                duration: str = Form("60")):
     owner, known = require_automation(request)
     await check_csrf(request)
     form = await request.form()
@@ -1851,6 +1875,12 @@ async def admin_schedule_create(request: Request, identifier: str = Form(""), na
         problems.append("Vorwarn-Befehl nur mit dem Recht „Befehle senden“")
     if action == "command" and (not command.strip() or len(command) > 500 or "\n" in command):
         problems.append("Befehl angeben")
+    minutes = None
+    if action == "update":
+        minutes = int(duration) if duration.isdigit() and int(duration) in automation.DURATIONS else None
+        if minutes is None:
+            problems.append("Dauer des Update-Fensters")
+        command, only_if_running, warn_minutes, warn_command = "", "", "", ""
     run_at = None
     if repeat == "once":
         days = ""
@@ -1882,14 +1912,15 @@ async def admin_schedule_create(request: Request, identifier: str = Form(""), na
     with db.connect() as con:
         con.execute(
             "INSERT INTO schedules (identifier, name, action, command, weekdays, time, only_if_running,"
-            " warn_minutes, warn_command, enabled, created_by, created_at, run_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+            " warn_minutes, warn_command, enabled, created_by, created_at, run_at, duration_minutes)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
             (identifier, name.strip(), action, command.strip() or None, days, time_, 1 if only_if_running else 0,
              warn if warn and warn_command.strip() else None, warn_command.strip() or None, owner.id, db.utcnow(),
-             run_at),
+             run_at, minutes),
         )
     audit.record("schedule.create", user_id=owner.id, username=owner.username, ip=ip_of(request), server=identifier,
-                 detail={"name": name.strip(), "action": action, "time": time_, "weekdays": days, "einmalig": run_at})
+                 detail={"name": name.strip(), "action": action, "time": time_, "weekdays": days, "einmalig": run_at,
+                         **({"dauer_min": minutes} if minutes else {})})
     return back("/admin/automation", "Zeitplan angelegt")
 
 

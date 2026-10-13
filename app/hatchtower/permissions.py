@@ -72,7 +72,9 @@ PERMISSIONS: tuple[Permission, ...] = (
 )
 
 # Welches Recht ein Zeitplan mit dieser Aktion voraussetzt
-AUTOMATION_NEEDS = {"start": "power.start", "stop": "power.stop", "restart": "power.restart", "command": "console.command"}
+# Rechte, die ein Zeitplan je Aktion braucht (Update-Fenster startet und stoppt)
+AUTOMATION_NEEDS = {"start": ("power.start",), "stop": ("power.stop",), "restart": ("power.restart",),
+                    "command": ("console.command",), "update": ("power.start", "power.stop")}
 
 BY_KEY = {p.key: p for p in PERMISSIONS}
 ALL_KEYS = tuple(BY_KEY)
@@ -128,7 +130,8 @@ class UserContext:
 
     def schedule_allowed(self, identifier: str, action: str) -> bool:
         need = AUTOMATION_NEEDS.get(action)
-        return need is not None and (self.is_owner or (self.can(identifier, "automation.manage") and self.can(identifier, need)))
+        return need is not None and (self.is_owner or (self.can(identifier, "automation.manage")
+                                                       and all(self.can(identifier, n) for n in need)))
 
     @property
     def can_backup(self) -> bool:

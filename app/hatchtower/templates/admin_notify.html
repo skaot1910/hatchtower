@@ -5,37 +5,99 @@
   <div><h1>{{ _("Benachrichtigungen") }}</h1><p class="muted">{{ _("Meldungen bei Abstürzen, vollem Speicher, hoher RAM-Auslastung und fehlgeschlagenen Zeitplänen. Jede Meldung kommt höchstens alle paar Minuten bzw. Stunden, damit nichts überflutet wird.") }}</p></div>
 </div>
 
-<form method="post" action="/admin/notify" class="form">
-<input type="hidden" name="csrf" value="{{ csrf }}">
-<div class="two-col">
-  <section class="card">
-    <h2 class="card-h">{{ _("Webhook (z. B. Discord)") }}</h2>
-    <label>{{ _("Webhook-Adresse") }}
-      <input name="webhook_url" type="url" autocomplete="off" spellcheck="false" placeholder="{{ (_('gespeichert: {key} – leer lassen, um ihn zu behalten', key=webhook_hint)) if webhook_set else 'https://discord.com/api/webhooks/…' }}">
-    </label>
+{% macro hook_fields(x) %}
+  {% set h = x.h if x else none %}
+  <div class="form-grid">
+    <label>{{ _("Titel") }}<input name="title" required maxlength="60" value="{{ h.title if h else '' }}" placeholder="{{ _("z. B. Discord #server-alarm") }}"></label>
     <label>{{ _("Format") }}
-      <select name="webhook_type">
-        <option value="discord" {% if webhook_type == 'discord' %}selected{% endif %}>Discord</option>
-        <option value="generic" {% if webhook_type == 'generic' %}selected{% endif %}>{{ _("Allgemein (JSON)") }}</option>
+      <select name="kind">
+        <option value="discord" {% if not h or h.kind == 'discord' %}selected{% endif %}>Discord</option>
+        <option value="generic" {% if h and h.kind == 'generic' %}selected{% endif %}>{{ _("Allgemein (JSON)") }}</option>
       </select>
     </label>
-    {% if webhook_set %}<label class="check"><input type="checkbox" name="remove_webhook" value="1"> {{ _("Gespeicherten Webhook entfernen") }}</label>{% endif %}
-    <p class="faint small">{{ _("Discord: Kanal-Einstellungen → Integrationen → Webhooks → Neuer Webhook → URL kopieren. Die Adresse wird verschlüsselt gespeichert; wer sie kennt, kann in den Kanal schreiben.") }}</p>
+  </div>
+  <label>{{ _("Beschreibung (optional, nur für dich)") }}<input name="description" maxlength="300" value="{{ (h.description or '') if h else '' }}" placeholder="{{ _("z. B. Community-Discord, Kanal #server-alarm – nur Abstürze") }}"></label>
+  <label>{{ _("Webhook-Adresse") }}
+    <input name="url" type="url" autocomplete="off" spellcheck="false" {% if not h %}required{% endif %} placeholder="{{ (_('gespeichert: {key} – leer lassen, um ihn zu behalten', key=x.hint)) if h else 'https://discord.com/api/webhooks/…' }}">
+  </label>
+  <label class="check"><input type="checkbox" name="enabled" value="1" {% if not h or h.enabled %}checked{% endif %}> {{ _("Aktiv") }}</label>
+  <div class="two-col feed-cols">
     <fieldset class="perm-group">
-      <legend>{{ _("Diese Ereignisse an den Webhook senden") }}</legend>
-      {% for key, label in events.items() %}<label class="check"><input type="checkbox" name="event__{{ key }}" value="1" {% if key in active %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
+      <legend>{{ _("Diese Ereignisse") }}</legend>
+      <div class="toggle-list">
+        {% for key, label in events.items() %}<label class="check"><input type="checkbox" name="event__{{ key }}" value="1" {% if not h or key in x.events %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
+      </div>
     </fieldset>
-  </section>
+    <fieldset class="perm-group">
+      <legend>{{ _("Diese Server") }}</legend>
+      <label class="check"><input type="checkbox" name="all_servers" value="1" {% if not h or not x.servers %}checked{% endif %}> <strong>{{ _("Alle Server, auch künftige") }}</strong></label>
+      <div class="toggle-list">
+        {% for s in servers %}<label class="check"><input type="checkbox" name="server__{{ s.identifier }}" value="1" {% if h and s.identifier in x.servers %}checked{% endif %}> {{ s.name }} <span class="faint small">{{ s.egg }}</span></label>{% else %}<span class="faint">{{ _("Keine Server vorhanden.") }}</span>{% endfor %}
+      </div>
+      <p class="faint small">{{ _("Die Auswahl gilt, wenn „Alle Server“ aus ist. Meldungen zum Panel und zu neuen Servern kommen immer.") }}</p>
+    </fieldset>
+  </div>
+{% endmacro %}
+
+<section class="card" id="webhooks">
+  <h2 class="card-h">{{ _("Webhooks (z. B. Discord)") }}</h2>
+  <p class="faint small">{{ _("Du kannst mehrere Webhooks anlegen, z. B. einen Discord-Kanal nur für Abstürze und einen für Backups. Titel und Beschreibung helfen dir, später zu erkennen, wohin welcher Webhook schreibt.") }}</p>
+  {% for x in hooks %}
+  <details class="feed" {% if hooks|length == 1 %}open{% endif %}>
+    <summary>
+      <strong>{{ x.h.title }}</strong>
+      {% if not x.h.enabled %}<span class="badge">{{ _("pausiert") }}</span>{% endif %}
+      <span class="faint small">{{ "Discord" if x.h.kind == 'discord' else _("Allgemein (JSON)") }} · {{ _("{n} Ereignisse", n=x.events|length) }} · {% if x.servers %}{{ _("{n} Server", n=x.servers|length) }}{% else %}{{ _("alle Server") }}{% endif %}</span>
+      {% if x.h.description %}<div class="faint small feed-desc">{{ x.h.description }}</div>{% endif %}
+    </summary>
+    <form method="post" action="/admin/notify/webhook/{{ x.h.id }}" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {{ hook_fields(x) }}
+      <div class="row-actions feed-actions">
+        <button class="btn btn-primary btn-sm" type="submit">{{ _("Webhook speichern") }}</button>
+      </div>
+    </form>
+    <div class="row-actions feed-buttons">
+      <form method="post" action="/admin/notify/webhook/{{ x.h.id }}/test" class="inline-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost btn-sm" type="submit">{{ _("Testnachricht senden") }}</button>
+      </form>
+      <form method="post" action="/admin/notify/webhook/{{ x.h.id }}/delete" class="inline-form" data-confirm="{{ _("Webhook „{name}“ entfernen?", name=x.h.title) }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost btn-sm chip-danger" type="submit">{{ _("Webhook entfernen") }}</button>
+      </form>
+    </div>
+  </details>
+  {% endfor %}
+
+  <details class="legend" {% if not hooks %}open{% endif %}>
+    <summary>{{ _("Webhook hinzufügen") }}</summary>
+    <form method="post" action="/admin/notify/webhook" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {{ hook_fields(none) }}
+      <p class="faint small">{{ _("Discord: Kanal-Einstellungen → Integrationen → Webhooks → Neuer Webhook → URL kopieren. Die Adresse wird verschlüsselt gespeichert; wer sie kennt, kann in den Kanal schreiben.") }}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Webhook hinzufügen") }}</button>
+    </form>
+  </details>
+</section>
+
+<div class="two-col">
   <section class="card">
     <h2 class="card-h">{{ _("Schwellenwerte") }}</h2>
-    <div class="form-grid">
-      <label>{{ _("Speicher voll ab (% des Limits)") }}<input name="disk_pct" inputmode="numeric" value="{{ limits.disk }}"></label>
-      <label>{{ _("RAM hoch ab (% des Limits)") }}<input name="ram_pct" inputmode="numeric" value="{{ limits.ram }}"></label>
-      <label>{{ _("RAM hoch für mindestens (Minuten)") }}<input name="ram_minutes" inputmode="numeric" value="{{ limits.ram_minutes }}"></label>
-      <label>{{ _("CPU hoch ab (% des Limits)") }}<input name="cpu_pct" inputmode="numeric" value="{{ limits.cpu }}"></label>
-      <label>{{ _("CPU hoch für mindestens (Minuten)") }}<input name="cpu_minutes" inputmode="numeric" value="{{ limits.cpu_minutes }}"></label>
-    </div>
-    <p class="faint small">{{ _("CPU wird nur bei Servern mit CPU-Limit in {panel} geprüft (z. B. 400 % = 4 Kerne). 100 % heißt: das Limit ist voll ausgeschöpft.") }}</p>
+    <form method="post" action="/admin/notify" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="form-grid">
+        <label>{{ _("Speicher voll ab (% des Limits)") }}<input name="disk_pct" inputmode="numeric" value="{{ limits.disk }}"></label>
+        <label>{{ _("RAM hoch ab (% des Limits)") }}<input name="ram_pct" inputmode="numeric" value="{{ limits.ram }}"></label>
+        <label>{{ _("RAM hoch für mindestens (Minuten)") }}<input name="ram_minutes" inputmode="numeric" value="{{ limits.ram_minutes }}"></label>
+        <label>{{ _("CPU hoch ab (% des Limits)") }}<input name="cpu_pct" inputmode="numeric" value="{{ limits.cpu }}"></label>
+        <label>{{ _("CPU hoch für mindestens (Minuten)") }}<input name="cpu_minutes" inputmode="numeric" value="{{ limits.cpu_minutes }}"></label>
+      </div>
+      <p class="faint small">{{ _("CPU wird nur bei Servern mit CPU-Limit in {panel} geprüft (z. B. 400 % = 4 Kerne). 100 % heißt: das Limit ist voll ausgeschöpft.") }}</p>
+      <button class="btn btn-primary" type="submit">{{ _("Schwellenwerte speichern") }}</button>
+    </form>
+  </section>
+  <section class="card">
     <h2 class="card-h">{{ _("E-Mail") }}</h2>
     {% if mail_ready %}
     <p class="muted small">{{ _("Jeder Benutzer schaltet E-Mail-Benachrichtigungen unter „Konto“ selbst ein und bekommt nur Meldungen zu Servern, die er sehen darf.") }}</p>
@@ -45,12 +107,4 @@
     {% endif %}
   </section>
 </div>
-<button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
-</form>
-{% if webhook_set %}
-<form method="post" action="/admin/notify/test" class="inline-form">
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  <button class="btn btn-ghost btn-sm" type="submit">{{ _("Testnachricht an den Webhook") }}</button>
-</form>
-{% endif %}
 {% endblock %}

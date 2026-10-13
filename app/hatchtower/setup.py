@@ -5,6 +5,7 @@ import asyncio
 import dataclasses
 import hashlib
 import hmac
+import ipaddress
 import json
 import re
 import secrets
@@ -126,6 +127,40 @@ def manager_ip_towards(url: str) -> str | None:
             return s.getsockname()[0]
     except OSError:
         return None
+
+
+def own_addresses() -> list[str]:
+    """Eigene ausgehende IPs (IPv4 und IPv6). Ein UDP-connect fragt nur die Routing-Tabelle, es geht kein Paket raus."""
+    result = []
+    for family, target in ((socket.AF_INET, "1.1.1.1"), (socket.AF_INET6, "2606:4700:4700::1111")):
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as s:
+                s.connect((target, 53))
+                result.append(s.getsockname()[0])
+        except OSError:
+            pass
+    return result
+
+
+async def dns_check(host: str) -> dict:
+    """Wohin zeigt der Name (A/AAAA), und ist das diese Maschine? Für die Netzwerk-Seite."""
+    own = own_addresses()
+    info: dict = {"host": host, "ips": [], "own": own, "error": None, "match": False, "behind_nat": False,
+                  "private": False}
+    info["behind_nat"] = bool(own) and all(ipaddress.ip_address(a).is_private for a in own)
+    try:
+        ipaddress.ip_address(host)
+        info["ips"] = [host]
+    except ValueError:
+        try:
+            rows = await asyncio.wait_for(asyncio.get_running_loop().getaddrinfo(host, None), timeout=5)
+            info["ips"] = sorted({r[4][0] for r in rows})
+        except (OSError, asyncio.TimeoutError, UnicodeError):
+            info["error"] = True
+            return info
+    info["match"] = bool(set(info["ips"]) & set(own))
+    info["private"] = all(ipaddress.ip_address(a).is_private for a in info["ips"])
+    return info
 
 
 def explain(exc: PteroError, which: str, panel: str | None = None) -> str:

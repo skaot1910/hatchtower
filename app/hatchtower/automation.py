@@ -23,7 +23,9 @@ CRASH_GRACE = 90             # Wartezeit, ob Wings den Server selbst neu startet
 CRASH_LIMIT_PER_HOUR = 3
 STOP_WORDS = {"stop", "quit", "exit", "shutdown", "end", "save-and-exit", "quit()", "halt", "restart", "reboot"}
 WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-ACTIONS = {"start": "Start", "stop": "Stop", "restart": "Restart", "command": "Befehl"}
+ACTIONS = {"start": "Start", "stop": "Stop", "restart": "Restart", "command": "Befehl", "update": "Update-Fenster"}
+# Update-Fenster: Server wird gestartet (nur wenn er aus ist) und nach dieser Dauer wieder gestoppt
+DURATIONS = (30, 60, 90, 120, 180, 240, 360, 480, 720)
 
 
 def creator_allows(sched) -> bool:
@@ -36,7 +38,7 @@ def creator_allows(sched) -> bool:
         creator = con.execute("SELECT role, is_active FROM users WHERE id = ?", (sched["created_by"],)).fetchone()
     if creator is None or creator["role"] == "owner":
         return True
-    need = {"automation.manage", AUTOMATION_NEEDS.get(sched["action"], "-")}
+    need = {"automation.manage", *AUTOMATION_NEEDS.get(sched["action"], ("-",))}
     if sched["warn_command"]:
         need.add("console.command")
     return bool(creator["is_active"]) and need <= load_grants(sched["created_by"]).get(sched["identifier"], set())
@@ -48,6 +50,7 @@ class Automation:
         self.vault = vault
         self.tz = ZoneInfo(tz)
         self._manual: dict[str, tuple[str, float]] = {}
+        self._window_started: dict[str, float] = {}     # Server → wann ein Update-Fenster ihn gestartet hat
         self._crash_tasks: dict[str, asyncio.Task] = {}
         self._task: asyncio.Task | None = None
 
@@ -237,11 +240,51 @@ class Automation:
                         await self._warn(sched, key)
                 if run_at <= now < run_at + timedelta(seconds=90) and sched["last_run"] != key:
                     await self._execute(sched, key)
+        await self._close_windows()
+
+    def _started_by_hand(self, identifier: str) -> bool:
+        """Wurde der Server nach dem Start durch das Update-Fenster in Hatchtower von Hand (neu) gestartet?"""
+        signal, at = self._manual.get(identifier, ("", 0.0))
+        return signal in ("start", "restart") and at > self._window_started.get(identifier, float("inf"))
+
+    async def _close_windows(self) -> None:
+        """Beendet abgelaufene Update-Fenster. Gestoppt wird nur, wenn der Server noch läuft und
+        ihn in der Zwischenzeit niemand von Hand gestartet hat."""
+        now = datetime.now(timezone.utc)
+        with db.connect() as con:
+            windows = con.execute(
+                "SELECT sc.*, st.state FROM schedules sc LEFT JOIN server_state st ON st.identifier = sc.identifier"
+                " WHERE sc.window_until IS NOT NULL").fetchall()
+        for sched in windows:
+            try:
+                if datetime.fromisoformat(sched["window_until"]) > now:
+                    continue
+            except ValueError:
+                pass
+            ident, result_flag = sched["identifier"], "ok"
+            if sched["state"] not in ("running", "starting"):
+                result = i18n.t("Update-Fenster beendet, Server war schon aus")
+            elif self._started_by_hand(ident):
+                result = i18n.t("Update-Fenster beendet, Server läuft weiter (zwischendurch von Hand gestartet)")
+            else:
+                try:
+                    self.note_power(ident, "stop")
+                    await self.client.power(ident, "stop")
+                    result = i18n.t("Update-Fenster beendet, Server gestoppt")
+                except PteroError as exc:
+                    result, result_flag = i18n.t("Stopp nach Update-Fenster fehlgeschlagen: {grund}", grund=exc), "error"
+                    self._emit("schedule_failed", ident, f"{sched['name']}: {result}")
+            self._window_started.pop(ident, None)
+            with db.connect() as con:
+                con.execute("UPDATE schedules SET window_until = NULL, last_result = ? WHERE id = ?",
+                            (f"{datetime.now(self.tz).strftime(i18n.date_format())} {result}", sched["id"]))
+            audit.record("schedule.run", result=result_flag, username=ACTOR, ip="intern", server=ident,
+                         detail=f"{sched['name']} ({i18n.t(ACTIONS['update'])}): {result}")
 
     async def _warn(self, sched, key: str) -> None:
         with db.connect() as con:
             con.execute("UPDATE schedules SET last_warn = ? WHERE id = ?", (key, sched["id"]))
-        if sched["state"] != "running" or not creator_allows(sched):
+        if sched["state"] != "running" or sched["action"] == "update" or not creator_allows(sched):
             return
         text = sched["warn_command"].replace("{minuten}", str(sched["warn_minutes"])).replace("{minutes}", str(sched["warn_minutes"]))
         try:
@@ -254,30 +297,51 @@ class Automation:
 
     async def _execute(self, sched, key: str) -> None:
         action, ident, state = sched["action"], sched["identifier"], sched["state"]
-        result_flag = "ok"
+        result_flag, window_until = "ok", None
         if not creator_allows(sched):
             result, result_flag = i18n.t("übersprungen: dem Ersteller fehlt das Recht dafür"), "denied"
         elif action == "start" and state in ("running", "starting"):
             result = i18n.t("übersprungen: läuft bereits")
-        elif action != "start" and sched["only_if_running"] and state != "running":
+        elif action == "update" and sched["window_until"]:
+            result = i18n.t("übersprungen: Update-Fenster läuft noch")
+        elif action == "update" and state != "offline":
+            result = i18n.t("übersprungen: Server ist nicht aus")
+        elif action not in ("start", "update") and sched["only_if_running"] and state != "running":
             result = i18n.t("übersprungen: Server ist nicht gestartet")
         else:
             try:
-                if action == "command":
+                if action == "update":
+                    self.note_power(ident, "start")
+                    await self.client.power(ident, "start")
+                    self._window_started[ident] = time.monotonic()
+                    end = datetime.now(timezone.utc) + timedelta(minutes=sched["duration_minutes"] or 60)
+                    window_until = end.isoformat(timespec="seconds")
+                    result = i18n.t("gestartet, Stopp um {time} Uhr", time=end.astimezone(self.tz).strftime("%H:%M"))
+                elif action == "command":
                     await self.client.command(ident, sched["command"] or "")
                 else:
                     self.note_power(ident, action)
                     await self.client.power(ident, action)
-                result = i18n.t("ausgeführt")
+                if action != "update":
+                    result = i18n.t("ausgeführt")
             except PteroError as exc:
                 result, result_flag = i18n.t("Fehler: {grund}", grund=exc), "error"
                 self._emit("schedule_failed", ident, f"{sched['name']}: {result}")
         with db.connect() as con:
-            con.execute("UPDATE schedules SET last_run = ?, last_result = ?, enabled = ? WHERE id = ?",
+            con.execute("UPDATE schedules SET last_run = ?, last_result = ?, enabled = ?,"
+                        " window_until = COALESCE(?, window_until) WHERE id = ?",
                         (key, f"{datetime.now(self.tz).strftime(i18n.date_format())} {result}",
-                         0 if sched["run_at"] else 1, sched["id"]))
+                         0 if sched["run_at"] else 1, window_until, sched["id"]))
         audit.record("schedule.run", result=result_flag, username=ACTOR, ip="intern", server=ident,
                      detail=f"{sched['name']} ({i18n.t(ACTIONS[action])}): {result}")
+
+
+def duration_text(minutes: int | None) -> str:
+    minutes = minutes or 60
+    if minutes < 60:
+        return i18n.t("{n} Min.", n=minutes)
+    hours = minutes / 60
+    return i18n.t("{n} Std.", n=f"{hours:g}".replace(".", "," if i18n.current() == "de" else "."))
 
 
 def describe(sched) -> str:

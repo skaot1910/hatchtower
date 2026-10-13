@@ -16,16 +16,47 @@
       <label>{{ _("Öffentliche Adresse für Spieler (optional)") }}
         <input name="public_host" value="{{ public_host }}" placeholder="{{ _("z. B. play.example.de oder DynDNS-Name") }}" spellcheck="false">
       </label>
-      <label>{{ _("Reverse-Proxy-IPs (optional)") }}
+      <label>{{ _("IP des Reverse-Proxys (optional, keine Domain)") }}
         <input name="trusted_proxies" value="{{ trusted_proxies }}" placeholder="{{ _("z. B. 127.0.0.1 oder 172.16.0.0/12") }}" spellcheck="false">
       </label>
     </div>
     <ul class="plain-list faint small">
       <li><strong>{{ _("Adresse von Hatchtower:") }}</strong> {{ _("unter dieser Adresse öffnen Benutzer Hatchtower. Sie steht in Links in E-Mails, z. B. für Einladungen und „Passwort vergessen“.") }}</li>
       <li><strong>{{ _("Öffentliche Adresse:") }}</strong> {{ _("wird in der Übersicht mit dem Port jedes Servers angezeigt, damit Spieler wissen, wohin sie sich verbinden.") }}</li>
-      <li><strong>{{ _("Reverse-Proxy:") }}</strong> {{ _("Läuft Hatchtower hinter einem Reverse-Proxy (z. B. Caddy, Nginx, Traefik, Pangolin), trag dessen IP oder Netz ein. Erst dann erkennt Hatchtower HTTPS (geschützte Cookies) und die echten IPs der Besucher für Audit-Log und Anmeldesperre. Im Internet ist das Pflicht.") }}</li>
+      <li><strong>{{ _("Reverse-Proxy:") }}</strong> {{ _("Läuft Hatchtower hinter einem Reverse-Proxy (z. B. Caddy, Nginx, Traefik, Pangolin), trag dessen IP oder Netz ein. Erst dann erkennt Hatchtower HTTPS (geschützte Cookies) und die echten IPs der Besucher für Audit-Log und Anmeldesperre. Im Internet ist das Pflicht.") }} {{ _("Die Domain gehört nicht hierher – sie wird beim Domain-Anbieter eingestellt (siehe unten).") }}</li>
     </ul>
     <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
   </form>
+</section>
+
+<section class="card" id="domain">
+  <h2 class="card-h">{{ _("Eigene Domain verbinden") }}</h2>
+  <p class="muted small">{{ _("Beispiel: Hatchtower läuft auf einem VPS (z. B. bei Hetzner), die Domain ist aber bei einem anderen Anbieter (z. B. Strato). Beides wird über einen DNS-Eintrag verbunden – in Hatchtower selbst muss dafür nichts eingestellt werden außer der Adresse oben.") }}</p>
+  <ol class="small">
+    <li>{{ _("Öffentliche IP des Servers heraussuchen (steht in der Verwaltung des VPS-Anbieters).") }}</li>
+    <li>{{ _("Beim Domain-Anbieter in der DNS-Verwaltung einen A-Eintrag anlegen: Name z. B. „gameserver“ (für gameserver.example.de), Ziel = die IPv4-Adresse des Servers. Hat der Server IPv6, zusätzlich einen AAAA-Eintrag.") }}</li>
+    <li>{{ _("Einen Reverse-Proxy (z. B. Caddy) auf dem Server einrichten, der für diese Domain ein HTTPS-Zertifikat holt und an Hatchtower weiterleitet. Dessen IP (meist 127.0.0.1) oben bei „IP des Reverse-Proxys“ eintragen.") }}</li>
+    <li>{{ _("Oben die Adresse von Hatchtower auf https://deine-domain setzen und speichern. Bis ein neuer DNS-Eintrag überall bekannt ist, kann es einige Minuten bis Stunden dauern.") }}</li>
+  </ol>
+  <p class="faint small">{{ _("Läuft Hatchtower zu Hause hinter einem Router, muss der Eintrag auf die öffentliche IP des Routers zeigen (bei wechselnder IP per DynDNS), und der Router leitet Port 443 an den Reverse-Proxy weiter.") }}</p>
+
+  {% if dns_host %}
+  <a class="btn btn-ghost btn-sm" href="/admin/network?pruefen=1#domain">{{ _("Prüfen, wohin {host} zeigt", host=dns_host) }}</a>
+  {% endif %}
+  {% if dns %}
+  <div class="dns-result">
+    {% if dns.error %}
+      <p class="small bad">{{ _("{host} lässt sich (noch) nicht auflösen. Gibt es den A-Eintrag beim Domain-Anbieter schon? Neue Einträge brauchen manchmal etwas Zeit.", host=dns.host) }}</p>
+    {% elif dns.match %}
+      <p class="small good">{{ _("{host} zeigt auf {ips} – das ist dieser Server.", host=dns.host, ips=dns.ips|join(', ')) }}</p>
+    {% elif dns.private %}
+      <p class="small">{{ _("{host} zeigt auf {ips}. Das ist eine private Adresse, damit ist Hatchtower unter diesem Namen nur im eigenen Netz erreichbar.", host=dns.host, ips=dns.ips|join(', ')) }}</p>
+    {% elif dns.behind_nat %}
+      <p class="small">{{ _("{host} zeigt auf {ips}. Dieser Server hat nur private Adressen ({own}), steht also hinter einem Router. Passt, wenn {ips} die öffentliche IP des Routers ist und der Router weiterleitet.", host=dns.host, ips=dns.ips|join(', '), own=dns.own|join(', ')) }}</p>
+    {% else %}
+      <p class="small warn-text">{{ _("{host} zeigt auf {ips}, dieser Server hat aber {own}. Sitzt ein Proxy oder CDN davor (z. B. Cloudflare, Pangolin), ist das normal – sonst den A-Eintrag beim Domain-Anbieter prüfen.", host=dns.host, ips=dns.ips|join(', '), own=(dns.own|join(', ')) or '–') }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
 </section>
 {% endblock %}

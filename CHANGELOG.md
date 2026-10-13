@@ -3,6 +3,18 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.24.0 – 2026-10-13
+
+- **Mehrere Benachrichtigungs-Webhooks:** Unter System → Benachrichtigungen lassen sich beliebig viele Webhooks anlegen, jeder mit **Titel** und **Beschreibung** (z. B. welcher Discord-Kanal), eigenem Format (Discord oder JSON), eigenen Ereignissen und optional nur für bestimmte Server
+  - Einzeln pausieren, testen und entfernen; der bisherige Webhook wird automatisch übernommen
+  - Auch im Datenumzug (Export/Import) enthalten
+- **Update-Fenster** (Automatisierungen): neue Zeitplan-Aktion, die einen Server an gewählten Wochentagen oder einmalig für eine Dauer (30 Minuten bis 12 Stunden) startet, damit er Spiel-Updates laden kann, und danach wieder stoppt
+  - Greift nur, wenn der Server in dem Moment aus ist; wird er währenddessen in Hatchtower von Hand gestartet, bleibt er an
+  - Braucht die Rechte „Starten“ und „Stoppen“
+- **Einrichtung:** neuer optionaler letzter Schritt „Rechtliches“ – legt auf Wunsch die eigenen Vorlagen für Impressum und Datenschutzerklärung an (bleiben aus, bis sie ergänzt und eingeschaltet werden)
+- **Rechtliches:** deutlicher Hinweis, dass die Vorlagen keine Rechtsberatung sind und ohne Gewähr für Richtigkeit oder Vollständigkeit
+- **Netzwerk:** neuer Abschnitt „Eigene Domain verbinden“ (z. B. Server bei Hetzner, Domain bei Strato: A-Eintrag, Reverse-Proxy, Adresse) mit Prüfung, ob die Domain auf diesen Server zeigt; das Proxy-Feld heißt jetzt „IP des Reverse-Proxys“, damit es nicht mit der Domain verwechselt wird
+
 ## 0.23.0 – 2026-10-12
 
 - **Protokoll pro Server:** Auf jeder Serverseite zeigt die neue Karte „Protokoll“, was am Server passiert ist – wer ihn wann gestartet, gestoppt oder neu gestartet hat, Abstürze, Statuswechsel (online/offline, auch wenn im Panel oder im Spiel ausgelöst), Konsolenbefehle, Dateiänderungen, Zeitpläne, Backups und geänderte Einstellungen

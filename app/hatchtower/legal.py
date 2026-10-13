@@ -2,7 +2,8 @@
 
 Beide Seiten sind optional (Haken unter System → Rechtliches) und frei bearbeitbar.
 Die Vorlagen passen zu dem, was Hatchtower tatsächlich speichert; ergänzt werden nur
-Name, Anschrift und Kontakt. Hinweis: Die Vorlagen sind keine Rechtsberatung.
+Name, Anschrift und Kontakt. Hinweis: Die Vorlagen sind keine Rechtsberatung und ohne Gewähr
+für Richtigkeit oder Vollständigkeit; sie sollen nur das Hinterlegen eigener Angaben ermöglichen.
 
 Textformat: Leerzeile = neuer Absatz, "## " = Überschrift, "- " = Aufzählung.
 {audit_tage} und {konsolen_tage} werden durch die eingestellten Aufbewahrungsfristen ersetzt.
