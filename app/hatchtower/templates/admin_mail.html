@@ -21,9 +21,10 @@
         </label>
         <label>{{ _("Benutzername") }}<input name="username" value="{{ cfg.username }}" autocomplete="off" spellcheck="false"></label>
         <label>{{ _("Passwort") }}<input name="password" type="password" autocomplete="new-password" placeholder="{{ _("gespeichert – leer lassen, um es zu behalten") if has_password else '' }}"></label>
-        <label>{{ _("Absenderadresse") }}<input name="sender" type="email" value="{{ cfg.sender }}" placeholder="hatchtower@example.com"></label>
+        <label>{{ _("Absenderadresse (optional)") }}<input name="sender" type="email" value="{{ own_sender }}" placeholder="{{ _("leer = Benutzername") }}"></label>
         <label>{{ _("Absendername") }}<input name="sender_name" value="{{ cfg.sender_name }}" maxlength="60"></label>
       </div>
+      <p class="faint small">{{ _("Absenderadresse leer lassen, dann ist der Benutzername (die Login-Adresse) der Absender. Eine andere Adresse geht nur, wenn dein Postfach sie erlaubt – Gmail etwa nur mit einer unter „Senden als“ bestätigten Adresse, sonst setzt Gmail die Login-Adresse ein.") }}</p>
       <p class="faint small">{{ _("Links in E-Mails führen zu:") }} <span class="mono">{{ cfg.base_url or _("noch nicht festgelegt – wird beim Einschalten übernommen") }}</span> · <a href="/admin/network">{{ _("ändern unter Netzwerk") }}</a></p>
       <p class="faint small">{{ _("Tipp: Nutze ein eigenes Absender-Postfach. Bei Gmail oder Outlook brauchst du ein App-Passwort (nur mit Zwei-Faktor-Anmeldung). Das Passwort wird verschlüsselt gespeichert und nie wieder angezeigt.") }}</p>
       <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>

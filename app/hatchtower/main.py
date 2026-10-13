@@ -1390,7 +1390,7 @@ async def logo_file(request: Request, filename: str):
 def account_context(user: UserContext) -> dict:
     from . import mailer, notify
     with db.connect() as con:
-        me = con.execute("SELECT email, email_verified, notify_email, notify_events FROM users WHERE id = ?",
+        me = con.execute("SELECT email, email_verified, notify_email, notify_events, no_email FROM users WHERE id = ?",
                          (user.id,)).fetchone()
         pending = con.execute("SELECT email FROM tokens WHERE purpose = 'verify' AND user_id = ? AND expires_at > ?",
                               (user.id, db.utcnow())).fetchone()
@@ -1499,12 +1499,15 @@ async def admin_users(request: Request):
                   invite_message=getattr(request.state, "invite_message", None),
                   invite_valid=getattr(request.state, "invite_valid", None),
                   invite_days=accounts.INVITE_DAYS, invite_uses=accounts.INVITE_USES,
-                  mail_ready=mailer.load_config(vault).ready)
+                  mail_ready=mailer.load_config(vault).ready, email_optional=mailer.email_optional(),
+                  email_required=mailer.email_required(mailer.load_config(vault)))
 
 
 @app.post("/admin/users")
 async def admin_user_create(request: Request, username: str = Form(""), password: str = Form(""),
-                            role: str = Form("user")):
+                            role: str = Form("user"), email: str = Form(""), no_email: str = Form("")):
+    from . import mailer
+    from .routes_extra import send_verify_mail
     owner = require_owner(request)
     await check_csrf(request)
     username = username.strip()
@@ -1513,18 +1516,31 @@ async def admin_user_create(request: Request, username: str = Form(""), password
     problem = security.password_message(password, username)
     if problem:
         return back("/admin/users", problem)
+    cfg = mailer.load_config(vault)
+    email = email.strip() if cfg.ready and not no_email else ""   # ohne eingeschaltete E-Mail ist das Feld gesperrt
+    if not email and not no_email and mailer.email_required(cfg):
+        return back("/admin/users", "Bitte eine E-Mail-Adresse angeben oder „ohne E-Mail-Adresse“ wählen")
+    if email and not mailer.valid_email(email):
+        return back("/admin/users", "Bitte eine gültige E-Mail-Adresse eingeben")
     role = "owner" if role == "owner" else "user"
     try:
         with db.connect() as con:
             cur = con.execute(
-                "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
-                (username, security.hash_password(password), role, db.utcnow()),
+                "INSERT INTO users (username, password_hash, role, created_at, email, no_email) VALUES (?, ?, ?, ?, ?, ?)",
+                (username, security.hash_password(password), role, db.utcnow(), email or None, 1 if no_email else 0),
             )
             new_id = cur.lastrowid
     except Exception:
         return back("/admin/users", "Diesen Benutzernamen gibt es schon")
     audit.record("user.create", user_id=owner.id, username=owner.username, ip=ip_of(request),
-                 detail={"user": username, "role": role})
+                 detail={"user": username, "role": role, "email": email or ("keine" if no_email else None)})
+    if email:
+        error = await send_verify_mail(request, new_id, username, email)
+        if error:
+            return back(f"/admin/users/{new_id}", i18n.t(
+                "Benutzer angelegt, aber der Bestätigungslink konnte nicht verschickt werden: {grund}", grund=error))
+        return back(f"/admin/users/{new_id}", i18n.t(
+            "Benutzer angelegt, Bestätigungslink an {email} geschickt. Vergib jetzt die Rechte.", email=email))
     return back(f"/admin/users/{new_id}", "Benutzer angelegt. Vergib jetzt die Rechte.")
 
 
@@ -1548,11 +1564,15 @@ async def admin_user_detail(request: Request, user_id: int):
         servers = con.execute("SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg FROM servers s"
                               " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
                               " ORDER BY s.name COLLATE NOCASE").fetchall()
+        pending = con.execute("SELECT email FROM tokens WHERE purpose = 'verify' AND user_id = ? AND expires_at > ?",
+                              (user_id, db.utcnow())).fetchone()
     groups = load_groups()
     for g in groups:
         g["has_write"] = any(BY_KEY[k].write for k in g["keys"] if k in BY_KEY)
+    from . import mailer
     return render(
         request, "admin_user.html", target=target, servers=servers, assignments=load_assignments(user_id),
+        pending_email=pending["email"] if pending else None, mail_ready=mailer.load_config(vault).ready,
         default_group=load_default_group(user_id),
         groups=groups, grouped=grouped_permissions(), permissions=PERMISSIONS,
         deps={p.key: list(p.requires) for p in PERMISSIONS},

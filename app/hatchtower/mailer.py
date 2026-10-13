@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 
-from . import APP_NAME, db
+from . import APP_NAME, db, i18n
 
 log = logging.getLogger("hatchtower.mail")
 
@@ -53,17 +53,29 @@ def load_config(vault) -> MailConfig:
     except ValueError:
         port = 587
     security = db.get_setting("mail_security", "starttls")
+    username = db.get_setting("mail_username")
     return MailConfig(
         enabled=db.get_setting("mail_enabled") == "1",
         host=db.get_setting("mail_host"),
         port=port,
         security=security if security in SECURITY else "starttls",
-        username=db.get_setting("mail_username"),
+        username=username,
         password=vault.decrypt(db.get_setting("mail_password_enc")) or "",
-        sender=db.get_setting("mail_from"),
+        # Ohne eigene Absenderadresse gilt die Login-Adresse (bei Gmail & Co. ohnehin der Absender)
+        sender=db.get_setting("mail_from") or (username if valid_email(username) else ""),
         sender_name=db.get_setting("mail_from_name") or APP_NAME,
         base_url=db.get_setting("mail_base_url").rstrip("/"),
     )
+
+
+def email_optional() -> bool:
+    """Owner-Einstellung unter Benutzer: Benutzer dürfen auch ohne E-Mail-Adresse sein."""
+    return db.get_setting("users_email_optional") == "1"
+
+
+def email_required(cfg: MailConfig) -> bool:
+    """Neue Benutzer brauchen eine E-Mail-Adresse – nur wenn E-Mail eingeschaltet ist."""
+    return cfg.ready and not email_optional()
 
 
 def _send_blocking(cfg: MailConfig, to: list[str], subject: str, text: str) -> None:
@@ -74,6 +86,7 @@ def _send_blocking(cfg: MailConfig, to: list[str], subject: str, text: str) -> N
     msg["Message-ID"] = make_msgid(domain=cfg.sender.split("@")[-1])
     msg.set_content(text)
     context = ssl.create_default_context()
+    step = "connect"
     try:
         if cfg.security == "ssl":
             server = smtplib.SMTP_SSL(cfg.host, cfg.port, timeout=20, context=context)
@@ -83,10 +96,24 @@ def _send_blocking(cfg: MailConfig, to: list[str], subject: str, text: str) -> N
             if cfg.security == "starttls":
                 server.starttls(context=context)
             if cfg.username:
+                step = "login"
                 server.login(cfg.username, cfg.password)
+            step = "send"
             server.send_message(msg)
-    except (smtplib.SMTPException, OSError) as exc:
-        raise MailError(f"{exc.__class__.__name__}: {str(exc)[:200]}") from exc
+    except (smtplib.SMTPException, OSError, UnicodeError) as exc:
+        detail = f"{exc.__class__.__name__}: {str(exc)[:200]}"
+        if step == "login" or isinstance(exc, smtplib.SMTPAuthenticationError):
+            # Gmail & Co. trennen bei falschem Passwort teils einfach die Verbindung
+            raise MailError(i18n.t("Anmeldung am SMTP-Server abgelehnt – Benutzername und Passwort prüfen. Gmail und"
+                                   " Outlook brauchen ein App-Passwort (bei Gmail 16 Buchstaben). ({detail})",
+                                   detail=detail)) from exc
+        if step == "connect" and isinstance(exc, (smtplib.SMTPServerDisconnected, ssl.SSLError, TimeoutError)):
+            raise MailError(i18n.t("Verbindung zum SMTP-Server fehlgeschlagen – passen Port und Verschlüsselung"
+                                   " zusammen (465 = SSL/TLS, 587 = STARTTLS)? ({detail})", detail=detail)) from exc
+        if isinstance(exc, smtplib.SMTPSenderRefused):
+            raise MailError(i18n.t("Der SMTP-Server lehnt die Absenderadresse ab – sie muss zum Postfach gehören."
+                                   " ({detail})", detail=detail)) from exc
+        raise MailError(detail) from exc
 
 
 async def send(cfg: MailConfig, to: list[str] | str, subject: str, text: str) -> None:

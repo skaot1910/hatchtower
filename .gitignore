@@ -36,3 +36,6 @@ desktop.ini
 *.log
 *.tmp
 .tmp*/
+
+# Lokale Hinweise für Claude (Zugangsdaten der Testinstanz)
+CLAUDE.local.md

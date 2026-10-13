@@ -161,6 +161,17 @@ h2 { font-size: 16px; }
 .nav a.active { color: var(--strong); background: var(--violet-bg); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .account { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .account form { margin: 0; }
+.account-prefs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.account-link { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border: 1px solid var(--line-2);
+  border-radius: 999px; color: var(--text); text-decoration: none; font-size: 13.5px; font-weight: 600; max-width: 220px; }
+.account-link:hover, .account-link.active { border-color: var(--accent-strong); background: color-mix(in srgb, var(--accent-strong) 12%, transparent); }
+.account-link .avatar { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-strong) 30%, transparent); font-size: 13px; font-weight: 700; }
+.account-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-hint { display: none; font-size: 13px; font-weight: 400; color: var(--muted); }
+.icon-gear { width: 16px; height: 16px; flex: none; color: var(--faint); }
+.account-link:hover .icon-gear, .account-link.active .icon-gear { color: var(--text); }
 
 .container { width: 100%; max-width: 1320px; margin: 0 auto; padding: 28px; flex: 1; }
 .footer { text-align: center; color: var(--faint); font-size: 12px; padding: 20px; }
@@ -216,6 +227,8 @@ h2 { font-size: 16px; }
 .chip-sm { padding: 3px 10px; font-size: 12px; }
 
 .form { display: grid; gap: 14px; }
+fieldset.plain { display: contents; }
+fieldset.plain:disabled :is(input, button, label) { opacity: .5; cursor: not-allowed; }
 .form label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .form label.check { display: flex; align-items: center; gap: 8px; color: var(--text); }
 input, select, textarea {
@@ -596,8 +609,17 @@ a.file-link:hover { color: var(--violet-3); }
   .topbar-menu.open { display: flex; }
   .topbar-menu .nav { flex-direction: column; width: 100%; margin: 0; overflow: visible; order: 0; gap: 2px; }
   .topbar-menu .nav a { padding: 13px 14px; font-size: 16.5px; }
-  .topbar-menu .account { margin: 0; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 12px; }
+  .topbar-menu .account { margin: 0; flex-direction: column; align-items: stretch; gap: 12px;
+    border-top: 1px solid var(--line); padding-top: 12px; }
   .topbar-menu .account a { font-size: 15px; }
+  .topbar-menu .account-link { order: -1; max-width: none; padding: 10px 14px 10px 10px; border-radius: var(--radius-sm);
+    background: var(--card-2); gap: 12px; }
+  .topbar-menu .account-link .avatar { width: 38px; height: 38px; font-size: 17px; }
+  .topbar-menu .account-name { font-size: 17px; }
+  .topbar-menu .account-hint { display: block; }
+  .topbar-menu .account-text { flex: 1; }
+  .topbar-menu .icon-gear { width: 22px; height: 22px; }
+  .topbar-menu .logout-form .btn { width: 100%; justify-content: center; }
 
   /* Übersicht: eine Karte pro Server über die volle Breite */
   .head-tools { width: 100%; }
@@ -1076,7 +1098,7 @@ a.file-link:hover { color: var(--violet-3); }
   .status-head { flex-wrap: wrap; }
   .status-head-tools { width: 100%; justify-content: flex-start; margin-left: 0; }
 }
-@media (max-width: 1100px) { .account .discord-link span { display: none; } }
+@media (max-width: 1360px) { .account .discord-link span { display: none; } }
 @media (max-width: 720px), (pointer: coarse) and (max-height: 540px) { .account .discord-link span { display: inline; } }
 .status-summary.is-unknown .status-summary-dot { background: var(--blue); }
 .uptime-detail { margin: -2px 0 6px; }

@@ -173,6 +173,9 @@ Grundregeln:
 | POST | `/admin/users/{user_id}/permissions` | Formular | Rechte pro Server vergeben |
 | POST | `/admin/users/{user_id}/update` | Formular | Rolle und Aktiv-Status |
 | POST | `/admin/users/{user_id}/password` | Formular | Passwort eines Benutzers setzen |
+| POST | `/admin/users/{user_id}/email` | Formular | E-Mail-Adresse eines Benutzers setzen oder entfernen |
+| POST | `/admin/users/{user_id}/no-email` | Formular | Benutzer auf „ohne E-Mail-Adresse“ stellen |
+| POST | `/admin/users/email-policy` | Formular | Benutzer ohne E-Mail-Adresse erlauben |
 | POST | `/admin/users/{user_id}/delete` | Formular | Benutzer löschen |
 | POST | `/admin/servers/{ident}/reviewed` | Formular | Hinweis auf neuen Server als erledigt markieren |
 | GET | `/admin/groups` | – | Rechtegruppen |

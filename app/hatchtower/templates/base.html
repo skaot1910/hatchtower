@@ -45,11 +45,17 @@
     {% endif %}
   </nav>
   <div class="account">
-    {% if discord_url %}<a class="discord-link" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Community-Discord") }}">{{ hm.discord_icon() }} <span>{{ _("Discord") }}</span></a>{% endif %}
-    {{ thm.switch(all_themes) }}
-    {{ lng.switch() }}
-    <a href="/account" class="muted">{{ user.username }}</a>
-    <form method="post" action="/logout">
+    <div class="account-prefs">
+      {% if discord_url %}<a class="discord-link" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Community-Discord") }}">{{ hm.discord_icon() }} <span>{{ _("Discord") }}</span></a>{% endif %}
+      {{ thm.switch(all_themes) }}
+      {{ lng.switch() }}
+    </div>
+    <a href="/account" class="account-link{% if request.url.path.startswith('/account') %} active{% endif %}" title="{{ _("Mein Konto: Passwort, E-Mail, Benachrichtigungen und Darstellung") }}">
+      <span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
+      <span class="account-text"><span class="account-name">{{ user.username }}</span><span class="account-hint">{{ _("Mein Konto und Einstellungen") }}</span></span>
+      {{ hm.gear_icon() }}
+    </a>
+    <form method="post" action="/logout" class="logout-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <button class="btn btn-ghost btn-sm" type="submit">{{ _("Abmelden") }}</button>
     </form>

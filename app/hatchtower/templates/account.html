@@ -39,12 +39,16 @@
   <p class="faint">{{ _("Keine E-Mail-Adresse hinterlegt.") }}</p>
   {% endif %}
   {% if pending_email %}<p class="hint">{{ _("Bestätigung für {email} ausstehend – sieh in dein Postfach.", email=pending_email) }}</p>{% endif %}
-  {% if mail_ready %}
+  {% if me.no_email %}
+  <p class="faint small">{{ _("Für dein Konto ist keine E-Mail-Adresse vorgesehen.") }}</p>
+  {% elif mail_ready %}
   <form method="post" action="/account/email" class="form form-row">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input name="email" type="email" maxlength="254" placeholder="{{ _("neue E-Mail-Adresse") }}" aria-label="{{ _("E-Mail-Adresse") }}" autocomplete="email">
     <button class="btn btn-primary" type="submit">{{ _("Bestätigungslink senden") }}</button>
   </form>
+  {% else %}
+  <p class="faint small">{{ _("E-Mail ist in Hatchtower gerade nicht eingeschaltet. Eine neue Adresse kannst du hinterlegen, sobald ein Owner E-Mail einschaltet.") }}</p>
   {% endif %}
   {% if me.email %}
   <form method="post" action="/account/email" data-confirm="{{ _("E-Mail-Adresse entfernen? Benachrichtigungen per E-Mail werden dann ausgeschaltet.") }}">

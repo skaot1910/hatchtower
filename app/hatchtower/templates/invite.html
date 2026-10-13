@@ -20,7 +20,7 @@
       <label>{{ _("Passwort wiederholen") }}<input name="repeat" type="password" required minlength="15" autocomplete="new-password"></label>
       <p class="faint small">{{ _("Mindestens 15 Zeichen mit Groß- und Kleinbuchstaben, Zahl und Sonderzeichen.") }}</p>
       {% if mail_ready %}
-      <label>{{ _("E-Mail (optional)") }}<input name="email" type="email" maxlength="254" value="{{ email }}" autocomplete="email"></label>
+      <label>{{ _("E-Mail") if email_required else _("E-Mail (optional)") }}<input name="email" type="email" maxlength="254" value="{{ email }}" autocomplete="email"{% if email_required %} required{% endif %}></label>
       <p class="faint small">{{ _("Damit kannst du dein Passwort selbst zurücksetzen und Benachrichtigungen bekommen. Du bekommst einen Link zur Bestätigung.") }}</p>
       {% endif %}
       <button class="btn btn-primary btn-block" type="submit">{{ _("Konto anlegen") }}</button>

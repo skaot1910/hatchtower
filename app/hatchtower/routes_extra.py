@@ -418,12 +418,15 @@ async def verify_email(request: Request, token: str):
 
 async def send_verify_mail(request: Request, user_id: int, username: str, email: str) -> str | None:
     cfg = mail_config()
+    with db.connect() as con:
+        con.execute("DELETE FROM tokens WHERE purpose = 'verify' AND user_id = ?", (user_id,))
     raw = accounts.create("verify", user_id=user_id, email=email)
     text = i18n.t("Hallo {name},\n\nbitte bestätige deine E-Mail-Adresse für Hatchtower. Der Link gilt 24 Stunden:\n\n{link}",
                   name=username, link=f"{cfg.base_url}/verify/{raw}")
     try:
         await mailer.send(cfg, email, i18n.t("E-Mail-Adresse bestätigen"), text + mailer.signature())
     except mailer.MailError as exc:
+        accounts.consume(raw)  # sonst stünde „Bestätigung ausstehend“ da, obwohl nie eine Mail ankam
         return str(exc)
     return None
 
@@ -443,6 +446,10 @@ async def account_email(request: Request, email: str = Form("")):
         return back("/account#email", "E-Mail-Adresse entfernt")
     if not mail_config().ready:
         return back("/account#email", "E-Mail ist in Hatchtower nicht eingeschaltet")
+    with db.connect() as con:
+        no_email = con.execute("SELECT no_email FROM users WHERE id = ?", (user.id,)).fetchone()["no_email"]
+    if no_email:
+        return back("/account#email", "Für dein Konto ist keine E-Mail-Adresse vorgesehen")
     if not mailer.valid_email(email):
         return back("/account#email", "Bitte eine gültige E-Mail-Adresse eingeben")
     error = await send_verify_mail(request, user.id, user.username, email)
@@ -532,6 +539,74 @@ async def admin_user_export(request: Request, user_id: int):
     return json_download(user_data(user_id), f"hatchtower-{target['username']}-daten.json")
 
 
+@app.post("/admin/users/{user_id}/email")
+async def admin_user_email(request: Request, user_id: int, email: str = Form(""), confirmed: str = Form("")):
+    """Owner trägt die E-Mail-Adresse eines Benutzers ein, ändert oder entfernt sie.
+    Ohne „bestätigt“ geht ein Bestätigungslink an die Adresse (wenn E-Mail eingeschaltet ist)."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    target_url = f"/admin/users/{user_id}#email"
+    with db.connect() as con:
+        target = con.execute("SELECT id, username, email, no_email FROM users WHERE id = ?", (user_id,)).fetchone()
+    if target is None:
+        return back("/admin/users")
+    email = email.strip()
+    if email and not mail_config().ready:
+        return back(target_url, "E-Mail ist in Hatchtower nicht eingeschaltet")
+    if email and target["no_email"]:
+        return back(target_url, "Dieser Benutzer ist auf „ohne E-Mail-Adresse“ gestellt")
+    if email and not mailer.valid_email(email):
+        return back(target_url, "Bitte eine gültige E-Mail-Adresse eingeben")
+    with db.connect() as con:
+        con.execute("DELETE FROM tokens WHERE purpose = 'verify' AND user_id = ?", (user_id,))
+        if not email:
+            con.execute("UPDATE users SET email = NULL, email_verified = 0, notify_email = 0 WHERE id = ?", (user_id,))
+        else:
+            con.execute("UPDATE users SET email = ?, email_verified = ? WHERE id = ?",
+                        (email, 1 if confirmed else 0, user_id))
+    if not email:
+        owner_audit(request, owner, "email.change", detail={"user": target["username"], "email": "entfernt"})
+        return back(target_url, "E-Mail-Adresse entfernt")
+    detail = {"user": target["username"], "email": email, "bestätigt": bool(confirmed)}
+    if confirmed:
+        owner_audit(request, owner, "email.change", detail=detail)
+        return back(target_url, "E-Mail-Adresse gespeichert")
+    error = await send_verify_mail(request, user_id, target["username"], email)
+    owner_audit(request, owner, "email.change", detail={**detail, "bestätigungslink": "fehlgeschlagen" if error else "verschickt"})
+    if error:
+        return back(target_url, i18n.t("E-Mail-Adresse gespeichert, aber der Bestätigungslink konnte nicht verschickt"
+                                       " werden: {grund}", grund=error))
+    return back(target_url, i18n.t("E-Mail-Adresse gespeichert. Bestätigungslink an {email} geschickt.", email=email))
+
+
+@app.post("/admin/users/{user_id}/no-email")
+async def admin_user_no_email(request: Request, user_id: int, no_email: str = Form("")):
+    """Benutzer ohne E-Mail-Adresse: braucht keine und kann selbst keine hinterlegen; eine vorhandene wird entfernt."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    with db.connect() as con:
+        target = con.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if target is None:
+            return back("/admin/users")
+        if no_email:
+            con.execute("UPDATE users SET no_email = 1, email = NULL, email_verified = 0, notify_email = 0 WHERE id = ?",
+                        (user_id,))
+            con.execute("DELETE FROM tokens WHERE purpose = 'verify' AND user_id = ?", (user_id,))
+        else:
+            con.execute("UPDATE users SET no_email = 0 WHERE id = ?", (user_id,))
+    owner_audit(request, owner, "user.update", detail={"user": target["username"], "ohne E-Mail": bool(no_email)})
+    return back(f"/admin/users/{user_id}#email", "Gespeichert")
+
+
+@app.post("/admin/users/email-policy")
+async def admin_users_email_policy(request: Request, optional: str = Form("")):
+    owner = require_owner(request)
+    await check_csrf(request)
+    db.set_setting("users_email_optional", "1" if optional else "0", owner.id)
+    owner_audit(request, owner, "settings.mail", detail={"Benutzer ohne E-Mail-Adresse erlaubt": bool(optional)})
+    return back("/admin/users#email-pflicht", "Gespeichert")
+
+
 # == Einladungen ===============================================================================
 
 @app.post("/admin/users/invite", response_class=HTMLResponse)
@@ -591,7 +666,7 @@ async def invite_page(request: Request, token: str):
         return render(request, "error.html", status=410, title="Link abgelaufen",
                       message="Diese Einladung ist abgelaufen oder wurde schon benutzt. Bitte frag nach einer neuen.")
     return prelogin_page(request, "invite.html", token=token, error=None, username="", email=row["email"] or "",
-                         mail_ready=mail_config().ready)
+                         mail_ready=mail_config().ready, email_required=mailer.email_required(mail_config()))
 
 
 @app.post("/invite/{token}")
@@ -605,7 +680,7 @@ async def invite_accept(request: Request, token: str, username: str = Form(""), 
 
     def fail(message: str):
         return prelogin_page(request, "invite.html", 400, token=token, error=message, username=username,
-                             email=email, mail_ready=ready)
+                             email=email, mail_ready=ready, email_required=mailer.email_required(mail_config()))
 
     if not prelogin_ok(request, prelogin):
         return fail("Das Formular ist abgelaufen. Versuch es noch einmal.")
@@ -616,6 +691,10 @@ async def invite_accept(request: Request, token: str, username: str = Form(""), 
     error = password_error(password, repeat, username)
     if error:
         return fail(error)
+    if not ready:
+        email = ""                                       # Feld ist gesperrt, solange E-Mail aus ist
+    if not email and mailer.email_required(mail_config()):
+        return fail("Bitte gib eine E-Mail-Adresse an")
     if email and not mailer.valid_email(email):
         return fail("Bitte eine gültige E-Mail-Adresse eingeben")
     role = "owner" if json.loads(row["data"] or "{}").get("role") == "owner" else "user"
@@ -648,7 +727,7 @@ async def admin_mail(request: Request):
     require_owner(request)
     cfg = mail_config()
     return render(request, "admin_mail.html", cfg=cfg, has_password=bool(cfg.password),
-                  security_options=mailer.SECURITY)
+                  security_options=mailer.SECURITY, own_sender=db.get_setting("mail_from"))
 
 
 @app.post("/admin/mail")
@@ -658,14 +737,14 @@ async def admin_mail_save(request: Request, enabled: str = Form(""), host: str =
     owner = require_owner(request)
     await check_csrf(request)
     problems = []
-    host = host.strip()
+    host = host.strip().lower()
     if host and (len(host) > 253 or not all(c.isalnum() or c in ".-" for c in host)):
         problems.append("SMTP-Server")
     if not port.strip().isdigit() or not 1 <= int(port) <= 65535:
         problems.append("Port")
     if sender.strip() and not mailer.valid_email(sender.strip()):
         problems.append("Absenderadresse")
-    if enabled and not (host and sender.strip()):
+    if enabled and not (host and (sender.strip() or mailer.valid_email(username.strip()))):
         problems.append("zum Einschalten: Server und Absender")
     if problems:
         return back("/admin/mail", i18n.t("Bitte prüfen: {list}", list=", ".join(i18n.t(x) for x in problems)))

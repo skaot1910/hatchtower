@@ -513,6 +513,10 @@ MIGRATIONS: list[str] = [
     DROP TABLE schedules;
     ALTER TABLE schedules_new RENAME TO schedules;
     """,
+    # Benutzer ohne E-Mail-Adresse (vom Owner festgelegt, auch wenn E-Mail sonst Pflicht ist)
+    """
+    ALTER TABLE users ADD COLUMN no_email INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

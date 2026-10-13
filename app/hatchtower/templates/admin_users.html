@@ -11,7 +11,7 @@
     <tbody>
     {% for r in rows %}
       <tr class="{% if not r.u.is_active %}row-off{% endif %}">
-        <td><strong>{{ r.u.username }}</strong>{% if not r.u.is_active %} <span class="badge">{{ _("deaktiviert") }}</span>{% endif %}{% if r.u.note %}<div class="faint small">{{ r.u.note }}</div>{% endif %}</td>
+        <td><strong>{{ r.u.username }}</strong>{% if not r.u.is_active %} <span class="badge">{{ _("deaktiviert") }}</span>{% endif %}{% if r.u.email %}<div class="faint small">{{ r.u.email }}{% if not r.u.email_verified %} · {{ _("nicht bestätigt") }}{% endif %}</div>{% elif r.u.no_email %}<div class="faint small">{{ _("ohne E-Mail-Adresse") }}</div>{% elif email_required %}<div class="faint small">{{ _("E-Mail-Adresse fehlt") }}</div>{% endif %}{% if r.u.note %}<div class="faint small">{{ r.u.note }}</div>{% endif %}</td>
         <td data-label="{{ _("Rolle") }}">{% if r.u.role == 'owner' %}<span class="badge badge-ro">{{ _("Owner") }}</span>{% else %}{{ _("Rolle|Benutzer") }}{% endif %}</td>
         <td class="summary" data-label="{{ _("Zugriff") }}">
           {% if r.u.role == 'owner' %}<span class="faint">{{ _("alle Server, alle Rechte") }}</span>
@@ -92,8 +92,22 @@
         <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
       </select>
     </label>
+    <label>{{ _("E-Mail-Adresse") if email_required else _("E-Mail-Adresse (optional)") }}<input name="email" type="email" maxlength="254" autocomplete="off"{% if not mail_ready %} disabled{% endif %}></label>
+    <label class="check"><input type="checkbox" name="no_email" value="1"> {{ _("Ohne E-Mail-Adresse anlegen (der Benutzer kann dann auch selbst keine hinterlegen)") }}</label>
+    <p class="faint small">{% if mail_ready %}{{ _("An die Adresse geht ein Bestätigungslink.") }}{% else %}{{ _("E-Mail ist in Hatchtower nicht eingeschaltet – eine Adresse kann erst danach hinterlegt werden.") }}{% endif %}</p>
     <button class="btn btn-primary" type="submit">{{ _("Benutzer anlegen") }}</button>
   </form>
 </section>
 </div>
+
+<section class="card" id="email-pflicht">
+  <h2 class="card-h">{{ _("E-Mail-Adressen der Benutzer") }}</h2>
+  <form method="post" action="/admin/users/email-policy" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="optional" value="1"{% if email_optional %} checked{% endif %}> {{ _("Benutzer ohne E-Mail-Adresse erlauben") }}</label>
+    <p class="faint small">{{ _("Aus: Wenn E-Mail eingeschaltet ist, brauchen neue Benutzer (direkt angelegt oder per Einladung) eine E-Mail-Adresse. Einzelne Benutzer kannst du trotzdem „ohne E-Mail-Adresse“ anlegen. Ist E-Mail ausgeschaltet, gilt keine Pflicht.") }}</p>
+    {% if not mail_ready %}<p class="faint small">{{ _("E-Mail ist gerade ausgeschaltet.") }} <a href="/admin/mail">{{ _("E-Mail einrichten") }}</a></p>{% endif %}
+    <button class="btn btn-ghost" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
 {% endblock %}
