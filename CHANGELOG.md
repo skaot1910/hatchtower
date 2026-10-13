@@ -3,6 +3,14 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.25.1 – 2026-10-14
+
+- **Lizenz:** Hatchtower steht jetzt unter der GNU AGPL-3.0. Der Lizenztext liegt als `LICENSE` im Paket und unter
+  `/opt/hatchtower`, eine Zusammenfassung steht auf der Seite „Über Hatchtower“
+- **Schlankeres Paket:** Entwickler-Werkzeuge sind nicht mehr enthalten; im Betrieb wird aus `tools/` nur noch das
+  Skript für die Lizenzliste gebraucht. Beim Update werden die alten Werkzeuge unter `/opt/hatchtower/tools` entfernt
+- README: Installation mit Zugangs-Token überarbeitet
+
 ## 0.25.0 – 2026-10-13
 
 - **E-Mail-Adressen in der Benutzerverwaltung:** Die Benutzerliste zeigt die hinterlegten Adressen (mit „nicht bestätigt“, „ohne E-Mail-Adresse“ oder „E-Mail-Adresse fehlt“). Auf der Benutzerseite können Owner eine Adresse eintragen, ändern oder entfernen – mit Bestätigungslink oder direkt als bestätigt
