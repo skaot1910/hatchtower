@@ -826,11 +826,156 @@
       boxes.forEach(function (b) { b.checked = false; });
       update();
     });
+    var moveTarget = form.querySelector("[data-move-target]");
+    startMoveDialog(form, boxes, moveTarget);
     form.addEventListener("submit", function (ev) {
-      if (ev.submitter && ev.submitter.hasAttribute("data-backup-add")) return;
-      toast(tr("ZIP wird erstellt, der Download startet gleich. Große Ordner brauchen etwas."), true);
+      var by = ev.submitter;
+      if (by && by.hasAttribute("data-move")) {
+        if (!moveTarget.value) ev.preventDefault();
+        return;
+      }
+      if (by && by.hasAttribute("data-delete-many")) {
+        if (!window.confirm(form.dataset.confirmDelete)) ev.preventDefault();
+        return;
+      }
+      if (by && by.hasAttribute("data-zip")) {
+        toast(tr("ZIP wird erstellt, der Download startet gleich. Große Ordner brauchen etwas."), true);
+      }
     });
     update();
+  }
+
+  // ---- Datei-Explorer: Zielordner zum Verschieben per Klick wählen -----------------------
+  function startMoveDialog(form, boxes, target) {
+    var dlg = document.getElementById("move-dialog");
+    var open = form.querySelector("[data-move-open]");
+    var submit = form.querySelector("[data-move]");
+    if (!dlg || !open || !submit || typeof dlg.showModal !== "function") return;
+    var list = dlg.querySelector("[data-move-list]");
+    var crumbs = dlg.querySelector("[data-move-crumbs]");
+    var what = dlg.querySelector("[data-move-what]");
+    var fresh = dlg.querySelector("[data-move-new]");
+    var confirmBtn = dlg.querySelector("[data-move-confirm]");
+    var destText = dlg.querySelector("[data-move-dest]");
+    var here = dlg.dataset.dir;              // Ordner, in dem die Auswahl liegt
+    var current = here;
+    var selected = [];                       // volle Pfade der ausgewählten Einträge
+    var loading = 0;
+
+    function join(dir, name) { return (dir === "/" ? "" : dir) + "/" + name; }
+    function parentOf(dir) { var i = dir.lastIndexOf("/"); return i <= 0 ? "/" : dir.slice(0, i); }
+    function insideSelection(path) {
+      return selected.some(function (s) { return path === s || path.indexOf(s + "/") === 0; });
+    }
+    function destination() {
+      var name = fresh.value.trim();
+      return name ? join(current, name) : current;
+    }
+    function updateConfirm() {
+      var name = fresh.value.trim();
+      var bad = name && (name === "." || name === ".." || /[\/]/.test(name));
+      var dest = destination();
+      confirmBtn.disabled = Boolean(bad) || dest === here || insideSelection(dest);
+      destText.textContent = dest === here ? tr("Die Auswahl liegt schon in diesem Ordner")
+        : bad ? tr("Ungültiger Ordnername") : tr("Ziel: {pfad}", { pfad: dest });
+      destText.classList.toggle("faint", dest === here || Boolean(bad));
+    }
+    function item(label, cls, onClick, disabled) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "move-item " + cls;
+      b.textContent = label;
+      b.disabled = Boolean(disabled);
+      if (!disabled) b.addEventListener("click", onClick);
+      li.appendChild(b);
+      list.appendChild(li);
+      return b;
+    }
+    function drawCrumbs() {
+      crumbs.textContent = "";
+      var parts = current.split("/").filter(Boolean);
+      var path = "";
+      var root = document.createElement("button");
+      root.type = "button";
+      root.textContent = tr("Hauptordner");
+      root.addEventListener("click", function () { go("/"); });
+      crumbs.appendChild(root);
+      parts.forEach(function (p) {
+        path += "/" + p;
+        var sep = document.createElement("span");
+        sep.textContent = "/";
+        crumbs.appendChild(sep);
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = p;
+        var to = path;
+        b.addEventListener("click", function () { go(to); });
+        crumbs.appendChild(b);
+      });
+    }
+    function go(dir) {
+      current = dir;
+      var ticket = ++loading;
+      drawCrumbs();
+      updateConfirm();
+      list.textContent = "";
+      var wait = document.createElement("li");
+      wait.className = "faint small";
+      wait.textContent = tr("Lädt …");
+      list.appendChild(wait);
+      fetch(dlg.dataset.folders + "?dir=" + encodeURIComponent(dir), { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (r) {
+          if (r.status === 401) { window.location = "/login"; throw new Error("login"); }
+          return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || tr("Fehler {code}", { code: r.status })); return d; });
+        })
+        .then(function (data) {
+          if (ticket !== loading) return;
+          list.textContent = "";
+          if (dir !== "/") item(tr("Übergeordneter Ordner"), "move-up", function () { go(parentOf(dir)); });
+          data.folders.forEach(function (name) {
+            var path = join(dir, name);
+            var mine = insideSelection(path);
+            var b = item(name, "move-folder", function () { go(path); }, mine);
+            if (mine) b.title = tr("Ausgewählt – kann nicht Ziel sein");
+          });
+          if (!data.folders.length) {
+            var none = document.createElement("li");
+            none.className = "faint small";
+            none.textContent = tr("Keine Unterordner");
+            list.appendChild(none);
+          }
+        })
+        .catch(function (e) {
+          if (ticket !== loading) return;
+          list.textContent = "";
+          var err = document.createElement("li");
+          err.className = "bad small";
+          err.textContent = e.message;
+          list.appendChild(err);
+        });
+    }
+    open.addEventListener("click", function () {
+      selected = [];
+      boxes.forEach(function (b) { if (b.checked) selected.push(join(here, b.value)); });
+      if (!selected.length) return;
+      what.textContent = selected.length === 1
+        ? tr("„{name}“ verschieben – Zielordner anklicken, dann bestätigen.", { name: selected[0].split("/").pop() })
+        : tr("{n} Einträge verschieben – Zielordner anklicken, dann bestätigen.", { n: selected.length });
+      fresh.value = "";
+      dlg.showModal();
+      go(here);
+    });
+    fresh.addEventListener("input", updateConfirm);
+    fresh.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); if (!confirmBtn.disabled) confirmBtn.click(); }
+    });
+    dlg.querySelector("[data-move-cancel]").addEventListener("click", function () { dlg.close(); });
+    confirmBtn.addEventListener("click", function () {
+      target.value = destination();
+      dlg.close();
+      if (form.requestSubmit) form.requestSubmit(submit); else submit.click();
+    });
   }
 
   // ---- Ansicht: Kacheln / Liste (pro Browser gemerkt) ---------------------------

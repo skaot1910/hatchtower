@@ -1290,3 +1290,29 @@ a.file-link:hover { color: var(--violet-3); }
 /* Benutzer: deaktiviertes Konto */
 .account-off { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .account-off form, .head-actions form { margin: 0; }
+
+/* Datei-Explorer: Zielordner zum Verschieben wählen */
+.move-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 20px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--card); color: var(--text); }
+.move-dialog::backdrop { background: rgb(0 0 0 / .55); }
+.move-dialog h2 { margin: 0 0 4px; font-size: 18px; }
+.move-crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 12px 0 8px; }
+.move-crumbs button { background: none; border: 0; padding: 2px 4px; color: var(--violet-3); cursor: pointer; font: inherit; border-radius: 4px; }
+.move-crumbs button:hover { background: var(--violet-bg); }
+.move-crumbs button:last-of-type { color: inherit; font-weight: 600; }
+.move-list { list-style: none; margin: 0 0 14px; padding: 4px; max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.move-list li { padding: 0; }
+.move-list li.faint, .move-list li.bad { padding: 8px 10px; }
+.move-list li::before { content: none !important; }
+.move-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.move-item:hover:not(:disabled), .move-item:focus-visible { background: var(--violet-bg); }
+.move-item:disabled { opacity: .45; cursor: not-allowed; }
+.move-folder::before { content: "📁 "; }
+.move-up::before { content: "↩ "; }
+.move-new { display: block; margin-bottom: 14px; font-size: 13px; }
+.move-new input { display: block; width: 100%; margin-top: 4px; }
+.move-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; }
+.move-actions .btn:disabled { opacity: .45; cursor: not-allowed; }
+.move-dest { margin-right: auto; overflow-wrap: anywhere; color: var(--violet-3); }
+.move-dest.faint { color: var(--faint); }
+.move-dialog h2:focus { outline: none; }

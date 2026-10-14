@@ -39,13 +39,18 @@
 </div>
 {% endif %}
 
-{% set can_select = can_download or can_backup %}
+{% set can_select = can_download or can_backup or can_delete or can_rename %}
 {% if can_select %}
-<form method="post" action="/servers/{{ server.identifier }}/files/{{ 'zip' if can_download else 'backup' }}" id="zip-form" class="selection-bar" hidden>
+<form method="post" action="/servers/{{ server.identifier }}/files/{{ 'zip' if can_download else 'backup' }}" id="zip-form" class="selection-bar" hidden data-confirm-delete="{{ _("Die ausgewählten Einträge wirklich löschen? Ordner werden mit allem Inhalt gelöscht. Das kann nicht rückgängig gemacht werden.") }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="dir" value="{{ directory }}">
   <span id="selection-count">{{ _("0 ausgewählt") }}</span>
-  {% if can_download %}<button class="btn btn-primary btn-sm" type="submit">{{ _("Als ZIP herunterladen") }}</button>{% endif %}
+  {% if can_download %}<button class="btn btn-primary btn-sm" type="submit" formaction="/servers/{{ server.identifier }}/files/zip" data-zip>{{ _("Als ZIP herunterladen") }}</button>{% endif %}
+  {% if can_rename %}
+  <input type="hidden" name="target" value="" data-move-target>
+  <button class="btn btn-ghost btn-sm" type="button" data-move-open>{{ _("Verschieben …") }}</button>
+  <button type="submit" formaction="/servers/{{ server.identifier }}/files/move" data-move hidden></button>
+  {% endif %}
   {% if can_backup %}
   <span class="selection-backup">
     <select name="job_id" aria-label="{{ _("Backup-Job") }}">
@@ -56,8 +61,9 @@
     <button class="btn btn-ghost btn-sm" type="submit" formaction="/servers/{{ server.identifier }}/files/backup" data-backup-add>{{ _("Zu Backup-Job hinzufügen") }}</button>
   </span>
   {% endif %}
+  {% if can_delete %}<button class="btn btn-danger btn-sm" type="submit" formaction="/servers/{{ server.identifier }}/files/delete-many" data-delete-many>{{ _("Löschen") }}</button>{% endif %}
   <button class="btn btn-ghost btn-sm" type="button" id="selection-clear">{{ _("Auswahl aufheben") }}</button>
-  {% if can_download %}<span class="faint small">{{ _("Ordner werden mit Inhalt gepackt · max. 1000 Dateien bzw. 10 GB") }}</span>{% endif %}
+  {% if can_download %}<span class="faint small">{{ _("ZIP: Ordner werden mit Inhalt gepackt · max. 1000 Dateien bzw. 10 GB") }}</span>{% endif %}
 </form>
 {% endif %}
 
@@ -106,4 +112,20 @@
     </tbody>
   </table>
 </div>
+{% if can_rename and can_select %}
+<dialog class="move-dialog" id="move-dialog" data-folders="/api/servers/{{ server.identifier }}/folders" data-dir="{{ directory }}" aria-labelledby="move-title">
+  <h2 id="move-title" tabindex="-1" autofocus>{{ _("Verschieben nach") }}</h2>
+  <p class="faint small" data-move-what></p>
+  <nav class="crumbs move-crumbs" aria-label="{{ _("Pfad") }}" data-move-crumbs></nav>
+  <ul class="move-list" data-move-list></ul>
+  <label class="move-new">{{ _("Optional: in einen neuen Unterordner") }}
+    <input maxlength="255" placeholder="{{ _("Name des neuen Ordners") }}" autocomplete="off" spellcheck="false" data-move-new>
+  </label>
+  <div class="move-actions">
+    <span class="move-dest small" data-move-dest></span>
+    <button class="btn btn-ghost" type="button" data-move-cancel>{{ _("Abbrechen") }}</button>
+    <button class="btn btn-primary" type="button" data-move-confirm>{{ _("Hierher verschieben") }}</button>
+  </div>
+</dialog>
+{% endif %}
 {% endblock %}

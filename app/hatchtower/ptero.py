@@ -245,6 +245,12 @@ class PteroClient:
         await self._request("PUT", f"/api/client/servers/{identifier}/files/rename", key="client",
                             json_body={"root": root, "files": [{"from": old, "to": new}]})
 
+    async def move(self, identifier: str, moves: list[tuple[str, str]]) -> None:
+        """Verschiebt Dateien und Ordner (volle Pfade, „von“ → „nach“). Wings hängt „to“ an „root“ an,
+        deshalb root = „/“; fehlende Zielordner legt Wings selbst an."""
+        await self._request("PUT", f"/api/client/servers/{identifier}/files/rename", key="client",
+                            json_body={"root": "/", "files": [{"from": a, "to": b} for a, b in moves]})
+
     async def create_folder(self, identifier: str, root: str, name: str) -> None:
         await self._request("POST", f"/api/client/servers/{identifier}/files/create-folder", key="client",
                             json_body={"root": root, "name": name})

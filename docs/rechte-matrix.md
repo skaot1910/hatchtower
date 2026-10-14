@@ -25,13 +25,13 @@ Grundregeln:
 | `console.read` | Konsole lesen |  | `server.view` | `GET /servers/{ident}/console/stream` |  |
 | `console.command` | Befehle senden | ✎ | `server.view`, `console.read` | `POST /api/servers/{ident}/command` | Je nach Spiel reichen Befehle weit, z. B. Spieler zu Admins machen oder die Welt verändern. |
 | `console.archive` | Konsolen-Archiv sehen |  | `server.view` | `GET /api/servers/{ident}/logs`<br>`GET /servers/{ident}/logs.txt` |  |
-| `sftp.view` | Dateien ansehen |  | `server.view` | `GET /servers/{ident}/files` |  |
+| `sftp.view` | Dateien ansehen |  | `server.view` | `GET /api/servers/{ident}/folders`<br>`GET /servers/{ident}/files` |  |
 | `sftp.download` | Herunterladen |  | `server.view`, `sftp.view` | `GET /servers/{ident}/files/download`<br>`POST /servers/{ident}/files/zip` | Konfigurationsdateien können Passwörter und Zugangsschlüssel enthalten. |
 | `sftp.upload` | Hochladen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/upload` |  |
 | `sftp.edit` | Bearbeiten | ✎ | `server.view`, `sftp.view`, `sftp.download` | `GET /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/restore` |  |
-| `sftp.rename` | Umbenennen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/rename` |  |
+| `sftp.rename` | Umbenennen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/move`<br>`POST /servers/{ident}/files/rename` |  |
 | `sftp.create_directory` | Ordner anlegen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/mkdir` |  |
-| `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete` |  |
+| `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete-many`<br>`POST /servers/{ident}/files/delete` |  |
 | `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |  |
 | `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups`<br>`GET /api/backups/status` |  |
 | `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` | Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“. |
@@ -62,6 +62,8 @@ Grundregeln:
 | POST | `/reset/{token}` | Vorab-Token | Neues Passwort speichern |
 | GET | `/verify/{token}` | – | E-Mail-Adresse bestätigen |
 | GET | `/invite/{token}` | – | Einladung öffnen |
+| GET | `/notify/unsubscribe/{token}` | – | E-Mail-Benachrichtigungen abbestellen: Bestätigungsseite |
+| POST | `/notify/unsubscribe/{token}` | – | E-Mail-Benachrichtigungen abbestellen (auch Ein-Klick aus dem Mailprogramm, signierter Link statt Formular-Token) |
 | POST | `/invite/{token}` | Vorab-Token | Einladung annehmen, Konto anlegen |
 
 ## Einrichtung (nur ohne Benutzer)
@@ -116,6 +118,9 @@ Grundregeln:
 | POST | `/servers/{ident}/files/rename` | `sftp.rename` | Formular | schreibt | Umbenennen |
 | POST | `/servers/{ident}/files/mkdir` | `sftp.create_directory` | Formular | schreibt | Ordner anlegen |
 | POST | `/servers/{ident}/files/delete` | `sftp.delete` | Formular | schreibt | Löschen |
+| POST | `/servers/{ident}/files/delete-many` | `sftp.delete` | Formular | schreibt | Mehrere Dateien und Ordner löschen |
+| GET | `/api/servers/{ident}/folders` | `sftp.view` | – | liest | Unterordner für die Ordnerauswahl beim Verschieben |
+| POST | `/servers/{ident}/files/move` | `sftp.rename` | Formular | schreibt | Dateien und Ordner in einen anderen Ordner verschieben |
 | POST | `/servers/{ident}/files/backup` | `backups.manage` | Formular | liest | Auswahl zu einem Backup-Job hinzufügen |
 | GET | `/servers/{ident}/settings` | `server.manage` | – | liest | Serverangaben im Manager |
 | POST | `/servers/{ident}/settings` | `server.manage` | Formular | liest | Serverangaben speichern |

@@ -304,15 +304,24 @@ async def forgot_send(request: Request, login: str = Form(""), prelogin: str = F
         raw = accounts.create("reset", user_id=row["id"])
         page_lang = i18n.current()
         i18n.set_language(row["language"] or page_lang)
-        text = i18n.t("Hallo {name},\n\njemand (hoffentlich du) möchte das Passwort für Hatchtower zurücksetzen. "
-                      "Der Link gilt eine Stunde:\n\n{link}\n\nWenn du das nicht warst, ignoriere diese E-Mail. "
-                      "Dein Passwort bleibt dann unverändert.", name=row["username"], link=f"{cfg.base_url}/reset/{raw}")
-        subject = i18n.t("Passwort zurücksetzen")
+        brand = mailer.brand_name()
+        mail = mailer.Mail(
+            subject=i18n.t("Passwort zurücksetzen – {brand}", brand=brand),
+            heading=i18n.t("Passwort zurücksetzen"),
+            name=row["username"],
+            paragraphs=[i18n.t("wir haben eine Anfrage erhalten, das Passwort für dein Konto „{name}“ bei {brand}"
+                               " zurückzusetzen. Über den folgenden Knopf legst du ein neues Passwort fest.",
+                               name=row["username"], brand=brand)],
+            button=(i18n.t("Neues Passwort festlegen"), f"{cfg.base_url}/reset/{raw}"),
+            facts=[(i18n.t("Konto"), row["username"]), (i18n.t("Angefordert am"), mailer.now_text()),
+                   (i18n.t("Gültig"), i18n.t("1 Stunde, nur einmal verwendbar"))],
+            note=i18n.t("Du hast das nicht angefordert? Dann kannst du diese E-Mail ignorieren – dein Passwort bleibt"
+                        " unverändert. Gib den Link nicht weiter."))
         i18n.set_language(page_lang)
 
         async def deliver(user_id=row["id"], username=row["username"], email=row["email"]):
             try:
-                await mailer.send(cfg, email, subject, text + mailer.signature())
+                await mailer.send(cfg, email, mail.subject, mail)
                 audit.record("password.reset_request", user_id=user_id, username=username, ip=ip)
             except mailer.MailError as exc:
                 audit.record("password.reset_request", result="error", user_id=user_id, username=username,
@@ -377,10 +386,21 @@ async def send_verify_mail(request: Request, user_id: int, username: str, email:
     with db.connect() as con:
         con.execute("DELETE FROM tokens WHERE purpose = 'verify' AND user_id = ?", (user_id,))
     raw = accounts.create("verify", user_id=user_id, email=email)
-    text = i18n.t("Hallo {name},\n\nbitte bestätige deine E-Mail-Adresse für Hatchtower. Der Link gilt 24 Stunden:\n\n{link}",
-                  name=username, link=f"{cfg.base_url}/verify/{raw}")
+    brand = mailer.brand_name()
+    mail = mailer.Mail(
+        subject=i18n.t("Bitte bestätige deine E-Mail-Adresse – {brand}", brand=brand),
+        heading=i18n.t("E-Mail-Adresse bestätigen"),
+        name=username,
+        paragraphs=[i18n.t("bitte bestätige, dass diese E-Mail-Adresse zu deinem Konto „{name}“ bei {brand} gehört."
+                           " Danach kannst du über sie dein Passwort zurücksetzen und Benachrichtigungen erhalten.",
+                           name=username, brand=brand)],
+        button=(i18n.t("E-Mail-Adresse bestätigen"), f"{cfg.base_url}/verify/{raw}"),
+        facts=[(i18n.t("Konto"), username), (i18n.t("E-Mail-Adresse"), email),
+               (i18n.t("Gültig"), i18n.t("24 Stunden"))],
+        note=i18n.t("Du hast kein Konto bei {brand} oder diese Adresse nicht eingetragen? Dann ignoriere diese"
+                    " E-Mail einfach – ohne Bestätigung passiert nichts.", brand=brand))
     try:
-        await mailer.send(cfg, email, i18n.t("E-Mail-Adresse bestätigen"), text + mailer.signature())
+        await mailer.send(cfg, email, mail.subject, mail)
     except mailer.MailError as exc:
         accounts.consume(raw)  # sonst stünde „Bestätigung ausstehend“ da, obwohl nie eine Mail ankam
         return str(exc)
@@ -431,6 +451,42 @@ async def account_notify(request: Request, notify_email: str = Form("")):
     audit.record("settings.notify", user_id=user.id, username=user.username, ip=ip_of(request),
                  detail={"email": bool(notify_email), "events": events})
     return back("/account#benachrichtigungen", "Benachrichtigungen gespeichert")
+
+
+# == Abmeldelink aus den Benachrichtigungs-Mails (ohne Anmeldung) ================================
+
+def _unsubscribe_target(token: str):
+    def lookup(uid: int):
+        with db.connect() as con:
+            return con.execute("SELECT id, username, email, notify_email FROM users WHERE id = ?", (uid,)).fetchone()
+    return security.unsubscribe_user(settings.secret_key, token, lookup)
+
+
+@app.get("/notify/unsubscribe/{token}")
+async def unsubscribe_page(request: Request, token: str):
+    """Bestätigungsseite. Abbestellt wird erst per POST, damit Link-Vorschauen in Mailprogrammen
+    nicht versehentlich abmelden."""
+    row = _unsubscribe_target(token)
+    if row is None:
+        return render(request, "error.html", status=410, title="Link abgelaufen",
+                      message="Dieser Link gilt nicht mehr, z. B. weil sich die E-Mail-Adresse geändert hat."
+                              " Benachrichtigungen schaltest du nach der Anmeldung unter Konto aus.")
+    return render(request, "unsubscribe.html", token=token, email=row["email"], done=not row["notify_email"])
+
+
+@app.post("/notify/unsubscribe/{token}")
+async def unsubscribe(request: Request, token: str):
+    """Abbestellen – auch als Ein-Klick-Abmeldung direkt aus dem Mailprogramm (RFC 8058, ohne Formular-Token;
+    der signierte Link ist der Nachweis)."""
+    row = _unsubscribe_target(token)
+    if row is None:
+        return RedirectResponse(f"/notify/unsubscribe/{token}", status_code=303)
+    if row["notify_email"]:
+        with db.connect() as con:
+            con.execute("UPDATE users SET notify_email = 0 WHERE id = ?", (row["id"],))
+        audit.record("notify.unsubscribe", user_id=row["id"], username=row["username"], ip=ip_of(request),
+                     detail={"email": row["email"]})
+    return render(request, "unsubscribe.html", token=token, email=row["email"], done=True)
 
 
 def user_data(user_id: int) -> dict:
@@ -651,13 +707,27 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
         if not cfg.ready:
             message = "Einladung erstellt. E-Mail ist nicht eingeschaltet, gib den Link selbst weiter."
         else:
-            text = i18n.t("Hallo,\n\ndu wurdest zu {brand} eingeladen. Über diesen Link legst du dein Konto an "
-                          "({gueltig}):\n\n{link}", brand=load_brand()["name"],
-                          gueltig=accounts.validity_text(days),
-                          link=f"{cfg.base_url}/invite/{raw}")
+            page_lang = i18n.current()
+            i18n.use_default()            # Sprache des Eingeladenen ist unbekannt: Standardsprache der Instanz
+            brand = mailer.brand_name()
+            facts = [(i18n.t("Eingeladen von"), owner.username),
+                     (i18n.t("Rolle"), i18n.t("Owner") if role == "owner" else i18n.t("Rolle|Benutzer"))]
+            if access:
+                facts.append((i18n.t("Zugriff"), describe_invite_access(access)))
+            facts.append((i18n.t("Gültig"), accounts.validity_text(days)))
+            mail = mailer.Mail(
+                subject=i18n.t("Einladung zu {brand}", brand=brand),
+                heading=i18n.t("Du wurdest eingeladen"),
+                paragraphs=[i18n.t("{owner} lädt dich zu {brand} ein. Dort siehst und steuerst du die Gameserver,"
+                                   " für die du freigeschaltet bist.", owner=owner.username, brand=brand),
+                            i18n.t("Über den folgenden Knopf legst du dein Konto an. Benutzername und Passwort"
+                                   " wählst du dabei selbst.")],
+                button=(i18n.t("Konto anlegen"), f"{cfg.base_url}/invite/{raw}"),
+                facts=facts,
+                note=i18n.t("Du kannst mit dieser Einladung nichts anfangen? Dann ignoriere diese E-Mail einfach."))
+            i18n.set_language(page_lang)
             try:
-                await mailer.send(cfg, email, i18n.t("Einladung zu {brand}", brand=load_brand()["name"]),
-                                  text + mailer.signature())
+                await mailer.send(cfg, email, mail.subject, mail)
                 message = i18n.t("Einladung an {email} geschickt.", email=email)
             except mailer.MailError as exc:
                 message = i18n.t("E-Mail konnte nicht verschickt werden: {grund}", grund=exc)
@@ -819,9 +889,25 @@ async def admin_mail_test(request: Request, to: str = Form("")):
     await check_csrf(request)
     if not mailer.valid_email(to.strip()):
         return back("/admin/mail", "Bitte eine gültige E-Mail-Adresse eingeben")
+    cfg = mail_config()
+    brand = mailer.brand_name()
+    security_label = {"starttls": "STARTTLS", "ssl": "SSL/TLS", "none": i18n.t("keine")}.get(cfg.security, cfg.security)
+    mail = mailer.Mail(
+        subject=i18n.t("Testnachricht – {brand}", brand=brand),
+        heading=i18n.t("Der E-Mail-Versand funktioniert"),
+        paragraphs=[i18n.t("diese Testnachricht bestätigt, dass {brand} E-Mails verschicken kann. Einladungen,"
+                           " Links zum Zurücksetzen des Passworts und Benachrichtigungen kommen damit an.",
+                           brand=brand)],
+        button=(i18n.t("{brand} öffnen", brand=brand), cfg.base_url) if cfg.base_url else None,
+        facts=[(i18n.t("SMTP-Server"), f"{cfg.host}:{cfg.port}"), (i18n.t("Verschlüsselung"), security_label),
+               (i18n.t("Absender"), f"{cfg.sender_name} <{cfg.sender}>"), (i18n.t("Ausgelöst von"), owner.username),
+               (i18n.t("Gesendet am"), mailer.now_text())],
+        note=i18n.t("Landet diese Nachricht im Spam-Ordner, markiere sie als „Kein Spam“ und prüfe beim Anbieter"
+                    " deiner Absenderadresse die Einstellungen für SPF und DKIM."),
+        reason=i18n.t("Du bekommst diese E-Mail, weil unter System → E-Mail eine Testnachricht an diese Adresse"
+                      " ausgelöst wurde."))
     try:
-        await mailer.send(mail_config(), to.strip(), i18n.t("Testnachricht von Hatchtower"),
-                          i18n.t("Wenn du das liest, funktioniert der E-Mail-Versand.") + mailer.signature())
+        await mailer.send(cfg, to.strip(), mail.subject, mail)
     except mailer.MailError as exc:
         return back("/admin/mail", i18n.t("E-Mail konnte nicht verschickt werden: {grund}", grund=exc))
     owner_audit(request, owner, "settings.mail", detail="Testnachricht")

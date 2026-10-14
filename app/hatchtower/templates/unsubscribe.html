@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% import "_lang.html" as lng with context %}
+{% block title %}{{ _("E-Mail-Benachrichtigungen") }} · {{ brand.name }}{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  {{ lng.switch("lang-switch-corner") }}
+  <div class="login-card">
+    <div class="login-head"><h1>{{ _("E-Mail-Benachrichtigungen") }}</h1></div>
+    {% if done %}
+    <div class="flash" role="status">{{ _("Erledigt: An {email} gehen keine Benachrichtigungen mehr.", email=email) }}</div>
+    <p class="muted small">{{ _("E-Mails, die du selbst anforderst – etwa zum Zurücksetzen des Passworts –, bekommst du weiterhin. Benachrichtigungen schaltest du jederzeit wieder unter Konto → Benachrichtigungen ein.") }}</p>
+    {% else %}
+    <p>{{ _("Keine Benachrichtigungen mehr per E-Mail an {email} schicken?", email=email) }}</p>
+    <p class="muted small">{{ _("Betrifft Meldungen wie Abstürze, volle Festplatten oder Backups. E-Mails, die du selbst anforderst – etwa zum Zurücksetzen des Passworts –, bekommst du weiterhin.") }}</p>
+    <form method="post" action="/notify/unsubscribe/{{ token }}" class="form">
+      <button class="btn btn-primary btn-block" type="submit">{{ _("Benachrichtigungen abbestellen") }}</button>
+    </form>
+    {% endif %}
+    <p class="login-extra"><a href="/login">{{ _("← zur Anmeldung") }}</a></p>
+  </div>
+</div>
+{% endblock %}

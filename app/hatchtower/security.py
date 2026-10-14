@@ -176,6 +176,26 @@ def prelogin_valid(secret_key: str, cookie: str | None, form: str | None) -> boo
     return hmac.compare_digest(sig, expected)
 
 
+# -- Abmeldelink für E-Mail-Benachrichtigungen ----------------------------
+# Ohne Anmeldung nutzbar (DSGVO, RFC 8058). Die Signatur hängt an der Adresse: Ändert sich
+# die E-Mail-Adresse, gelten alte Links nicht mehr.
+
+def unsubscribe_token(secret_key: str, user_id: int, email: str) -> str:
+    sig = hmac.new(secret_key.encode(), f"unsubscribe:{user_id}:{email.lower()}".encode(), hashlib.sha256)
+    return f"{user_id}.{sig.hexdigest()[:40]}"
+
+
+def unsubscribe_user(secret_key: str, token: str, lookup) -> dict | None:
+    """Benutzer zum Abmeldelink oder None. `lookup(user_id)` liefert die Zeile mit id und email."""
+    uid, _sep, _sig = token.partition(".")
+    if not uid.isdigit() or len(token) > 80:
+        return None
+    row = lookup(int(uid))
+    if row is None or not row["email"]:
+        return None
+    return row if hmac.compare_digest(token, unsubscribe_token(secret_key, row["id"], row["email"])) else None
+
+
 # -- Anmeldeschutz -------------------------------------------------------
 
 class LoginThrottle:

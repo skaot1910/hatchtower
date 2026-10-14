@@ -3,6 +3,26 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.31.0 – 2026-10-14
+
+**Datei-Explorer**
+- **Mehrere Einträge löschen:** Dateien und Ordner ankreuzen und gemeinsam löschen (mit Rückfrage, ein Aufruf ans Panel)
+- **Verschieben:** Auswahl ankreuzen, „Verschieben …“ öffnet eine Ordnerauswahl zum Durchklicken; optional in einen
+  neuen Unterordner. Das Ziel steht im Klartext da, ausgewählte Ordner können nicht Ziel sein. Ist am Ziel schon ein
+  Eintrag mit gleichem Namen, wird nichts überschrieben und eine verständliche Meldung erscheint
+- Die Auswahlkästchen gibt es jetzt auch für Benutzer, die nur löschen oder umbenennen dürfen
+
+**E-Mails**
+- **Neues Layout für alle E-Mails:** Logo aus dem Erscheinungsbild (als PNG eingebettet, sonst der Name), persönliche
+  Anrede, klarer Knopf mit Link zum Kopieren, Angaben als Übersicht, Sicherheitshinweis, Gruß und Fußzeile. HTML mit
+  Text-Fassung; betrifft Passwort zurücksetzen, E-Mail bestätigen, Einladung, Testnachricht und Benachrichtigungen
+- **Benachrichtigungen einzeln:** Jeder Empfänger bekommt eine eigene E-Mail mit seinem Namen und in seiner Sprache –
+  bisher sahen alle Empfänger die Adressen der anderen. Mit Knopf direkt zum Server, zu Backups oder System
+- **Abmeldelink (DSGVO):** Benachrichtigungen lassen sich per Link in der Mail ohne Anmeldung abbestellen, dazu
+  „List-Unsubscribe“ für den Abbestellen-Knopf in Gmail, Outlook & Co. Der Link ist signiert und gilt nur für die
+  aktuelle Adresse; die Abmeldung steht im Audit-Log
+- Mails behalten die Sprache, in der sie erstellt wurden; Einladungen kommen in der Standardsprache der Instanz
+
 ## 0.30.1 – 2026-10-14
 
 - **Konten deaktivieren und wieder aktivieren:** eigener Knopf „Konto deaktivieren“ auf der Seite eines Benutzers

@@ -22,7 +22,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, i18n, legal, logarchive, logos,
-               retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
+               mailer, retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
 from .monitor import Monitor
@@ -41,6 +41,7 @@ log = logging.getLogger("hatchtower")
 BASE = Path(__file__).parent
 settings = load_settings()
 vault = security.Vault(settings.data_key)
+notify.SECRET_KEY = settings.secret_key
 throttle = security.LoginThrottle()
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 templates.env.globals.update(app_name=APP_NAME, version=__version__, settings=settings, _=i18n.t,
@@ -94,6 +95,7 @@ def load_connection() -> None:
         values = {r["key"]: r["value"] for r in con.execute("SELECT key, value FROM app_settings WHERE key LIKE 'conn_%'")}
     apply_db_values(settings, values, vault.decrypt)
     i18n.set_panel(settings.panel.name)
+    mailer.LOGO_DIR, mailer.TIMEZONE = settings.logo_dir, settings.timezone
 
 
 async def apply_connection() -> None:
@@ -1250,12 +1252,30 @@ async def files_page(request: Request, ident: str, dir: str = "/"):
         f["modified_text"] = fmt_dt(f["modified_at"], settings.timezone)
         f["editable"] = f["is_file"] and f["size"] <= MAX_EDIT_BYTES and looks_editable(f["name"], f.get("mimetype", ""))
     return render(request, "files.html", server=server, files=files, directory=directory, crumbs=crumbs,
+
                   parent=posixpath.dirname(directory) if directory != "/" else None, error=error,
                   can_download=user.can(ident, "sftp.download"), can_upload=user.can(ident, "sftp.upload"),
                   can_mkdir=user.can(ident, "sftp.create_directory"), can_rename=user.can(ident, "sftp.rename"),
                   can_delete=user.can(ident, "sftp.delete"), can_edit=user.can(ident, "sftp.edit"),
                   can_backup=user.can(ident, "backups.manage"),
                   backup_jobs=routes_backup.jobs_for_explorer(user, ident))
+
+
+@app.get("/api/servers/{ident}/folders")
+async def api_folders(request: Request, ident: str, dir: str = "/"):
+    """Unterordner eines Ordners – für die Ordnerauswahl beim Verschieben."""
+    user = current_user(request)
+    get_server_or_deny(request, user, ident)
+    require(request, user, ident, "sftp.view")
+    directory = clean_path(dir)
+    try:
+        files = await app.state.ptero.list_files(ident, directory)
+    except PteroError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=502)
+    audit.record("files.list", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
+                 detail=directory)
+    return {"dir": directory,
+            "folders": sorted((f["name"] for f in files if not f["is_file"]), key=str.lower)}
 
 
 @app.get("/servers/{ident}/files/download")
@@ -1420,6 +1440,10 @@ async def file_action(request: Request, ident: str, directory: str, action: str,
     except PteroError as exc:
         audit.record(action, result="error", user_id=user.id, username=user.username, ip=ip_of(request),
                      server=ident, detail=f"{detail}: {exc}")
+        if "already exists" in str(exc):          # Wings: Ziel beim Umbenennen/Verschieben belegt
+            return files_back(ident, directory, i18n.t(
+                "Am Ziel gibt es schon eine Datei oder einen Ordner mit diesem Namen. Es wurde nichts überschrieben;"
+                " bei mehreren Einträgen können andere schon verschoben sein."))
         return files_back(ident, directory, i18n.t("Fehlgeschlagen: {grund}", grund=exc))
     audit.record(action, user_id=user.id, username=user.username, ip=ip_of(request), server=ident, detail=detail)
     return None
@@ -1493,6 +1517,65 @@ async def files_delete(request: Request, ident: str, dir: str = Form("/"), name:
     failed = await file_action(request, ident, directory, "files.delete",
                                posixpath.join(directory, name), app.state.ptero.delete_files(ident, directory, [name]))
     return failed or files_back(ident, directory, i18n.t("„{name}“ gelöscht", name=name))
+
+
+MAX_SELECTED_FILES = 500
+
+
+def selected_names(form) -> list[str] | None:
+    """Ausgewählte Namen aus dem Formular (ohne Doppelte); None, wenn einer ungültig ist."""
+    names = list(dict.fromkeys(str(n) for n in form.getlist("names")))[:MAX_SELECTED_FILES]
+    return names if names and all(valid_name(n) for n in names) else None
+
+
+@app.post("/servers/{ident}/files/delete-many")
+async def files_delete_many(request: Request, ident: str, dir: str = Form("/")):
+    user = current_user(request)
+    await check_csrf(request)
+    get_server_or_deny(request, user, ident)
+    require(request, user, ident, "sftp.delete")
+    directory = clean_path(dir)
+    names = selected_names(await request.form())
+    if names is None:
+        return files_back(ident, directory, "Nichts ausgewählt")
+    failed = await file_action(request, ident, directory, "files.delete",
+                               ", ".join(posixpath.join(directory, n) for n in names),
+                               app.state.ptero.delete_files(ident, directory, names))
+    return failed or files_back(ident, directory, i18n.t("„{name}“ gelöscht", name=names[0]) if len(names) == 1
+                                else i18n.t("{n} Einträge gelöscht", n=len(names)))
+
+
+@app.post("/servers/{ident}/files/move")
+async def files_move(request: Request, ident: str, dir: str = Form("/"), target: str = Form("")):
+    """Verschiebt ausgewählte Dateien und Ordner in einen anderen Ordner. Ein Ziel ohne „/“ am Anfang
+    gilt relativ zum aktuellen Ordner („..“ geht eine Ebene hoch)."""
+    user = current_user(request)
+    await check_csrf(request)
+    get_server_or_deny(request, user, ident)
+    require(request, user, ident, "sftp.rename")
+    directory = clean_path(dir)
+    names = selected_names(await request.form())
+    if names is None:
+        return files_back(ident, directory, "Nichts ausgewählt")
+    target = target.strip()
+    if not target or len(target) > 1000:
+        return files_back(ident, directory, "Bitte einen Zielordner angeben")
+    dest = clean_path(target if target.startswith("/") else posixpath.join(directory, target))
+    if dest == directory:
+        return files_back(ident, directory, "Die Auswahl liegt schon in diesem Ordner")
+    moves = []
+    for name in names:
+        source = posixpath.join(directory, name)
+        if dest == source or dest.startswith(source.rstrip("/") + "/"):
+            return files_back(ident, directory, i18n.t("„{name}“ kann nicht in sich selbst verschoben werden",
+                                                       name=name))
+        moves.append((source, posixpath.join(dest, name)))
+    failed = await file_action(request, ident, directory, "files.move",
+                               "; ".join(f"{a} → {b}" for a, b in moves), app.state.ptero.move(ident, moves))
+    if failed:
+        return failed
+    text = i18n.t("„{name}“ nach {ziel} verschoben", name=names[0], ziel=dest) if len(names) == 1         else i18n.t("{n} Einträge nach {ziel} verschoben", n=len(names), ziel=dest)
+    return files_back(ident, directory, text)
 
 
 @app.get("/servers/{ident}/files/edit", response_class=HTMLResponse)

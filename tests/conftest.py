@@ -280,5 +280,6 @@ def world(monkeypatch, tmp_path) -> World:
         "@invite": invite,
         "@reset": accounts.create("reset", user_id=victim),
         "@verify": accounts.create("verify", user_id=victim, email="v@example.com"),
+        "@unsubscribe": security.unsubscribe_token(main.settings.secret_key, victim, "v@example.com"),
     }
     return w

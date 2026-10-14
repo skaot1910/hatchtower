@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from . import APP_NAME, db, i18n, mailer
+from . import APP_NAME, db, i18n, mailer, security
 from .permissions import load_grants
 
 log = logging.getLogger("hatchtower.notify")
@@ -48,6 +48,7 @@ COLORS = {"crash": 0xE11D48, "restart_failed": 0xE11D48, "restarted": 0x10B981, 
           "panel_up": 0x10B981, "new_server": 0x8B5CF6, "backup_failed": 0xE11D48, "backup_ok": 0x10B981,
           "test": 0x8B5CF6}
 WEBHOOK_TYPES = ("discord", "generic")
+SECRET_KEY = ""      # setzt main.py; signiert die Abmeldelinks in den E-Mails
 
 
 def thresholds() -> dict[str, int]:
@@ -104,11 +105,12 @@ def _server_name(ident: str | None) -> str:
     return row["name"] if row else ident
 
 
-def _email_recipients(event: str, ident: str | None) -> list[str]:
+def _email_recipients(event: str, ident: str | None) -> list[dict]:
+    """Empfänger mit Adresse, Name und Sprache – jeder bekommt eine eigene E-Mail."""
     with db.connect() as con:
         rows = con.execute(
-            "SELECT id, role, email, notify_events FROM users WHERE is_active = 1 AND notify_email = 1"
-            " AND email_verified = 1 AND email IS NOT NULL").fetchall()
+            "SELECT id, username, language, role, email, notify_events FROM users WHERE is_active = 1"
+            " AND notify_email = 1 AND email_verified = 1 AND email IS NOT NULL").fetchall()
     result = []
     for r in rows:
         wanted = set((r["notify_events"] or ",".join(EVENTS)).split(","))
@@ -118,8 +120,36 @@ def _email_recipients(event: str, ident: str | None) -> list[str]:
             continue
         if ident and r["role"] != "owner" and "server.view" not in load_grants(r["id"]).get(ident, set()):
             continue
-        result.append(r["email"])
+        result.append({"id": r["id"], "email": r["email"], "name": r["username"], "language": r["language"]})
     return result
+
+
+def _mail_for(event: str, ident: str | None, name: str, detail: str, base_url: str,
+              recipient: str | None = None) -> mailer.Mail:
+    """Benachrichtigung als E-Mail, in der gerade eingestellten Sprache."""
+    label = i18n.t(EVENTS.get(event, "Testnachricht"))
+    title = f"{label}: {name}" if name else label
+    brand = mailer.brand_name()
+    intro = (i18n.t("für den Server „{name}“ gibt es eine neue Meldung.", name=name) if name
+             else i18n.t("es gibt eine neue Meldung von {brand}.", brand=brand))
+    paragraphs = [intro] + ([detail] if detail and detail != title else [])
+    facts = ([(i18n.t("Server"), name)] if name else []) + [(i18n.t("Ereignis"), label),
+                                                             (i18n.t("Zeitpunkt"), mailer.now_text())]
+    if event.startswith("backup_"):
+        link = f"{base_url}/admin/backups"
+    elif event in ("panel_down", "panel_up"):
+        link = f"{base_url}/admin/system"
+    elif ident:
+        link = f"{base_url}/servers/{ident}"
+    else:
+        link = base_url
+    to_server = ident and not event.startswith("backup_") and event not in ("panel_down", "panel_up")
+    label_button = i18n.t("Server öffnen") if to_server else i18n.t("{brand} öffnen", brand=brand)
+    return mailer.Mail(
+        subject=f"[{brand}] {title}", heading=title, name=recipient, paragraphs=paragraphs, facts=facts,
+        button=(label_button, link) if base_url else None,
+        reason=i18n.t("Du bekommst diese E-Mail, weil du unter Konto → Benachrichtigungen E-Mails zu „{ereignis}“"
+                      " eingeschaltet hast.", ereignis=label))
 
 
 async def _post_webhook(url: str, kind: str, event: str, title: str, text: str, ident: str | None, name: str) -> None:
@@ -171,12 +201,20 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
     if only in (None, "mail"):
         cfg = mailer.load_config(vault)
         recipients = _email_recipients(event, ident) if only is None else []
-        if cfg.ready and recipients:
+        failed = []
+        for r in recipients if cfg.ready else []:
+            i18n.set_language(r["language"] or i18n.current())
+            mail = _mail_for(event, ident, name, detail, cfg.base_url, r["name"])
+            if SECRET_KEY:
+                mail.unsubscribe = (f"{cfg.base_url}/notify/unsubscribe/"
+                                    f"{security.unsubscribe_token(SECRET_KEY, r['id'], r['email'])}")
+            i18n.use_default()
             try:
-                await mailer.send(cfg, recipients, f"[{db.get_setting('brand_name') or APP_NAME}] {title}",
-                                  text + mailer.signature())
+                await mailer.send(cfg, r["email"], mail.subject, mail)
             except mailer.MailError as exc:
-                errors.append(f"E-Mail: {exc}")
+                failed.append(str(exc))
+        if failed:
+            errors.append(f"E-Mail ({len(failed)}/{len(recipients)}): {failed[0]}")
     for e in errors:
         log.warning("Benachrichtigung %s: %s", event, e)
     return errors
