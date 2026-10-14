@@ -29,6 +29,34 @@
   {% endif %}
 </section>
 
+{% if settings.configured %}
+<section class="card">
+  <h2 class="card-h">{{ _("Wings-Nodes") }}</h2>
+  {% if nodes_error %}
+  <div class="alert">{{ _("Die Nodes konnten nicht vom Panel gelesen werden: {e}", e=nodes_error) }}</div>
+  {% elif nodes %}
+  <table class="feature-table wings-table">
+    <thead><tr><th>{{ _("Node") }}</th><th>{{ _("Adresse") }}</th><th>{{ _("Verbindung") }}</th><th>{{ _("SFTP") }}</th></tr></thead>
+    <tbody>
+      {% for n in nodes %}
+      <tr>
+        <td><strong>{{ n.name or n.fqdn }}</strong>{% if n.maintenance %} <span class="pill state-starting"><span class="dot"></span>{{ _("Wartungsmodus") }}</span>{% endif %}</td>
+        <td class="mono">{{ n.host }}:{{ n.daemon_port }}{% if n.override %}<span class="faint small wings-panel-addr">{{ _("im Panel: {fqdn}", fqdn=n.fqdn) }}</span>{% endif %}</td>
+        <td>{% if n.connected %}<span class="pill state-running"><span class="dot"></span>{{ _("verbunden") }}</span>
+            {% elif n.daemon_ok %}<span class="pill state-suspended"><span class="dot"></span>{{ _("antwortet nicht wie erwartet") }}</span>
+            {% else %}<span class="pill state-suspended"><span class="dot"></span>{{ _("nicht erreichbar") }}</span>{% endif %}</td>
+        <td class="{{ 'good' if n.sftp_ok else 'faint' }}">{{ _("Port {port}", port=n.sftp_port) }} · {{ _("erreichbar") if n.sftp_ok else _("nicht erreichbar") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="faint small">{{ _("Konsole, Downloads und Uploads laufen direkt zwischen Hatchtower und Wings. Ist ein Node nicht erreichbar, hilft oft eine andere Wings-Adresse im Assistenten (z. B. die interne IP).") }}</p>
+  {% else %}
+  <p class="muted">{{ _("Im Panel ist kein Node eingetragen.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if report %}
 <section class="card">
   <h2 class="card-h">{{ _("Ergebnis der Prüfung") }}</h2>

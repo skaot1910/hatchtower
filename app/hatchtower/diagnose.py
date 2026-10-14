@@ -622,6 +622,28 @@ async def _wings_http(scheme: str, host: str, port: int, transport=None) -> str:
     return "ok" if response.status_code in (200, 401, 403) and _json(response) is not None else "other"
 
 
+async def _add_wings_http(nodes: list[dict], panel_key: str, transport=None) -> None:
+    """Ergänzt je Node „http“ (Antwort von Wings, siehe _wings_http) und „connected“ (Hatchtower erreicht Wings)."""
+    async def http_state(n: dict) -> str:
+        if panel_key == "calagopus" or not n["daemon_ok"]:
+            return ""
+        override = n.get("override") or ""
+        scheme = urlsplit(override).scheme if "://" in override else n.get("scheme") or "http"
+        return await _wings_http(scheme, n["host"], n["daemon_port"], transport)
+
+    states = await asyncio.gather(*(http_state(n) for n in nodes))
+    for n, state in zip(nodes, states):
+        n["http"] = state
+        n["connected"] = bool(n["daemon_ok"]) and state in ("", "ok")
+
+
+async def wings_overview(client: PteroClient, overrides: dict, panel_key: str) -> list[dict]:
+    """Alle Wings-Nodes mit Adresse und Verbindungsstand (nur lesend, für die Panel-Seite)."""
+    nodes = await setup.node_checks(client, overrides)
+    await _add_wings_http(nodes, panel_key)
+    return nodes
+
+
 async def check_wings(report: Report, cand: Candidate, client: PteroClient, transport=None) -> None:
     """Erreichbarkeit jedes Wings-Nodes – nur so weit, wie Hatchtower es braucht (Konsole, Dateiübertragung).
     SFTP nutzt Hatchtower nicht; der Port wird nur zur Information geprüft."""
@@ -633,17 +655,9 @@ async def check_wings(report: Report, cand: Candidate, client: PteroClient, tran
         return                                  # schon bei der Prüfung des Keys gemeldet
     report.nodes = nodes
     any_ok, any_bad = False, False
-
-    async def http_state(n: dict) -> str:
-        if cand.panel.key == "calagopus" or not n["daemon_ok"]:
-            return ""
-        override = n.get("override") or ""
-        scheme = urlsplit(override).scheme if "://" in override else n.get("scheme") or "http"
-        return await _wings_http(scheme, n["host"], n["daemon_port"], transport)
-
-    states = await asyncio.gather(*(http_state(n) for n in nodes))
-    for n, state in zip(nodes, states):
-        n["http"] = state
+    await _add_wings_http(nodes, cand.panel.key, transport)
+    for n in nodes:
+        state = n["http"]
         name, target = n.get("name") or n["fqdn"], f"{n['host']}:{n['daemon_port']}"
         override_fix = Msg("Unter Wings eine andere Adresse für „{name}“ eintragen, die dieser Server erreicht "
                            "(z. B. die interne IP).", name=name)

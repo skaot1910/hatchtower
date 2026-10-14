@@ -210,8 +210,7 @@ async def tcp_check(host: str, port: int) -> bool:
 
 async def node_checks(client: PteroClient, overrides: dict) -> list[dict]:
     """Erreichbarkeit aller Wings-Nodes (Daemon- und SFTP-Port), mit eventueller anderer Adresse."""
-    result = []
-    for n in await client.list_nodes():
+    async def one(n: dict) -> dict:
         fqdn = n.get("fqdn") or ""
         override = overrides.get(fqdn, "")
         host = urlsplit(override).hostname if "://" in override else (override.split(":")[0] if override else fqdn)
@@ -222,12 +221,13 @@ async def node_checks(client: PteroClient, overrides: dict) -> list[dict]:
         elif "://" in override and urlsplit(override).port:
             daemon_port = urlsplit(override).port
         daemon_ok, sftp_ok = await asyncio.gather(tcp_check(host, daemon_port), tcp_check(host, sftp_port))
-        result.append({
+        return {
             "name": n.get("name"), "fqdn": fqdn, "scheme": n.get("scheme", "http"), "override": override,
             "host": host, "daemon_port": daemon_port, "sftp_port": sftp_port,
             "daemon_ok": daemon_ok, "sftp_ok": sftp_ok, "maintenance": bool(n.get("maintenance_mode")),
-        })
-    return result
+        }
+    # alle Nodes gleichzeitig, damit ein nicht erreichbarer Node die Seite nicht mehrfach aufhält
+    return list(await asyncio.gather(*(one(n) for n in await client.list_nodes())))
 
 
 def save_values(values: dict[str, str], vault, user_id: int | None) -> None:

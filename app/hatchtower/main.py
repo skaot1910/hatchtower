@@ -990,8 +990,17 @@ async def connection_page(request: Request, check: str = ""):
     except ValueError:
         last = None
     last_at = fmt_dt(last.get("at"), settings.timezone) if isinstance(last, dict) else ""
+    # Wings-Nodes mit Adresse und Verbindungsstand (eine Anfrage ans Panel, dann direkt zu Wings)
+    nodes, nodes_error = [], ""
+    if report and report.nodes and all("connected" in n for n in report.nodes):
+        nodes = report.nodes
+    elif settings.configured:
+        try:
+            nodes = await diagnose.wings_overview(app.state.ptero, settings.node_overrides, settings.panel.key)
+        except PteroError as exc:
+            nodes_error = str(exc)
     return render(request, "connection.html", conn=connection_context(None), report=report, last_check=last,
-                  last_check_at=last_at,
+                  last_check_at=last_at, nodes=nodes, nodes_error=nodes_error,
                   draft=setup.draft_get(owner.id), levels=LEVEL_TEXTS, areas=diagnose.AREAS)
 
 
@@ -2387,6 +2396,7 @@ async def admin_system(request: Request):
                        "detail": f"{n['host']}:{n['sftp_port']} " + i18n.t("erreichbar" if n["sftp_ok"] else "nicht erreichbar")})
     m = app.state.monitor
     return render(request, "admin_system.html", checks=checks, last_ok=fmt_dt(m.last_ok, settings.timezone),
+                  wings_total=len(node_list), wings_ok=sum(1 for n in node_list if n["daemon_ok"]),
                   public_host=db.get_setting("public_host"),
                   last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error)
 

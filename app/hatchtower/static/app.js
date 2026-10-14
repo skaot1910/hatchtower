@@ -1205,7 +1205,19 @@
     }
     function finish(text, cls) {
       finished = true;
-      show(text, cls);
+      var banner = document.getElementById(cls === "ok" ? "update-success" : "update-failed");
+      if (banner) {
+        // deutliche Meldung statt Statuszeile; bei Erfolg das Protokoll einklappen
+        document.getElementById(cls === "ok" ? "update-success-text" : "update-failed-text").textContent = text;
+        banner.hidden = false;
+        statusEl.hidden = true;
+        document.getElementById("update-hint").hidden = true;
+        document.getElementById("update-heading").textContent =
+          cls === "ok" ? tr("Update abgeschlossen") : tr("Update nicht abgeschlossen");
+        if (cls === "ok") document.getElementById("update-log-box").open = false;
+      } else {
+        show(text, cls);
+      }
       doneBtn.hidden = false;
     }
     function tick() {
@@ -1219,11 +1231,11 @@
         .then(function (s) {
           if (s.log) { logEl.textContent = s.log; logEl.scrollTop = logEl.scrollHeight; }
           if (s.state === "failed") {
-            finish(tr("Das Update ist fehlgeschlagen. Hatchtower läuft weiter mit der bisherigen Version – Details siehe Protokoll."), "bad");
+            finish(tr("Hatchtower läuft weiter mit der bisherigen Version – Details siehe Protokoll."), "bad");
           } else if (s.state === "done" && s.running_version !== oldVersion) {
-            finish(tr("Fertig: Hatchtower läuft jetzt mit Version {v}.", { v: s.running_version }), "ok");
+            finish(tr("Hatchtower läuft jetzt mit Version {v}.", { v: s.running_version }), "ok");
           } else if (s.state === "done" && sawRestart) {
-            finish(tr("Fertig: Hatchtower läuft mit Version {v}.", { v: s.running_version }), "ok");
+            finish(tr("Hatchtower läuft mit Version {v}.", { v: s.running_version }), "ok");
           } else if (s.state === "requested") {
             show(tr("Update angefordert – startet in wenigen Sekunden …"));
           } else {

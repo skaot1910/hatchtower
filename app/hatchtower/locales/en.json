@@ -1917,7 +1917,20 @@
   "Der Benutzer wird bei allen Geräten abgemeldet und meldet sich danach mit dem neuen Passwort an.": "The user is logged out on all devices and logs in with the new password afterwards.",
   "Beim Löschen verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Einträge im Audit-Log werden nach Ablauf der Aufbewahrungsfrist gelöscht. Soll jemand nur vorübergehend nicht hinein, nimm stattdessen oben den Haken bei „Konto aktiv“ heraus.": "Deleting removes the account, permissions, favourites and sessions immediately. Audit log entries are deleted when the retention period ends. If someone should only be locked out for a while, untick “Account active” above instead.",
   "{name} endgültig löschen? Das lässt sich nicht rückgängig machen.": "Delete {name} permanently? This cannot be undone.",
-  "Benutzer endgültig löschen": "Delete user permanently"
+  "Benutzer endgültig löschen": "Delete user permanently",
+  "Wings-Nodes": "Wings nodes",
+  "Die Nodes konnten nicht vom Panel gelesen werden: {e}": "The nodes could not be read from the panel: {e}",
+  "Node": "Node",
+  "SFTP": "SFTP",
+  "Wartungsmodus": "Maintenance mode",
+  "im Panel: {fqdn}": "in the panel: {fqdn}",
+  "antwortet nicht wie erwartet": "unexpected response",
+  "Port {port}": "Port {port}",
+  "Konsole, Downloads und Uploads laufen direkt zwischen Hatchtower und Wings. Ist ein Node nicht erreichbar, hilft oft eine andere Wings-Adresse im Assistenten (z. B. die interne IP).": "Console, downloads and uploads run directly between Hatchtower and Wings. If a node is unreachable, another Wings address in the wizard (e.g. the internal IP) often helps.",
+  "Wings": "Wings",
+  "{ok} von {n} erreichbar": "{ok} of {n} reachable",
+  "Update erfolgreich": "Update successful",
+  "Update fehlgeschlagen": "Update failed"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",
@@ -1968,9 +1981,6 @@
   "Archiv konnte nicht geladen werden.": "Archive could not be loaded.",
   "Gestartet": "Started",
   "Passwörter werden für jeden im Internet sichtbar, der die Statusseite aufruft. Wirklich einschalten?": "Passwords become visible to anyone on the internet who opens the status page. Really enable?",
-  "Das Update ist fehlgeschlagen. Hatchtower läuft weiter mit der bisherigen Version – Details siehe Protokoll.": "The update failed. Hatchtower keeps running with the previous version – see the log for details.",
-  "Fertig: Hatchtower läuft jetzt mit Version {v}.": "Done: Hatchtower now runs version {v}.",
-  "Fertig: Hatchtower läuft mit Version {v}.": "Done: Hatchtower runs version {v}.",
   "Update angefordert – startet in wenigen Sekunden …": "Update requested – starting in a few seconds …",
   "Update läuft …": "Update running …",
   "Hatchtower startet neu …": "Hatchtower is restarting …",
@@ -1988,6 +1998,11 @@
   "wird gestartet / wird gestoppt": "starting / stopping",
   "Wiederherstellung": "Restore",
   "Prüfung": "Check",
-  "Wiederherstellung abbrechen? Bis dahin zurückgespielte Dateien bleiben auf dem Server.": "Cancel the restore? Files restored up to that point stay on the server."
+  "Wiederherstellung abbrechen? Bis dahin zurückgespielte Dateien bleiben auf dem Server.": "Cancel the restore? Files restored up to that point stay on the server.",
+  "Update abgeschlossen": "Update complete",
+  "Update nicht abgeschlossen": "Update not completed",
+  "Hatchtower läuft jetzt mit Version {v}.": "Hatchtower now runs version {v}.",
+  "Hatchtower läuft mit Version {v}.": "Hatchtower runs version {v}.",
+  "Hatchtower läuft weiter mit der bisherigen Version – Details siehe Protokoll.": "Hatchtower keeps running the previous version – see the log for details."
  }
 }

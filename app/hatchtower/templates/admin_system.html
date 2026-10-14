@@ -11,6 +11,7 @@
     <h2 class="card-h">{{ _("Verbindung") }}</h2>
     <div class="facts">
       <div class="kv"><span>{{ _("Panel") }}</span><span class="mono">{{ settings.panel.name }} · {{ settings.pterodactyl_url or '–' }}</span></div>
+      <div class="kv"><span>{{ _("Wings") }}</span><span>{% if wings_total %}<a class="{{ 'good' if wings_ok == wings_total else 'bad' }}" href="/admin/connection">{{ _("{ok} von {n} erreichbar", ok=wings_ok, n=wings_total) }}</a>{% else %}–{% endif %}</span></div>
       <div class="kv"><span>{{ _("Modus") }}</span><span>{{ _('Lesen und steuern') if not settings.read_only else _('Nur lesen') }}</span></div>
       <div class="kv"><span>{{ _("Öffentliche Adresse") }}</span><span class="mono">{{ public_host or '–' }}</span></div>
       <div class="kv"><span>{{ _("Reverse-Proxy") }}</span><span class="mono">{{ settings.trusted_proxies|join(', ') or '–' }}</span></div>

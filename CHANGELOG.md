@@ -3,6 +3,14 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.28.2 – 2026-10-14
+
+- **Update erfolgreich:** Nach einem Update über die Oberfläche erscheint eine deutliche grüne Meldung mit der neuen
+  Version, das Protokoll klappt sich ein. Schlägt das Update fehl, kommt die Meldung in Rot
+- **Wings-Nodes unter System → Panel:** Jeder Node mit Adresse und Port, Verbindungsstand (verbunden, nicht erreichbar,
+  antwortet nicht wie erwartet), Wartungsmodus und SFTP-Port. Unter System → Zustand zusätzlich „x von y erreichbar“
+- Wings-Nodes werden gleichzeitig geprüft, ein nicht erreichbarer Node hält die Seiten nicht mehr mehrfach auf
+
 ## 0.28.1 – 2026-10-14
 
 - `hatchtower github-token` übernimmt den Token jetzt auch, wenn er ohne Zeilenumbruch am Ende kommt (z. B. aus einer
