@@ -1,445 +1,438 @@
-# Änderungen
+# Changelog
 
-Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
-automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
+Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
+when publishing (`tools/release.sh`).
 
 ## 0.32.0 – 2026-10-14
 
-Erste öffentliche Beta.
+First public beta.
 
-**Sicherheit und Updates**
-- Status und Protokoll von Updates aus der Weboberfläche liegen jetzt in `/var/lib/hatchtower-update` (gehört root,
-  für den Dienst nur lesbar). Installer und Update folgen keinen Symlinks im Datenordner mehr
-- Alle Python-Pakete haben feste, getestete Versionen; ein automatisches Zurückgehen nach einem fehlgeschlagenen
-  Update setzt auch die Pakete zurück
-- Von den Datenbank-Sicherungen vor Updates bleiben die letzten fünf
-- Sicherheitslücken vertraulich melden: siehe `SECURITY.md`
+**Security and updates**
+- Status and log of updates started from the web interface now live in `/var/lib/hatchtower-update` (owned by root,
+  read-only for the service). The installer and updater no longer follow symlinks in the data directory
+- All Python packages are pinned to fixed, tested versions; an automatic rollback after a failed update also rolls
+  back the packages
+- The last five database backups taken before updates are kept
+- Report security vulnerabilities privately: see `SECURITY.md`
 
-**Sonstiges**
-- „Über Hatchtower“ verlinkt den Quellcode genau der installierten Version
-- README: Beta-Hinweis, Deinstallation, welche Verbindungen Hatchtower aufbaut (keine Telemetrie), Hinweise zu den
-  Datenbank-Sicherungen
-- Docker-Unterstützung entfernt – offiziell unterstützt werden der Debian- und der Proxmox-Installer
-- Installation und Updates brauchen keinen GitHub-Token mehr (nur noch für private Forks)
+**Other**
+- "About Hatchtower" links to the source code of exactly the installed version
+- README: beta notice, uninstalling, which connections Hatchtower makes (no telemetry), notes on the database backups
+- Docker support removed – the Debian and Proxmox installers are the officially supported ways to install
+- Installation and updates no longer need a GitHub token (only for private forks)
 
 ## 0.31.0 – 2026-10-14
 
-**Datei-Explorer**
-- **Mehrere Einträge löschen:** Dateien und Ordner ankreuzen und gemeinsam löschen (mit Rückfrage, ein Aufruf ans Panel)
-- **Verschieben:** Auswahl ankreuzen, „Verschieben …“ öffnet eine Ordnerauswahl zum Durchklicken; optional in einen
-  neuen Unterordner. Das Ziel steht im Klartext da, ausgewählte Ordner können nicht Ziel sein. Ist am Ziel schon ein
-  Eintrag mit gleichem Namen, wird nichts überschrieben und eine verständliche Meldung erscheint
-- Die Auswahlkästchen gibt es jetzt auch für Benutzer, die nur löschen oder umbenennen dürfen
+**File explorer**
+- **Delete multiple entries:** tick files and folders and delete them together (with confirmation, one request to the
+  panel)
+- **Move:** tick a selection, "Move …" opens a folder picker you can click through; optionally into a new subfolder.
+  The destination is shown in plain text, selected folders cannot be the destination. If an entry with the same name
+  already exists at the destination, nothing is overwritten and a clear message appears
+- The checkboxes are now also available to users who may only delete or rename
 
-**E-Mails**
-- **Neues Layout für alle E-Mails:** Logo aus dem Erscheinungsbild (als PNG eingebettet, sonst der Name), persönliche
-  Anrede, klarer Knopf mit Link zum Kopieren, Angaben als Übersicht, Sicherheitshinweis, Gruß und Fußzeile. HTML mit
-  Text-Fassung; betrifft Passwort zurücksetzen, E-Mail bestätigen, Einladung, Testnachricht und Benachrichtigungen
-- **Benachrichtigungen einzeln:** Jeder Empfänger bekommt eine eigene E-Mail mit seinem Namen und in seiner Sprache –
-  bisher sahen alle Empfänger die Adressen der anderen. Mit Knopf direkt zum Server, zu Backups oder System
-- **Abmeldelink (DSGVO):** Benachrichtigungen lassen sich per Link in der Mail ohne Anmeldung abbestellen, dazu
-  „List-Unsubscribe“ für den Abbestellen-Knopf in Gmail, Outlook & Co. Der Link ist signiert und gilt nur für die
-  aktuelle Adresse; die Abmeldung steht im Audit-Log
-- Mails behalten die Sprache, in der sie erstellt wurden; Einladungen kommen in der Standardsprache der Instanz
+**Emails**
+- **New layout for all emails:** logo from the appearance settings (embedded as PNG, otherwise the name), personal
+  greeting, clear button with a link to copy, details as an overview, security notice, closing and footer. HTML with a
+  plain-text version; applies to password reset, email confirmation, invitation, test message and notifications
+- **Individual notifications:** each recipient gets their own email with their name and in their language –
+  previously all recipients saw each other's addresses. With a button that goes straight to the server, backups or
+  System
+- **Unsubscribe link (GDPR):** notifications can be unsubscribed via a link in the email without signing in, plus
+  "List-Unsubscribe" for the unsubscribe button in Gmail, Outlook & co. The link is signed and only valid for the
+  current address; the unsubscribe is recorded in the audit log
+- Emails keep the language they were created in; invitations are sent in the instance's default language
 
 ## 0.30.1 – 2026-10-14
 
-- **Konten deaktivieren und wieder aktivieren:** eigener Knopf „Konto deaktivieren“ auf der Seite eines Benutzers
-  (nur für Owner, mit Rückfrage) statt des unauffälligen Häkchens „Konto aktiv“. Deaktivierte Konten zeigen einen
-  Hinweis mit „Wieder aktivieren“, ebenso die Benutzerliste im Abschnitt „Deaktiviert“. Beides steht als eigene
-  Aktion im Audit-Log
-- Ein Owner kann sich nicht mehr selbst deaktivieren (bisher möglich, solange es einen zweiten Owner gab)
+- **Deactivate and reactivate accounts:** a dedicated "Deactivate account" button on a user's page (owners only, with
+  confirmation) instead of the inconspicuous "Account active" checkbox. Deactivated accounts show a notice with
+  "Reactivate", as does the user list in the "Disabled" section. Both are recorded as separate actions in the audit log
+- An owner can no longer deactivate themselves (previously possible as long as there was a second owner)
 
 ## 0.30.0 – 2026-10-14
 
 **Backups**
-- **Ergebnis nach dem Ende:** Ist eine Wiederherstellung, ein Backup oder eine Prüfung fertig, steht oben auf der
-  Backup-Seite, ob es geklappt hat – z. B. „Wiederherstellung abgeschlossen: … – 37 Dateien in den Ordner …
-  zurückgespielt“ oder bei Fehlern mit Grund. Bisher verschwand der Vorgang nur aus „Laufende Vorgänge“
-- **Mehrere Backups auf einmal:** Gespeicherte Backups lassen sich mit Auswahlkästchen markieren und gemeinsam
-  löschen oder prüfen (höchstens 10 Prüfungen auf einmal). Eine Aktion geht nur, wenn sie für alle ausgewählten
-  Backups erlaubt ist
+- **Result when finished:** when a restore, backup or check is done, the top of the backup page shows whether it
+  worked – e.g. "Restore finished: … – 37 files restored to the folder …" or, on errors, the reason. Previously the
+  task simply disappeared from "In progress"
+- **Several backups at once:** stored backups can be ticked and deleted or checked together (at most 10 checks at
+  once). An action is only available if it is allowed for all selected backups
 
-**Benutzer**
-- **Neuer Reiter „Neue Benutzer“:** Einladungslinks, offene Einladungen, direktes Anlegen und die E-Mail-Pflicht
-  liegen jetzt getrennt von der Benutzerliste
-- **Übersichtlichere Benutzerliste:** aufgeteilt in Owner, Benutzer und Deaktiviert, mit Zählern, Knopf „Benutzer
-  hinzufügen“, Hinweis auf offene Einladungen und Suche (ab 7 Benutzern)
+**Users**
+- **New tab "New users":** invitation links, open invitations, direct creation and the email requirement are now
+  separate from the user list
+- **Clearer user list:** split into owners, users and disabled, with counters, an "Add users" button, a notice about
+  open invitations and search (from 7 users)
 
-**Sonstiges**
-- „Log-Archiv“ in den Serverdetails heißt jetzt „Konsolen-Archiv“, wie überall sonst
-- Mitlaufende Auswahlleisten (Backups, Datei-Explorer) werden nicht mehr vom umbrechenden Seitenkopf verdeckt
+**Other**
+- "Log archive" in the server details is now called "Console archive", as everywhere else
+- Sticky selection bars (backups, file explorer) are no longer hidden by a wrapping page header
 
 ## 0.29.1 – 2026-10-14
 
-- **Backups:** Wiederherstellen, Löschen und andere Knöpfe sind wieder immer sichtbar. Sie erschienen teilweise erst
-  beim Überfahren der Zeile (gilt auch für Automationen und Ankündigungen); nur die Dateiliste blendet Umbenennen und
-  Löschen weiterhin erst beim Überfahren ein
-- **README** gekürzt und auf das Wesentliche beschränkt, mit kurzer Entstehungsgeschichte; Screenshots der Übersicht
-  in der Listenansicht
+- **Backups:** Restore, Delete and other buttons are always visible again. Some only appeared when hovering over the
+  row (also affected automations and announcements); only the file list still shows Rename and Delete on hover
+- **README** shortened to the essentials, with a short story of how it came about; overview screenshots in list view
 
 ## 0.29.0 – 2026-10-14
 
-**Freunde einladen in einem Schritt**
-- **Einladung mit Zugriff:** Im Einladungsformular lassen sich eine Rechtegruppe und Server (oder „Alle Server, auch
-  künftige“) festlegen. Wer den Link nutzt, sieht die Server direkt nach der Anmeldung – ohne dass der Owner danach
-  noch Rechte vergeben muss. Offene Einladungen und das Audit-Log zeigen den Zugriff. Wurde die Gruppe inzwischen
-  gelöscht, gibt es keinen Zugriff. Bei „Alle Server“ mit Steuer- oder Schreibrechten erscheint eine Warnung
-- **Vorschlagsgruppen:** „Zuschauer“ (sehen, Adresse, Passwort), „Spieler“ (zusätzlich starten und neu starten,
-  nicht stoppen) und „Moderator“ (zusätzlich stoppen, Konsole, Protokoll) mit einem Klick anlegen – unter
-  Benutzer → Rechtegruppen und im Einladungsformular, solange noch keine Gruppe existiert
-- **Verständliche Fehler beim Starten und Stoppen:** Statt „Pterodactyl antwortet mit HTTP 409 …“ steht da z. B.
-  „Der Server ist gerade beschäftigt“ oder „Das Panel hat gerade zu viele Anfragen bekommen“. Owner sehen
-  zusätzlich die technische Meldung, das Audit-Log bleibt vollständig
+**Invite friends in one step**
+- **Invitation with access:** the invitation form lets you set a permission group and servers (or "All servers,
+  including future ones"). Whoever uses the link sees the servers right after signing in – without the owner having to
+  assign permissions afterwards. Open invitations and the audit log show the access. If the group has been deleted in
+  the meantime, no access is granted. "All servers" with control or write permissions shows a warning
+- **Suggested groups:** create "Viewer" (see, address, password), "Player" (additionally start and restart, not stop)
+  and "Moderator" (additionally stop, console, log) with one click – under Users → Permission groups and in the
+  invitation form, as long as no group exists yet
+- **Understandable errors when starting and stopping:** instead of "Pterodactyl responded with HTTP 409 …" you now
+  see e.g. "The server is busy right now" or "The panel has received too many requests right now". Owners also see the
+  technical message, the audit log stays complete
 
-**Rechtesystem überprüft**
-- Zeitpläne und Backup-Jobs folgen jetzt derselben Regel: Sie laufen nur, solange ihr Ersteller existiert und die
-  nötigen Rechte für den Server hat (bisher liefen Zeitpläne eines gelöschten Erstellers weiter)
-- Rechtegruppen zeigen, wer sie für „Alle Server, auch künftige“ nutzt; beim Löschen warnt die Bestätigung, dass
-  diese Benutzer den Zugriff verlieren, und das Audit-Log vermerkt es
-- Hinweise bei Rechten, die mehr erlauben, als der Name vermuten lässt: Backups starten/herunterladen und
-  wiederherstellen (umgehen die Datei-Rechte), Herunterladen (Konfigurationsdateien), Befehle senden
-- Benutzer ohne Owner-Rolle sehen in den Benachrichtigungen nur noch Meldungen, die sie auch bekommen können
-- Neue Tests: Benutzer, der nur neu starten darf, gegen alle anderen Routen; Ersteller-Regeln; Gruppe löschen;
-  Einladung mit Zugriff
+**Permission system reviewed**
+- Schedules and backup jobs now follow the same rule: they only run as long as their creator exists and has the
+  required permissions for the server (previously schedules of a deleted creator kept running)
+- Permission groups show who uses them for "All servers, including future ones"; when deleting, the confirmation warns
+  that these users lose access, and the audit log records it
+- Notes on permissions that allow more than their name suggests: start/download backups and restore backups (bypass
+  the file permissions), download (configuration files), send commands
+- Users without the owner role only see notifications in the notification settings that they can actually receive
+- New tests: user who may only restart, against all other routes; creator rules; deleting a group; invitation with
+  access
 
 ## 0.28.3 – 2026-10-14
 
-- SFTP-Port (2022) wird nicht mehr geprüft – weder im Selbsttest unter System → Zustand noch in der Wings-Übersicht
-  oder im Einrichtungsassistenten. Hatchtower nutzt SFTP nicht; ein geschlossener Port sah bisher wie ein Fehler aus.
-  Dateien, Konsole, Uploads und Downloads laufen weiterhin über den Wings-Daemon-Port
+- The SFTP port (2022) is no longer checked – neither in the self-test under System → Status nor in the Wings overview
+  or the setup wizard. Hatchtower does not use SFTP; a closed port used to look like an error. Files, console, uploads
+  and downloads still go through the Wings daemon port
 
 ## 0.28.2 – 2026-10-14
 
-- **Update erfolgreich:** Nach einem Update über die Oberfläche erscheint eine deutliche grüne Meldung mit der neuen
-  Version, das Protokoll klappt sich ein. Schlägt das Update fehl, kommt die Meldung in Rot
-- **Wings-Nodes unter System → Panel:** Jeder Node mit Adresse und Port, Verbindungsstand (verbunden, nicht erreichbar,
-  antwortet nicht wie erwartet), Wartungsmodus und SFTP-Port. Unter System → Zustand zusätzlich „x von y erreichbar“
-- Wings-Nodes werden gleichzeitig geprüft, ein nicht erreichbarer Node hält die Seiten nicht mehr mehrfach auf
+- **Update successful:** after an update via the web interface, a clear green message with the new version appears
+  and the log collapses. If the update fails, the message is red
+- **Wings nodes under System → Panel:** each node with address and port, connection state (connected, unreachable, not
+  responding as expected), maintenance mode and SFTP port. System → Status additionally shows "x of y reachable"
+- Wings nodes are checked in parallel, so an unreachable node no longer delays the pages several times over
 
 ## 0.28.1 – 2026-10-14
 
-- `hatchtower github-token` übernimmt den Token jetzt auch, wenn er ohne Zeilenumbruch am Ende kommt (z. B. aus einer
-  Datei oder Pipe). Bisher brach der Befehl dann ohne Meldung ab; gleiches im Proxmox-Installer
-- README: Hinweis, falls `curl` fehlt, und wie der Token bei der Proxmox-Installation ohne Rückfragen gespeichert wird
+- `hatchtower github-token` now also accepts the token when it comes without a trailing newline (e.g. from a file or
+  pipe). Previously the command aborted silently in that case; same in the Proxmox installer
+- README: note in case `curl` is missing, and how to store the token non-interactively during the Proxmox installation
 
 ## 0.28.0 – 2026-10-14
 
-- **Backups wiederherstellen:** Gespeicherte Backups lassen sich direkt in Hatchtower auf den Server zurückspielen –
-  wahlweise in einen eigenen Ordner (`/hatchtower-restore/<Datum>`, nichts wird überschrieben) oder an den
-  ursprünglichen Ort (ersetzt gleichnamige Dateien, nur mit Bestätigung). Vorher wird die Backup-Datei geprüft; ist
-  sie beschädigt, passiert am Server nichts. Auf Wunsch wird der Server vorher gestoppt und danach wieder gestartet.
-  Fortschritt und Abbrechen auf der Backup-Seite, eigene Liste „Wiederherstellungen“
-  - Neues Recht **„Backups wiederherstellen“**. Bestehende Rechtegruppen bekommen es nicht automatisch
-- **Jedes Backup wird geprüft:** Nach dem Schreiben liest Hatchtower die ZIP-Datei komplett und prüft jede Datei gegen
-  ihre Prüfsumme, erst dann gilt das Backup als fertig. „Prüfen“ holt das für ältere Backups nach. Die Liste zeigt
-  „geprüft“, „ungeprüft“ und „wiederhergestellt“
-- **Zuverlässigere Backups:**
-  - Ist Wings nicht erreichbar, wird ein vor dem Backup gestoppter Server jetzt immer wieder gestartet (bisher konnte
-    er aus bleiben)
-  - Lässt sich keine einzige Datei sichern, ist das ein Fehler und es bleibt kein leeres ZIP liegen
-  - Bricht ein Download ab, gibt es einen zweiten Versuch; mittendrin abgebrochene Dateien werden als
-    „unvollständig“ gemeldet
-  - Die Aufbewahrung löscht nie das neueste vollständige Backup – ein Backup mit Fehlern verdrängt das letzte gute nicht
-  - Verpasste Zeitpläne (Hatchtower war aus) werden bis zu 6 Stunden später nachgeholt; kann ein geplantes Backup
-    nicht starten, kommt eine Meldung
-  - Während einer Wiederherstellung laufen auf demselben Server keine Backups, und die Datei lässt sich nicht löschen
-- **Update:** Startet eine neue Version nicht, werden beim automatischen Rückfall jetzt auch Versionsnummer und
-  Datenbank zurückgesetzt. Bisher hielt `hatchtower update` die fehlgeschlagene Version danach für installiert
-- **Installationsskripte auf Englisch:** Proxmox-Installer, `get.sh`, `install.sh` und der Befehl `hatchtower update`
-  sprechen jetzt immer Englisch, ebenso die Beschreibungen der systemd-Dienste und der Docker-Start
-- **Oberfläche:**
-  - „Benutzer löschen“ steht in einem eigenen, abgesetzten Bereich und nennt die Alternative „Konto deaktivieren“
-  - Rechte eines Benutzers erscheinen in der Reihenfolge der Rechteliste statt alphabetisch nach internem Namen
-  - Fehlende englische Texte ergänzt („Always“, „Never“, „Waiting“ u. a.), „1 day“ statt „1 days“, keine
-    „Eintrag/Einträge“ mehr
-  - Die Export-Seite nennt, dass Backup-Jobs, Backup-Ziele und Webhooks mitexportiert werden
-- **README neu** (Englisch und Deutsch): für Einsteiger, mit Installation Schritt für Schritt, API-Keys, Rechten,
-  Backups und Wiederherstellen, Fehlerbehebung und aktuellen Screenshots
-- Netzwerkfehler beim Herunterladen einzelner Dateien führen zu einer verständlichen Meldung statt zu einem
-  internen Fehler
-- Hatchtower warnt im Log, wenn die Datenbank von einer neueren Version stammt
+- **Restore backups:** stored backups can be restored to the server directly from Hatchtower – either into a separate
+  folder (`/hatchtower-restore/<date>`, nothing is overwritten) or to the original location (replaces files with the
+  same name, only with confirmation). The backup file is checked first; if it is damaged, nothing happens on the
+  server. Optionally the server is stopped beforehand and started again afterwards. Progress and cancel on the backup
+  page, separate list "Restores"
+  - New permission **"Restore backups"**. Existing permission groups do not get it automatically
+- **Every backup is verified:** after writing, Hatchtower reads the whole ZIP file and checks every file against its
+  checksum; only then is the backup considered finished. "Check" does the same for older backups. The list shows
+  "verified", "not checked" and "restored"
+- **More reliable backups:**
+  - If Wings is unreachable, a server stopped before the backup is now always started again (previously it could stay
+    off)
+  - If not a single file can be backed up, that is an error and no empty ZIP is left behind
+  - If a download aborts, there is a second attempt; files aborted midway are reported as "incomplete"
+  - Retention never deletes the newest complete backup – a backup with errors does not push out the last good one
+  - Missed schedules (Hatchtower was off) are caught up to 6 hours later; if a scheduled backup cannot start, a
+    notification is sent
+  - While a restore is running, no backups run on the same server and the file cannot be deleted
+- **Update:** if a new version does not start, the automatic rollback now also resets the version number and the
+  database. Previously `hatchtower update` afterwards considered the failed version installed
+- **Install scripts in English:** the Proxmox installer, `get.sh`, `install.sh` and the `hatchtower update` command now
+  always speak English, as do the descriptions of the systemd services and the Docker start
+- **Interface:**
+  - "Delete user" is in its own, separate section and mentions the alternative "Deactivate account"
+  - A user's permissions appear in the order of the permission list instead of alphabetically by internal name
+  - Missing English texts added ("Always", "Never", "Waiting" and more), "1 day" instead of "1 days", no more
+    "entry/entries"
+  - The export page mentions that backup jobs, backup destinations and webhooks are exported too
+- **New README** (English and German): for beginners, with step-by-step installation, API keys, permissions, backups
+  and restoring, troubleshooting and current screenshots
+- Network errors when downloading single files lead to an understandable message instead of an internal error
+- Hatchtower logs a warning if the database comes from a newer version
 
 ## 0.27.2 – 2026-10-14
 
-- **Statusseite:** Die „Störungs- und Wartungshistorie“ ist von der öffentlichen Statusseite entfernt. Sie zeigte
-  neben öffentlichen Ankündigungen auch erkannte Abstürze der Server – das gehört nicht auf eine öffentliche Seite.
-  Aktive öffentliche Ankündigungen erscheinen weiterhin oben auf der Seite, die Verfügbarkeitsbalken bleiben unverändert.
+- **Status page:** the "Incident and maintenance history" has been removed from the public status page. Besides public
+  announcements it also showed detected server crashes – that does not belong on a public page. Active public
+  announcements still appear at the top of the page, the uptime bars are unchanged.
 
 ## 0.27.1 – 2026-10-14
 
-Ersetzt 0.27.0: Der öffentliche Demo-Modus („Demo ansehen“ auf der Anmeldeseite) ist wieder vollständig entfernt.
+Replaces 0.27.0: the public demo mode ("View demo" on the sign-in page) has been removed completely again.
 
-- **Neuer Einrichtungsassistent für die Verbindung:** Panel, Keys und Wings werden erst geprüft und dann gespeichert –
-  und zwar nur nach ausdrücklicher Bestätigung. Bis dahin liegen die Eingaben verschlüsselt in einem Entwurf im
-  Arbeitsspeicher (30 Minuten); an Panel, Wings und Servern ändert die Prüfung nichts (nur lesende Anfragen)
-  - Jeder Schritt erklärt, warum er nötig ist; neuer Schritt „Prüfen und speichern“ zeigt, was gespeichert wird
-    (Keys nur maskiert, beim Reparieren mit „vorher/nachher“), alle Prüfergebnisse und was damit funktioniert
-  - Ergebnisse in drei Stufen: **Fehler** (Speichern gesperrt), **Warnung** (funktioniert eingeschränkt),
-    **Optional** (nur Zusatzfunktion oder Hinweis) – jeweils mit konkreten Lösungsschritten
-  - Automatisch geprüft: Erreichbarkeit des Panels (DNS, Firewall, Zertifikat, http/https, Weiterleitung, Login vor
-    dem Panel), ob wirklich das gewählte Panel antwortet, vertauschte oder fremde Keys, Rechte des Application-Keys
-    (Nodes, Servers, Eggs, Allocations), sichtbare Server und Teilrechte des Client-Keys (Status, Konsole, Dateien,
-    Startvariablen, Aktivität), fehlende Schnittstellen älterer Panels, unverschlüsseltes http im Internet
-  - Wings: Daemon-Port und ob dort wirklich Wings antwortet; nicht erreichbar ist eine Warnung, kein Fehler.
-    SFTP wird nur noch als optionaler Hinweis gezeigt – Hatchtower braucht es nicht
-  - Am Ende ein **Ergebnisbericht** mit Prüfung, gewählten Einstellungen und nächsten Schritten
-- **System → Panel:** zeigt die gespeicherte Verbindung und „Zuletzt geprüft“, prüft auf Knopfdruck und öffnet den
-  Assistenten zum Reparieren oder zum Wechsel auf ein anderes Panel; die alte Verbindung bleibt bis zum Speichern aktiv
-- **Sicherheit:** Gespeicherte Keys werden nie an eine Panel-Adresse auf einem anderen Host (oder von https auf http)
-  geschickt, auch nicht im älteren Panel-Formular. Ungültige Anfragen melden nur Feldnamen, nie die gesendeten Werte
-- `hatchtower selftest` nutzt dieselbe Prüfung, zeigt Lösungsschritte und schlägt nur bei echten Fehlern fehl
-- Bestehende Installationen: keine Änderung an Datenbank oder gespeicherter Verbindung nötig
-- **Sicherheit:** Auch SMTP- und SMB-Passwörter gehen nur an den Server, für den sie eingegeben wurden. Bei neuem Host
-  (SMTP auch beim Wechsel auf „ohne Verschlüsselung“) muss das Passwort neu eingegeben werden
-- **Sicherheit:** Der Anmeldeschutz zählt IPv6-Adressen als /64-Netz. Links zum Zurücksetzen des Passworts verfallen
-  bei Passwortwechsel, Sperre und neuer E-Mail-Adresse. Der CSV-Export des Audit-Logs entschärft Formeln (=, +, -, @)
-- **Rechte:** Den Neustart nach Absturz schalten Benutzer nur noch für Server, die sie selbst starten dürfen. Die
-  Datenauskunft enthält keine Einträge früherer Konten mit gleichem Namen oder gleicher ID. Logos sind auf
-  4096 × 4096 Pixel begrenzt
+- **New setup wizard for the connection:** panel, keys and Wings are checked first and then saved – and only after
+  explicit confirmation. Until then the input is kept encrypted in a draft in memory (30 minutes); the check changes
+  nothing on the panel, Wings or servers (read-only requests)
+  - Every step explains why it is needed; the new step "Check and save" shows what will be saved (keys only masked,
+    with "before/after" when repairing), all check results and what works with them
+  - Results in three levels: **Error** (saving blocked), **Warning** (works with limitations), **Optional** (only an
+    extra feature or a hint) – each with concrete steps to fix it
+  - Checked automatically: reachability of the panel (DNS, firewall, certificate, http/https, redirect, login in front
+    of the panel), whether the selected panel really answers, swapped or foreign keys, permissions of the application
+    key (nodes, servers, eggs, allocations), visible servers and partial permissions of the client key (status,
+    console, files, startup variables, activity), missing endpoints of older panels, unencrypted http on the internet
+  - Wings: daemon port and whether Wings really answers there; unreachable is a warning, not an error. SFTP is only
+    shown as an optional hint – Hatchtower does not need it
+  - At the end a **result report** with the checks, the chosen settings and next steps
+- **System → Panel:** shows the saved connection and "Last checked", checks at the push of a button and opens the
+  wizard to repair it or switch to another panel; the old connection stays active until saving
+- **Security:** saved keys are never sent to a panel address on a different host (or from https to http), not even in
+  the older panel form. Invalid requests only report field names, never the submitted values
+- `hatchtower selftest` uses the same check, shows steps to fix problems and only fails on real errors
+- Existing installations: no change to the database or the saved connection needed
+- **Security:** SMTP and SMB passwords are also only sent to the server they were entered for. For a new host (SMTP
+  also when switching to "no encryption") the password has to be entered again
+- **Security:** the sign-in protection counts IPv6 addresses as a /64 network. Password reset links expire on password
+  change, lockout and new email address. The CSV export of the audit log defuses formulas (=, +, -, @)
+- **Permissions:** users can only enable restart after a crash for servers they are allowed to start themselves. The
+  data access report no longer contains entries of earlier accounts with the same name or ID. Logos are limited to
+  4096 × 4096 pixels
 
-- **Docker Compose:** Hatchtower lässt sich jetzt auch als Container betreiben (`docker compose up -d --build`).
-  Schlüssel werden beim ersten Start im Volume angelegt, der Einrichtungscode steht im Log, Befehle gehen mit
-  `docker compose exec hatchtower hatchtower …`. Die Update-Seite zeigt im Container den passenden Befehl
-- **Serverseite mit Reitern:** Übersicht, Konsole, Log-Archiv und Protokoll stehen in Reitern statt untereinander auf
-  einer langen Seite; Links wie `#protokoll` öffnen den passenden Reiter
-- **Ruhigere Kopfzeile:** Sprache und Abmelden liegen im Kontomenü am eigenen Namen, die Kopfzeile ist auf dem
-  Desktop einzeilig. Der Theme-Umschalter bleibt direkt sichtbar
-- **Übersicht:** Statusfilter ohne Treffer werden ausgeblendet
-- **Dateien:**
-  - Ein Klick auf eine bearbeitbare Datei öffnet den Editor; Umbenennen und Löschen erscheinen am Desktop erst beim
-    Überfahren der Zeile
-  - Programme und andere Binärdateien bieten kein „Bearbeiten“ mehr an; Textdateien mit Null-Bytes am Ende
-    (z. B. `steam_appid.txt`) lassen sich wieder bearbeiten
-- **Einrichtung:** Im Schritt „Optionen“ wählt man die Ansicht für Benutzer, voreingestellt ist „Einfach“
-- README neu: einfache Ansicht zuerst, Vergleich mit Subusern, Anleitung für Reverse-Proxy und Pangolin
+- **Docker Compose:** Hatchtower can now also run as a container (`docker compose up -d --build`). Keys are created in
+  the volume on first start, the setup code is in the log, commands work with
+  `docker compose exec hatchtower hatchtower …`. In the container, the update page shows the matching command
+- **Server page with tabs:** overview, console, log archive and log are in tabs instead of one long page; links like
+  `#protokoll` open the matching tab
+- **Calmer header:** language and sign-out are in the account menu at your own name, the header is a single line on
+  desktop. The theme switcher stays directly visible
+- **Overview:** status filters without matches are hidden
+- **Files:**
+  - Clicking an editable file opens the editor; Rename and Delete only appear on desktop when hovering over the row
+  - Programs and other binary files no longer offer "Edit"; text files with null bytes at the end (e.g.
+    `steam_appid.txt`) can be edited again
+- **Setup:** in the "Options" step you choose the view for users, "Simple" is the default
+- New README: simple view first, comparison with subusers, guide for a reverse proxy and Pangolin
   (`docs/reverse-proxy.md`)
 
 ## 0.26.0 – 2026-10-14
 
-- **Einfache Ansicht:** Für alle, denen die volle Oberfläche zu viel ist. Pro Server stehen nur Status, Adresse,
-  Passwort und große Knöpfe zum Starten und Stoppen da; Auslastung, Diagramme, Log-Archiv, Protokoll und
-  Mehrfachauswahl sind ausgeblendet, die Konsole bleibt (mit Recht). Sortieren, Status- und Tag-Filter sowie
-  Kacheln/Liste gibt es auch hier
-  - Umschalten oben rechts in der Kopfzeile („Einfach | Alles“) oder im Konto unter „Ansicht“
-  - Standard für Benutzer unter Auftritt → Erscheinungsbild; Owner sehen alles, solange sie nichts anderes wählen
-  - Beim direkten Anlegen, in Einladungslinks und auf der Benutzerseite lässt sich die Ansicht vorgeben und auf
-    Wunsch festlegen – dann kann der Benutzer nicht selbst umschalten
-- **Bessere Kontraste:** Blasse Schrift erreicht in allen drei Themes den WCAG-Mindestkontrast (4,5:1), Kartenränder
-  und Flächen heben sich deutlicher ab, im hellen Theme ist die Akzentschrift dunkler
-- Auftritt: Auswahlfelder im Formular „Name und Design“ überlappen sich nicht mehr
+- **Simple view:** for everyone who finds the full interface too much. Each server only shows status, address, password
+  and large buttons to start and stop; resource usage, charts, log archive, log and multi-select are hidden, the
+  console stays (with permission). Sorting, status and tag filters as well as tiles/list are available here too
+  - Switch at the top right of the header ("Simple | Everything") or in the account under "View"
+  - Default for users under Presentation → Appearance; owners see everything unless they choose otherwise
+  - When creating a user directly, in invitation links and on the user page, the view can be preset and optionally
+    locked – then the user cannot switch themselves
+- **Better contrast:** faint text meets the WCAG minimum contrast (4.5:1) in all three themes, card borders and
+  surfaces stand out more clearly, the accent text is darker in the light theme
+- Presentation: selection fields in the "Name and design" form no longer overlap
 
 ## 0.25.1 – 2026-10-14
 
-- **Lizenz:** Hatchtower steht jetzt unter der GNU AGPL-3.0. Der Lizenztext liegt als `LICENSE` im Paket und unter
-  `/opt/hatchtower`, eine Zusammenfassung steht auf der Seite „Über Hatchtower“
-- **Schlankeres Paket:** Entwickler-Werkzeuge sind nicht mehr enthalten; im Betrieb wird aus `tools/` nur noch das
-  Skript für die Lizenzliste gebraucht. Beim Update werden die alten Werkzeuge unter `/opt/hatchtower/tools` entfernt
-- README: Installation mit Zugangs-Token überarbeitet
+- **License:** Hatchtower is now licensed under the GNU AGPL-3.0. The license text is included as `LICENSE` in the
+  package and under `/opt/hatchtower`, a summary is on the "About Hatchtower" page
+- **Leaner package:** developer tools are no longer included; in operation only the script for the license list is
+  needed from `tools/`. The update removes the old tools under `/opt/hatchtower/tools`
+- README: installation with access token revised
 
 ## 0.25.0 – 2026-10-13
 
-- **E-Mail-Adressen in der Benutzerverwaltung:** Die Benutzerliste zeigt die hinterlegten Adressen (mit „nicht bestätigt“, „ohne E-Mail-Adresse“ oder „E-Mail-Adresse fehlt“). Auf der Benutzerseite können Owner eine Adresse eintragen, ändern oder entfernen – mit Bestätigungslink oder direkt als bestätigt
-  - Beim direkten Anlegen eines Benutzers lässt sich gleich eine Adresse angeben; sie bekommt einen Bestätigungslink
-- **E-Mail-Pflicht einstellbar:** Ist E-Mail eingeschaltet, brauchen neue Benutzer (direkt angelegt oder per Einladung) eine Adresse – außer unter Benutzer ist „Benutzer ohne E-Mail-Adresse erlauben“ angehakt
-  - Einzelne Benutzer lassen sich „ohne E-Mail-Adresse“ anlegen oder darauf umstellen; sie brauchen keine und können selbst keine hinterlegen
-  - Ist E-Mail ausgeschaltet, sind alle Felder zum Hinzufügen gesperrt; vorhandene Adressen lassen sich weiterhin entfernen
-- **Verständlichere E-Mail-Fehler:** Statt „Connection unexpectedly closed“ erklärt Hatchtower, ob die Anmeldung abgelehnt wurde (z. B. App-Passwort bei Gmail nötig), Port und Verschlüsselung nicht zusammenpassen oder der Absender abgelehnt wird
-- **Absenderadresse optional:** Leer gelassen, ist die Login-Adresse der Absender; ein Hinweis erklärt, warum andere Absender oft nicht gehen
-- Ein fehlgeschlagener Bestätigungslink zeigt keine „ausstehende Bestätigung“ mehr an
-- **Kopfzeile:** Der eigene Name ist jetzt ein Knopf mit Zahnrad, der deutlich zu „Mein Konto und Einstellungen“ führt. Im Handy-Menü gibt es dafür eine eigene Kontokarte; Darstellung und Sprache brechen um, und „Abmelden“ wird nicht mehr abgeschnitten
+- **Email addresses in user management:** the user list shows the stored addresses (with "not confirmed", "no email address" or "email address missing"). On the user page, owners can add, change or remove an address – with a confirmation link or directly as confirmed
+  - When creating a user directly, an address can be entered right away; it gets a confirmation link
+- **Configurable email requirement:** if email is enabled, new users (created directly or via invitation) need an address – unless "Allow users without an email address" is ticked under Users
+  - Individual users can be created "without email address" or switched to it; they don't need one and cannot add one themselves
+  - If email is disabled, all fields for adding addresses are locked; existing addresses can still be removed
+- **More understandable email errors:** instead of "Connection unexpectedly closed", Hatchtower explains whether the login was rejected (e.g. an app password is needed for Gmail), port and encryption don't match, or the sender is rejected
+- **Sender address optional:** if left empty, the login address is the sender; a hint explains why other senders often don't work
+- A failed confirmation link no longer shows a "pending confirmation"
+- **Header:** your own name is now a button with a gear that clearly leads to "My account and settings". The mobile menu has its own account card for it; appearance and language wrap, and "Sign out" is no longer cut off
 
 ## 0.24.0 – 2026-10-13
 
-- **Mehrere Benachrichtigungs-Webhooks:** Unter System → Benachrichtigungen lassen sich beliebig viele Webhooks anlegen, jeder mit **Titel** und **Beschreibung** (z. B. welcher Discord-Kanal), eigenem Format (Discord oder JSON), eigenen Ereignissen und optional nur für bestimmte Server
-  - Einzeln pausieren, testen und entfernen; der bisherige Webhook wird automatisch übernommen
-  - Auch im Datenumzug (Export/Import) enthalten
-- **Update-Fenster** (Automatisierungen): neue Zeitplan-Aktion, die einen Server an gewählten Wochentagen oder einmalig für eine Dauer (30 Minuten bis 12 Stunden) startet, damit er Spiel-Updates laden kann, und danach wieder stoppt
-  - Greift nur, wenn der Server in dem Moment aus ist; wird er währenddessen in Hatchtower von Hand gestartet, bleibt er an
-  - Braucht die Rechte „Starten“ und „Stoppen“
-- **Einrichtung:** neuer optionaler letzter Schritt „Rechtliches“ – legt auf Wunsch die eigenen Vorlagen für Impressum und Datenschutzerklärung an (bleiben aus, bis sie ergänzt und eingeschaltet werden)
-- **Rechtliches:** deutlicher Hinweis, dass die Vorlagen keine Rechtsberatung sind und ohne Gewähr für Richtigkeit oder Vollständigkeit
-- **Netzwerk:** neuer Abschnitt „Eigene Domain verbinden“ (z. B. Server bei Hetzner, Domain bei Strato: A-Eintrag, Reverse-Proxy, Adresse) mit Prüfung, ob die Domain auf diesen Server zeigt; das Proxy-Feld heißt jetzt „IP des Reverse-Proxys“, damit es nicht mit der Domain verwechselt wird
+- **Multiple notification webhooks:** under System → Notifications you can create any number of webhooks, each with a **title** and **description** (e.g. which Discord channel), its own format (Discord or JSON), its own events and optionally only for certain servers
+  - Pause, test and remove individually; the previous webhook is taken over automatically
+  - Also included in the data transfer (export/import)
+- **Update window** (automations): new schedule action that starts a server on selected weekdays or once for a duration (30 minutes to 12 hours) so it can download game updates, and then stops it again
+  - Only applies if the server is off at that moment; if it is started manually in Hatchtower during the window, it stays on
+  - Requires the "Start" and "Stop" permissions
+- **Setup:** new optional last step "Legal" – creates your own templates for the legal notice and privacy policy on request (they stay off until completed and enabled)
+- **Legal:** clear notice that the templates are not legal advice and come without any guarantee of correctness or completeness
+- **Network:** new section "Connect your own domain" (e.g. server at Hetzner, domain at Strato: A record, reverse proxy, address) with a check whether the domain points to this server; the proxy field is now called "Reverse proxy IP" so it is not confused with the domain
 
 ## 0.23.0 – 2026-10-12
 
-- **Protokoll pro Server:** Auf jeder Serverseite zeigt die neue Karte „Protokoll“, was am Server passiert ist – wer ihn wann gestartet, gestoppt oder neu gestartet hat, Abstürze, Statuswechsel (online/offline, auch wenn im Panel oder im Spiel ausgelöst), Konsolenbefehle, Dateiänderungen, Zeitpläne, Backups und geänderte Einstellungen
-  - Filter nach Art (Start/Stop/Abstürze, Dateien, Konsole, Backups, Einstellungen und Zeitpläne), ältere Einträge lassen sich nachladen
-  - Ohne IP-Adressen und ohne reine Lesezugriffe wie „Dateien aufgelistet“
-  - Reicht so weit zurück wie das Audit-Log (Aufbewahrung unter System → Daten), Statuswechsel 90 Tage
-- **Neues Recht „Protokoll sehen“** (Gruppe Allgemein), pro Benutzer und Server oder in Rechtegruppen vergebbar. Bestehende Benutzer und Gruppen bekommen es nicht automatisch
+- **Log per server:** on every server page, the new "Log" card shows what happened to the server – who started, stopped or restarted it and when, crashes, status changes (online/offline, also when triggered in the panel or in the game), console commands, file changes, schedules, backups and changed settings
+  - Filter by type (start/stop/crashes, files, console, backups, settings and schedules), older entries can be loaded
+  - Without IP addresses and without pure read accesses like "Files listed"
+  - Goes back as far as the audit log (retention under System → Data), status changes 90 days
+- **New permission "View log"** (General group), assignable per user and server or in permission groups. Existing users and groups do not get it automatically
 
 ## 0.22.0 – 2026-10-12
 
-- **Menü neu gegliedert:** Die Hauptleiste hat jetzt die Bereiche **Benutzer**, **Auftritt** und **System**, jeder mit eigenen Reitern
-  - **Benutzer:** Benutzer, Rechtegruppen und Audit-Log
-  - **Auftritt** (was Besucher und Spieler sehen): Erscheinungsbild, Statusseite, Ankündigungen und Rechtliches (Impressum, Datenschutzerklärung)
-  - **System:** Zustand, Panel, Netzwerk, E-Mail, Benachrichtigungen, Daten und Updates
-- **Netzwerk** (neu): Adresse von Hatchtower (bisher unter E-Mail), öffentliche Adresse für Spieler und Reverse-Proxy-IPs (bisher unter Verbindung) an einer Stelle
-- **Erscheinungsbild** hat eine eigene Seite, mit Standardsprache und **Zeitzone** im Abschnitt „Sprache und Zeit“
-- **Zeitzone:** Jede Auswahl zeigt den aktuellen Abstand zu UTC, z. B. „Europe/Berlin (UTC+2)“. Bei den Zeitplänen steht, in welcher Zeitzone sie laufen
-- **Updates** haben einen eigenen Reiter; der Hinweis auf eine neue Version in der Leiste führt direkt dorthin
-- **Daten:** Aufbewahrung, Export und Import auf einer Seite (bisher Datenschutz und Datenumzug)
-- Der Link zur öffentlichen Statusseite steht nur noch in der Übersicht, nicht mehr zusätzlich in der Hauptleiste
-- Doppelte Rücklinks wie „← System“ entfernt; die Reiterleiste führt jetzt überall zurück
+- **Menu reorganised:** the main bar now has the sections **Users**, **Presentation** and **System**, each with its own tabs
+  - **Users:** users, permission groups and audit log
+  - **Presentation** (what visitors and players see): appearance, status page, announcements and legal (legal notice, privacy policy)
+  - **System:** status, panel, network, email, notifications, data and updates
+- **Network** (new): the address of Hatchtower (previously under Email), the public address for players and reverse proxy IPs (previously under Connection) in one place
+- **Appearance** has its own page, with default language and **time zone** in the "Language and time" section
+- **Time zone:** every option shows the current offset from UTC, e.g. "Europe/Berlin (UTC+2)". Schedules show which time zone they run in
+- **Updates** have their own tab; the new-version notice in the bar leads straight there
+- **Data:** retention, export and import on one page (previously Privacy and Data transfer)
+- The link to the public status page is now only in the overview, no longer additionally in the main bar
+- Duplicate back links like "← System" removed; the tab bar now leads back everywhere
 
 ## 0.21.3 – 2026-10-12
 
-- **Übersicht: „Alle auswählen“** – ein Haken wählt alle gerade sichtbaren Server (passend zu Status- und Tag-Filter) für Start, Restart oder Stop auf einmal aus
-- **Betrieb auf öffentlichen Servern** (VPS, Root-Server) abgesichert:
-  - **Behoben:** Wer einen Benutzernamen kannte, konnte das Konto mit wenigen falschen Anmeldungen dauerhaft für alle sperren. Die Sperre gilt jetzt nur noch für die IP, von der die Fehlversuche kamen; eine Passwortänderung (auch per `hatchtower reset-password`) hebt sie auf
-  - Läuft Hatchtower hinter einem Reverse-Proxy, der nicht eingetragen ist, zeigt es dem Owner eine Warnung. Ohne Eintrag werden HTTPS (geschützte Cookies, HSTS) und die echten Besucher-IPs nicht erkannt
-  - Unter System → Verbindung lassen sich als Reverse-Proxy jetzt auch Netze eintragen (z. B. `172.16.0.0/12` für Docker)
-  - Der Installer weist bei `--bind 127.0.0.1` auf den Reverse-Proxy hin, statt eine nicht erreichbare Adresse anzuzeigen
-  - README: neuer Abschnitt „Auf einem öffentlichen Server betreiben“
-- Auf dem Handy sind die Auswahl-Haken der Übersicht etwas größer
+- **Overview: "Select all"** – one tick selects all currently visible servers (matching the status and tag filter) for start, restart or stop at once
+- **Running on public servers** (VPS, dedicated servers) hardened:
+  - **Fixed:** anyone who knew a username could lock the account for everyone permanently with a few failed sign-ins. The lockout now only applies to the IP the failed attempts came from; a password change (also via `hatchtower reset-password`) lifts it
+  - If Hatchtower runs behind a reverse proxy that is not configured, it shows the owner a warning. Without the entry, HTTPS (secure cookies, HSTS) and the real visitor IPs are not detected
+  - Under System → Connection, networks can now also be entered as reverse proxy (e.g. `172.16.0.0/12` for Docker)
+  - With `--bind 127.0.0.1`, the installer points to the reverse proxy instead of showing an unreachable address
+  - README: new section "Running on a public server"
+- On mobile, the selection ticks in the overview are a bit larger
 
 ## 0.21.2 – 2026-10-12
 
-- **Behoben:** Bei der Panel-Auswahl im Einrichtungsassistenten und bei der Modus-Auswahl (Nur lesen / Lesen und steuern) standen die Auswahlkreise über dem Text statt daneben
-- **Behoben:** In der englischen Übersicht hieß der Statusfilter noch „wird gestartet / wird gestoppt“
-- Getestete Versionen bei Pelican und Calagopus verständlicher („Panel/Wings 1.0.0-rc.1“)
+- **Fixed:** in the panel selection of the setup wizard and the mode selection (read only / read and control), the radio buttons were above the text instead of next to it
+- **Fixed:** in the English overview, the status filter still said "wird gestartet / wird gestoppt"
+- Tested versions for Pelican and Calagopus are easier to understand ("Panel/Wings 1.0.0-rc.1")
 
 ## 0.21.1 – 2026-10-12
 
-- Serverstatus umbenannt: „running“ heißt jetzt **online** (deutsch und englisch), „starting / stopping“ heißt auf Deutsch **wird gestartet / wird gestoppt** – auf den Serverkarten, im Statusfilter und auf der öffentlichen Statusseite
+- Server status renamed: "running" is now called **online** (German and English), "starting / stopping" is called **wird gestartet / wird gestoppt** in German – on the server cards, in the status filter and on the public status page
 
 ## 0.21.0 – 2026-10-12
 
-- **Pelican und Calagopus werden unterstützt:** Hatchtower lässt sich jetzt neben Pterodactyl auch mit [Pelican](https://pelican.dev) und [Calagopus](https://calagopus.com) verbinden. Eine Installation verwaltet weiterhin die Server eines Panels
-  - Im Einrichtungsassistenten und unter System → Verbindung wählst du das Panel; zu jedem steht, wo es den API-Key gibt und welche Rechte er braucht
-  - **Pelican:** gleiche Funktionen wie mit Pterodactyl, Keys beginnen mit `papp_` bzw. `pacc_`
-  - **Calagopus:** nur ein API-Key (Admin-Rechte werden nur gelesen), der Schritt „Client-Key“ entfällt. Konsole, Uploads und Downloads laufen auch über den Wings-Proxy von Calagopus
-  - Alle Texte nennen das verbundene Panel statt immer „Pterodactyl“ (z. B. „Pelican antwortet nicht“, „Status laut Calagopus“)
-  - Die Seite **Über Hatchtower** (Fußzeile → Lizenzen) zeigt die unterstützten Panels mit den getesteten Versionen und welches verbunden ist
-- Bestehende Installationen bleiben ohne Zutun mit Pterodactyl verbunden
-- Wechsel des Panels: Wer mit seinen Servern von Pterodactyl zu Pelican oder Calagopus umzieht, trägt unter System → Verbindung das neue Panel samt Key ein. Server mit gleicher Kennung (bei Pelican-Umzügen üblich) behalten Rechte, Zeitpläne und Verlauf
+- **Pelican and Calagopus are supported:** besides Pterodactyl, Hatchtower can now connect to [Pelican](https://pelican.dev) and [Calagopus](https://calagopus.com). One installation still manages the servers of one panel
+  - In the setup wizard and under System → Connection you choose the panel; each one says where to get the API key and which permissions it needs
+  - **Pelican:** same features as with Pterodactyl, keys start with `papp_` or `pacc_`
+  - **Calagopus:** only one API key (admin permissions are only read), the "Client key" step is skipped. Console, uploads and downloads also work via the Calagopus Wings proxy
+  - All texts name the connected panel instead of always "Pterodactyl" (e.g. "Pelican is not responding", "Status according to Calagopus")
+  - The **About Hatchtower** page (footer → Licenses) shows the supported panels with the tested versions and which one is connected
+- Existing installations stay connected to Pterodactyl without any action
+- Switching panels: if you move your servers from Pterodactyl to Pelican or Calagopus, enter the new panel and its key under System → Connection. Servers with the same identifier (common with Pelican migrations) keep their permissions, schedules and history
 
 ## 0.20.1 – 2026-10-12
 
-- **Abstürze werden jetzt auch erkannt, wenn Wings den Server selbst sofort neu startet** (bei Pterodactyl die Standardeinstellung). Bisher fiel das zwischen zwei Abfragen oft durch: keine Meldung per Discord/E-Mail, kein Eintrag bei den Abstürzen, kein roter Balken in der Verfügbarkeit. Gewollte Neustarts (Hatchtower, Panel, Zeitplan, Backup, Konsolenbefehl `restart`) zählen weiterhin nicht als Absturz
-- **Behoben:** Backups zeigten in der englischen Oberfläche und in den Meldungen deutsche Texte („fertig“, „4 von 4 Servern gesichert“)
-- **Behoben:** Auf dem Handy ragten Serverkarten mit langem Namen über den Bildschirmrand
-- README: Backups und mehrere Discord-Kanäle ergänzt
+- **Crashes are now also detected when Wings restarts the server immediately by itself** (the default setting in Pterodactyl). Previously this was often missed between two polls: no Discord/email notification, no crash entry, no red bar in the uptime. Intended restarts (Hatchtower, panel, schedule, backup, console command `restart`) still don't count as crashes
+- **Fixed:** backups showed German texts ("fertig", "4 von 4 Servern gesichert") in the English interface and in notifications
+- **Fixed:** on mobile, server cards with long names stuck out over the edge of the screen
+- README: backups and multiple Discord channels added
 
 ## 0.20.0 – 2026-10-09
 
-- **Backups (neu):** Hatchtower sichert Server oder ausgewählte Dateien und Ordner (z. B. Spielstände) als ZIP – eine Datei pro Server und Lauf, mit den Pfaden ab dem Serverordner, damit sie sich woanders wieder einspielen lassen
-  - Backup-Jobs für einen, mehrere oder alle Server (auch künftige, nur Owner), mit Ausschlüssen (z. B. `logs/`, `*.log`)
-  - Im Datei-Explorer: Dateien und Ordner ankreuzen → „Zu Backup-Job hinzufügen“ (bestehender oder neuer Job); man bleibt im Ordner und kann weitere hinzufügen
-  - Ziele: Direktdownload im Browser (nur von Hand), Laufwerk im Hatchtower-Container (Auswahl der eingehängten Laufwerke unter /mnt, /media, /srv, z. B. Proxmox-Mountpoint, USB, NFS) oder SMB-Freigabe (Windows, NAS, Samba; Zugangsdaten verschlüsselt). Ergebnis und freier Platz der letzten Prüfung stehen beim Ziel
-  - Starten von Hand („Jetzt ausführen“, „Jetzt ausführen und herunterladen“) oder per Zeitplan; mehrere Backups laufen nacheinander, laufende lassen sich abbrechen; Fortschritt mit %, MB, Dateien und Geschwindigkeit
-  - Server vorher stoppen (mit Vorwarnung im Spiel) und danach wieder starten (nur wenn er lief) oder aus lassen; der Absturz-Neustart wertet das nicht als Absturz
-  - Aufbewahrung nach Anzahl oder Tagen, Platzprüfung vorab, Meldung per Webhook/E-Mail (nur bei Fehlern oder immer)
-  - Neue Rechte: „Backups sehen“, „Backups starten und herunterladen“, „Backup-Jobs verwalten“; Ziele verwalten nur Owner
-  - Schont das Anfragen-Limit von Pterodactyl: Backups lassen immer rund ein Drittel frei, damit Statusabfragen nicht ausfallen
-- **Discord-Status in mehreren Kanälen:** beliebig viele Webhooks, jeder mit eigener Server-Auswahl, eigenen Angaben und eigener Überschrift – unabhängig von der Statusseite. Ein bisher eingerichteter Webhook wird beim Update übernommen
-- **Behoben:** Meldungen nach dem Speichern auf Seiten mit Anker (z. B. System → Erscheinungsbild) wurden nicht angezeigt
-- Update: neue Abhängigkeit `smbprotocol`; der Dienst darf zusätzlich nach /mnt, /media und /srv schreiben (beides kommt mit `hatchtower update`)
+- **Backups (new):** Hatchtower backs up servers or selected files and folders (e.g. save games) as ZIP – one file per server and run, with paths relative to the server folder so they can be restored elsewhere
+  - Backup jobs for one, several or all servers (including future ones, owners only), with exclusions (e.g. `logs/`, `*.log`)
+  - In the file explorer: tick files and folders → "Add to backup job" (existing or new job); you stay in the folder and can add more
+  - Destinations: direct download in the browser (manual only), a drive in the Hatchtower container (choice of mounted drives under /mnt, /media, /srv, e.g. Proxmox mount point, USB, NFS) or an SMB share (Windows, NAS, Samba; credentials encrypted). The result and free space of the last check are shown with the destination
+  - Start manually ("Run now", "Run now and download") or by schedule; multiple backups run one after another, running ones can be cancelled; progress with %, MB, files and speed
+  - Stop the server beforehand (with an in-game warning) and start it again afterwards (only if it was running) or leave it off; crash restart does not treat this as a crash
+  - Retention by count or days, space check in advance, notification via webhook/email (only on errors or always)
+  - New permissions: "View backups", "Start and download backups", "Manage backup jobs"; only owners manage destinations
+  - Spares the Pterodactyl request limit: backups always leave about a third free so status polls don't fail
+- **Discord status in multiple channels:** any number of webhooks, each with its own server selection, its own details and its own heading – independent of the status page. A previously configured webhook is taken over during the update
+- **Fixed:** messages after saving on pages with an anchor (e.g. System → Appearance) were not shown
+- Update: new dependency `smbprotocol`; the service may additionally write to /mnt, /media and /srv (both come with `hatchtower update`)
 
 ## 0.19.2 – 2026-10-09
 
-- **Offene Einladungslinks wieder kopierbar:** In der Benutzerverwaltung lässt sich der Link einer offenen Einladung über „Link anzeigen“ erneut abrufen und kopieren (gilt für Einladungen ab dieser Version)
+- **Open invitation links can be copied again:** in user management, the link of an open invitation can be retrieved and copied again via "Show link" (applies to invitations from this version on)
 
 ## 0.19.1 – 2026-10-08
 
-- **Einladungslinks länger gültig:** zusätzlich 30, 60 oder 90 Tage und unbegrenzt (läuft nie ab, bis zum Zurückziehen oder Aufbrauchen)
+- **Invitation links valid for longer:** additionally 30, 60 or 90 days and unlimited (never expires until revoked or used up)
 
 ## 0.19.0 – 2026-10-08
 
-- **Einladungslinks einstellbar:** gültig 1, 3, 7 oder 14 Tage; nutzbar einmal, 2–10, 25, 50, 100 Mal oder unbegrenzt
-  - Optionale interne Beschreibung (z. B. für wen der Link ist), sichtbar in den offenen Einladungen zusammen mit Nutzungen („2/5“) und Ersteller
-  - Audit-Log: jede Nutzung mit neuem Benutzer, Beschreibung, Ersteller und Zähler; dazu „Einladung aufgebraucht“ und „Einladung abgelaufen“
-- **Notiz pro Benutzer:** in den Benutzerdetails unter „Konto“, nur für Owner sichtbar, auch in der Benutzerliste
-- **Neues Recht „Konsolen-Archiv sehen“:** Archiv durchsuchen und herunterladen ist jetzt getrennt von „Konsole lesen“. Wer bisher die Konsole lesen durfte, bekommt das neue Recht beim Update automatisch dazu
+- **Configurable invitation links:** valid for 1, 3, 7 or 14 days; usable once, 2–10, 25, 50, 100 times or unlimited
+  - Optional internal description (e.g. who the link is for), visible in the open invitations together with uses ("2/5") and creator
+  - Audit log: every use with the new user, description, creator and counter; plus "Invitation used up" and "Invitation expired"
+- **Note per user:** in the user details under "Account", only visible to owners, also in the user list
+- **New permission "View console archive":** browsing and downloading the archive is now separate from "Read console". Anyone who could read the console so far gets the new permission automatically with the update
 
 ## 0.18.0 – 2026-10-08
 
-- **Status in Discord:** Hatchtower postet die Server der Statusseite über einen Discord-Webhook in einen Kanal und hält die Nachricht aktuell (Prüfung jede Minute, bearbeitet nur bei Änderungen)
-  - Eigene Auswahl der Angaben für Discord (Servername, Ingame-Servername, Status, Start-/Stoppzeit, Adresse, Passwort – Passwort nur mit ausdrücklicher Bestätigung, im Kanal als Spoiler)
-  - Kompakte Darstellung: drei Server pro Reihe mit Trennlinien, oben „X von Y Servern online“ mit farbigen Kästchen und Links zur Statusseite und zur Serververwaltung
-  - Viele Server: automatisch auf mehrere Nachrichten verteilt (bis etwa 150 Server); gelöschte Nachrichten werden neu gepostet, überzählige entfernt
-  - Einstellungen unter System → Statusseite; der Webhook wird verschlüsselt gespeichert und beim Datenumzug mitgenommen
-- **Angezeigtes Spiel überschreibbar:** in den Servereinstellungen („Angezeigtes Spiel“); leer bleibt der Egg-Name aus Pterodactyl. Gilt für Übersicht, Serverseite, Statusseite, Discord und die Serverlisten der Verwaltung
+- **Status in Discord:** Hatchtower posts the servers of the status page to a channel via a Discord webhook and keeps the message up to date (checked every minute, only edited on changes)
+  - Separate choice of details for Discord (server name, in-game server name, status, start/stop time, address, password – password only with explicit confirmation, shown as a spoiler in the channel)
+  - Compact layout: three servers per row with dividers, "X of Y servers online" at the top with coloured boxes and links to the status page and server management
+  - Many servers: automatically split across several messages (up to about 150 servers); deleted messages are reposted, surplus ones removed
+  - Settings under System → Status page; the webhook is stored encrypted and included in the data transfer
+- **Displayed game can be overridden:** in the server settings ("Displayed game"); left empty, the egg name from Pterodactyl is used. Applies to the overview, server page, status page, Discord and the server lists in the admin area
 
 ## 0.17.0 – 2026-10-08
 
-- **„Alle Server, auch künftige“** pro Benutzer: eine Rechtegruppe gilt für jeden Server ohne eigene Einstellung – auch für Server, die später in Pterodactyl dazukommen
-  - Einstellung pro Server geht immer vor; „Kein Zugriff“ nimmt einzelne Server aus
-  - Deutliche Warnung, wenn die Gruppe Steuer- oder Schreibrechte enthält
-- **Neue Server werden gemeldet:** Hinweis in der Übersicht für Owner (mit „Rechte prüfen“, „Statusseite“, „Automationen“, „Erledigt“), Eintrag im Audit-Log und Benachrichtigung „Neuer Server erkannt“ mit der Liste der automatisch freigegebenen Benutzer
-- Statusseite und Neustart nach Absturz bleiben bei neuen Servern aus, bis ein Owner sie einschaltet
+- **"All servers, including future ones"** per user: a permission group applies to every server without its own setting – including servers added to Pterodactyl later
+  - A per-server setting always takes precedence; "No access" excludes individual servers
+  - Clear warning if the group contains control or write permissions
+- **New servers are reported:** notice in the overview for owners (with "Check permissions", "Status page", "Automations", "Done"), audit log entry and the "New server detected" notification with the list of users who got access automatically
+- Status page and restart after crash stay off for new servers until an owner enables them
 
 ## 0.16.0 – 2026-10-08
 
-- **Neues Recht „Automationen verwalten“** (pro Server): Benutzer können Zeitpläne und den Neustart nach Absturz für ihre Server selbst pflegen – nur mit Aktionen, die sie auch selbst ausführen dürfen. Fehlt dem Ersteller später das Recht, läuft der Zeitplan nicht mehr.
-- **Pterodactyl-Ausfall wird erkannt:** Hinweis in der Übersicht, Server zeigen „keine aktuellen Daten“ statt „online“, Statusseite meldet, dass der Status gerade nicht abfragbar ist; Benachrichtigung „Pterodactyl nicht erreichbar“ / „wieder erreichbar“
-- **CPU dauerhaft hoch** als neue Benachrichtigung (Schwelle in % des Limits und Dauer einstellbar)
-- **Geänderte Limits** (CPU, RAM, Speicher) aus Pterodactyl kommen nach spätestens 30 Sekunden an (vorher 5 Minuten) und sofort nach einem Start oder Neustart
-- **Schnellere Statusanzeige:** nach Start/Stopp/Neustart sekündlich, Abstürze laufender Server sofort; Übersicht aktualisiert alle 5 Sekunden
-- **Statusseite kompakter:** Verfügbarkeitsbalken in derselben Zeile wie Name und Adresse; Spielerverlauf entfernt
-- Verfügbarkeitsbalken (30 Tage) auch in den Serverdetails
-- Passwort-Fehlermeldung verständlicher formuliert („Das Passwort darf den Benutzernamen nicht enthalten.“)
-- **Sicherheit:** Live-Konsole endet, sobald das Recht entzogen oder die Sitzung ungültig wird; Uploads werden erst nach der Rechteprüfung angenommen; Serverpasswort in den Servereinstellungen nur noch mit dem Recht „Passwort sehen“ sichtbar
-- Automatische Tests der Rechte-Matrix (`tests/`) und Dokumentation `docs/rechte-matrix.md`
+- **New permission "Manage automations"** (per server): users can maintain schedules and restart after crash for their servers themselves – only with actions they are allowed to perform themselves. If the creator later loses the permission, the schedule no longer runs.
+- **Pterodactyl outages are detected:** notice in the overview, servers show "no current data" instead of "online", the status page reports that the status cannot be queried right now; notification "Pterodactyl unreachable" / "reachable again"
+- **CPU high for a long time** as a new notification (threshold in % of the limit and duration configurable)
+- **Changed limits** (CPU, RAM, disk) from Pterodactyl arrive within 30 seconds at the latest (previously 5 minutes) and immediately after a start or restart
+- **Faster status display:** every second after start/stop/restart, crashes of running servers immediately; the overview refreshes every 5 seconds
+- **More compact status page:** uptime bar in the same row as name and address; player history removed
+- Uptime bar (30 days) also in the server details
+- Clearer password error message ("The password must not contain the username.")
+- **Security:** the live console ends as soon as the permission is revoked or the session becomes invalid; uploads are only accepted after the permission check; the server password in the server settings is only visible with the "View password" permission
+- Automated tests of the permission matrix (`tests/`) and documentation `docs/rechte-matrix.md`
 
 ## 0.15.0 – 2026-10-07
 
-- **Statusseite ausgebaut:**
-  - Verfügbarkeitsbalken der letzten 30 Tage pro Server (wie bei Uptime Kuma), mit Prozentwert und Legende
-  - Spielerverlauf der letzten 24 Stunden als kleine Grafik (Höchststand und aktuelle Zahl)
-  - Störungs- und Wartungshistorie: Abstürze und öffentliche Wartungsankündigungen der letzten 30 Tage
-  - Gesamtzustand oben („Alle Server sind online“ bzw. „3 von 8 Servern online“)
-  - Alles einzeln ein- und ausschaltbar unter System → Statusseite
-- **Community-Discord:** Link oben in der Kopfzeile und auf der Statusseite; einstellbar unter System → Erscheinungsbild
-- Hatchtower merkt sich die Spielerzahl jetzt im Verlauf
+- **Status page extended:**
+  - Uptime bars for the last 30 days per server (like Uptime Kuma), with percentage and legend
+  - Player history of the last 24 hours as a small chart (peak and current number)
+  - Incident and maintenance history: crashes and public maintenance announcements of the last 30 days
+  - Overall state at the top ("All servers are online" or "3 of 8 servers online")
+  - Everything can be switched on and off individually under System → Status page
+- **Community Discord:** link at the top of the header and on the status page; configurable under System → Appearance
+- Hatchtower now records the player count in the history
 
 ## 0.14.1 – 2026-10-07
 
-- Update über die Weboberfläche: Ergebnis landet jetzt zuverlässig im Audit-Log
+- Update via the web interface: the result now reliably ends up in the audit log
 
 ## 0.14.0 – 2026-10-07
 
-- **Update über die Weboberfläche:** unter System → Version und Updates „Update auf … installieren“; Fortschritt und Protokoll live, Ergebnis im Audit-Log
-  (die Oberfläche selbst hat keine Root-Rechte – sie stößt nur den Dienst `hatchtower-update` an, der genau `hatchtower update` ausführt)
-- **„Jetzt nach Updates suchen“** – höchstens alle 5 Minuten
-- Übersicht standardmäßig nach „Status: online zuerst“ sortiert
+- **Update via the web interface:** under System → Version and updates, "Install update to …"; live progress and log, result in the audit log
+  (the interface itself has no root privileges – it only triggers the `hatchtower-update` service, which runs exactly `hatchtower update`)
+- **"Check for updates now"** – at most every 5 minutes
+- Overview sorted by "Status: online first" by default
 
 ## 0.13.1 – 2026-10-07
 
-- Installation: ruhigere Ausgabe, keine Sprach-Warnungen mehr in frischen Debian-Containern
+- Installation: quieter output, no more locale warnings in fresh Debian containers
 
 ## 0.13.0 – 2026-10-07
 
-- **Installation mit einem Befehl auf Proxmox:** `proxmox/install.sh` legt einen Debian-Container an und installiert die neueste Version von GitHub
-- **Installation auf Debian/Ubuntu** über `installer/get.sh` (lädt das Release, prüft die SHA-256-Prüfsumme)
-- **`hatchtower update`** holt neue Versionen jetzt selbst von GitHub; `hatchtower update --check` zeigt, ob es eine neue gibt
-- **`hatchtower github-token`** hinterlegt einen Lese-Token, solange das Repository privat ist
-- **Hinweis auf neue Versionen** unter System (Prüfung zweimal am Tag, installiert nie selbstständig)
-- Veröffentlichung neuer Versionen über GitHub-Releases (`tools/release.sh`)
+- **One-command installation on Proxmox:** `proxmox/install.sh` creates a Debian container and installs the latest version from GitHub
+- **Installation on Debian/Ubuntu** via `installer/get.sh` (downloads the release, verifies the SHA-256 checksum)
+- **`hatchtower update`** now fetches new versions from GitHub itself; `hatchtower update --check` shows whether there is a new one
+- **`hatchtower github-token`** stores a read token while the repository is private
+- **Notice about new versions** under System (checked twice a day, never installs on its own)
+- New versions are published via GitHub releases (`tools/release.sh`)
 
 ## 0.12.4 – 2026-10-07
 
-- Lizenzen-Reiter: Zusammenfassung, weitere Bestandteile, Marken und vollständige Lizenztexte
+- Licenses tab: summary, other components, trademarks and full license texts
 
 ## 0.12.3 – 2026-10-07
 
-- Sicherheit: Größenlimits für Anfragen, zusätzliche Header, Version und Paketliste nur angemeldet,
-  „Passwort vergessen“ ohne Rückschluss auf vorhandene Konten, strengere systemd-Abschottung
+- Security: size limits for requests, additional headers, version and package list only when signed in,
+  "Forgot password" without revealing existing accounts, stricter systemd sandboxing
 
 ## 0.12.0 – 2026-10-07
 
-- Themes Dunkel/Mittel/Hell in der Kopfzeile umschaltbar
-- Statusseite: Gestartet/Gestoppt, Serverpasswort mit Doppelbestätigung, Sortierung nach Onlinestatus
-- „Ingame-Name“ heißt jetzt „Ingame-Servername“
+- Dark/Medium/Light themes switchable in the header
+- Status page: started/stopped, server password with double confirmation, sorting by online status
+- "In-game name" is now called "In-game server name"
 
 ## 0.11.0 – 2026-10-07
 
-- Datenumzug, Statusseite, Benachrichtigungen (Webhook/E-Mail), E-Mail mit „Passwort vergessen“,
-  Einladungslinks, Impressum und Datenschutz, einstellbare Aufbewahrung, Audit-Export,
-  Ankündigungen, einmalige Zeitpläne, Mehrfachauswahl, Datei-Sicherung beim Bearbeiten,
-  Log-Archiv, Verfügbarkeit, Tags und Favoriten, Konto selbst löschen
+- Data transfer, status page, notifications (webhook/email), email with "Forgot password",
+  invitation links, legal notice and privacy policy, configurable retention, audit export,
+  announcements, one-time schedules, multi-select, file backup when editing,
+  log archive, uptime, tags and favourites, delete your own account
 
 ## 0.10.0 – 2026-10-06
 
-- Deutsch und Englisch
+- German and English
