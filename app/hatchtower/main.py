@@ -4,12 +4,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import posixpath
 import re
 import time
 from contextlib import aclosing, asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -23,7 +22,7 @@ from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, i18n, legal, logarchive, logos,
                mailer, retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
-from .config import DB_KEYS, apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
+from .config import apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
 from .monitor import Monitor
 from .permissions import (BY_KEY, PERMISSIONS, UserContext, create_starter_groups, describe_access,
@@ -357,7 +356,6 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("here", request.url.path + (f"?{request.url.query}" if request.url.query else ""))
     context.setdefault("legal_links", legal.links())
     context.setdefault("discord_url", community_discord())
-    context.setdefault("in_docker", os.environ.get("HATCHTOWER_DOCKER") == "1")
     if template in ("login.html", "setup.html"):
         from . import mailer
         context.setdefault("forgot_enabled", mailer.load_config(vault).ready)

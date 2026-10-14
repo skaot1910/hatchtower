@@ -9,8 +9,10 @@
 **Eine einfache, sichere Webseite für deine Gameserver – für dich und deine Freunde,
 ohne dein Server-Panel ins Internet zu stellen.**
 
+**Status: Beta** – es funktioniert, ist aber noch jung und ändert sich schnell.
+
 ![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
-![Pelican](https://img.shields.io/badge/Pelican-1.0-2563eb)
+![Pelican](https://img.shields.io/badge/Pelican-1.0.0--rc.1-2563eb)
 ![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
 ![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN-22c55e)
 ![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0-8b5cf6)
@@ -116,7 +118,7 @@ Alle Screenshots zeigen ein Test-Panel mit erfundenen Servern und Benutzern.
   1 CPU-Kern, 512 MB RAM, 2 GB Speicher
 - **Netzwerk** von diesem Rechner zum Panel und zu **Wings** auf jedem Node (meist Port `8080`;
   bei Calagopus mit Wings-Proxy reicht das Panel)
-- **Root-Zugang** für die Installation
+- **Root-Zugang** für die Installation und Internetzugang zu GitHub für Installation und Updates
 
 ## 5. Installation
 
@@ -219,8 +221,13 @@ Jedes Recht wird bei jeder Anfrage auf dem Server geprüft – ein ausgeblendete
 Alte Backups entfernt **Aufbewahren: Anzahl / Tage**; das neueste vollständige bleibt immer. Verpasste
 Zeitpläne werden nachgeholt (bis 6 Stunden), Fehler lösen eine Meldung aus.
 
-**Hatchtowers eigene Daten** werden jede Nacht nach `/var/backups/hatchtower/` gesichert. Für eine vollständige
-Sicherung inklusive Keys **System → Daten → Datenumzug: Exportieren** nutzen und die Datei woanders aufbewahren.
+**Hatchtowers eigene Daten** (Benutzer, Rechte, Einstellungen) werden jede Nacht nach `/var/backups/hatchtower/`
+gesichert und 14 Tage aufbewahrt – auf derselben Platte. Diese Kopien sind nur zusammen mit
+`/etc/hatchtower/hatchtower.env` nutzbar, darin liegt der Schlüssel für die gespeicherten API-Keys. Für eine Sicherung,
+die du woanders ablegen kannst, **System → Daten → Datenumzug: Exportieren** nutzen (mit Passphrase geschützt) und
+die Datei auf einem anderen Rechner aufbewahren.
+
+Hatchtowers Backups und die Backups deines Panels sind zwei verschiedene Dinge – Hatchtower ersetzt sie nicht.
 
 ## 10. Aktualisieren
 
@@ -231,6 +238,23 @@ hatchtower update
 ```
 
 Vorher wird die Datenbank gesichert; startet die neue Version nicht, geht Hatchtower automatisch zurück.
+Was sich geändert hat, steht unter [Releases](https://github.com/skaot1910/hatchtower/releases).
+
+<details>
+<summary>Deinstallieren</summary>
+
+In einem Proxmox-Container aus dem Installer einfach den Container löschen. Auf einem anderen Rechner als root:
+
+```bash
+systemctl disable --now hatchtower hatchtower-backup.timer hatchtower-update.path hatchtower-firewall 2>/dev/null
+rm -f /etc/systemd/system/hatchtower* /usr/local/bin/hatchtower /usr/sbin/hatchtower && systemctl daemon-reload
+nft delete table inet hatchtower 2>/dev/null
+rm -rf /opt/hatchtower /etc/hatchtower /var/lib/hatchtower /var/lib/hatchtower-update /var/backups/hatchtower
+userdel hatchtower
+```
+
+Danach die Hatchtower-API-Keys im Panel löschen. Backups auf dem Backup-Laufwerk oder der SMB-Freigabe bleiben erhalten.
+</details>
 
 ## 11. Hilfe bei Problemen
 
@@ -256,6 +280,8 @@ Vorher wird die Datenbank gesichert; startet die neue Version nicht, geht Hatcht
 Eingebaut: Argon2id-Passwort-Hashes, Sperre nach Fehlversuchen, CSRF-Schutz, strenge CSP, Rechteprüfung auf dem
 Server, erzwungener Read-Only-Modus, verschlüsselte Ablage der Keys.
 
+**Sicherheitslücke gefunden?** Bitte vertraulich melden, nicht als Issue – siehe [SECURITY.md](SECURITY.md).
+
 ## 13. Häufige Fragen
 
 **Brauchen meine Freunde ein Panel-Konto?** Nein, nur ein Hatchtower-Konto per Einladungslink.
@@ -263,6 +289,10 @@ Server, erzwungener Read-Only-Modus, verschlüsselte Ablage der Keys.
 **Ersetzt es mein Panel?** Nein. Server, Eggs und Nodes verwaltest du weiter im Panel.
 
 **Zeigt es die Spielerzahl?** Nein – das klappt nicht zuverlässig für jedes Spiel.
+
+**Sendet Hatchtower Daten nach Hause?** Nein, es gibt keine Telemetrie. Hatchtower verbindet sich nur mit deinem Panel
+und Wings, mit GitHub (zweimal am Tag, um nach Updates zu sehen), mit deinen Gameservern (Steam-Query, um den
+Ingame-Servernamen zu lesen) und mit den Webhooks und dem Mailserver, die du einrichtest.
 
 **Ist es kostenlos?** Ja, unter der AGPL-3.0.
 
@@ -283,11 +313,12 @@ Server, erzwungener Read-Only-Modus, verschlüsselte Ablage der Keys.
 | `/etc/hatchtower/hatchtower.env` | Interne Schlüssel – **nie weitergeben** |
 | `/var/lib/hatchtower/hatchtower.db` | Datenbank |
 | `/var/backups/hatchtower/` | Datenbank-Sicherungen |
+| `/var/lib/hatchtower-update/` | Status und Protokoll von Updates aus der Weboberfläche |
 
 </details>
 
 **Fehler melden:** ein GitHub-Issue mit Hatchtower- und Panel-Version und was passiert ist. Niemals API-Keys,
-Passwörter oder `hatchtower.env` posten.
+Passwörter oder `hatchtower.env` posten. Sicherheitsprobleme bitte über [SECURITY.md](SECURITY.md).
 
 ## 14. Lizenz
 

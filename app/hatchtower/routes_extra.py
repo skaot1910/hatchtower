@@ -24,7 +24,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from . import (APP_NAME, __version__, accounts, audit, db, extras, i18n, legal, logarchive, mailer, notify, retention,
                security, setup, statusfeed, transfer)
 from .main import (BACKUP_SUFFIX, LoginRequired, app, apply_connection, back, check_csrf, check_csrf_header, clean_path,
-                   current_user, file_action, files_back, get_server_or_deny, ip_of, is_https, load_brand,
+                   current_user, file_action, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
 from .panels import PANELS
 from .permissions import BY_KEY, load_grants, load_groups, save_assignments, save_default_group
@@ -265,7 +265,15 @@ async def about_page(request: Request):
     import sqlite3
     return render(request, "about.html", packages=third_party(), python_version=platform.python_version(),
                   sqlite_version=sqlite3.sqlite_version, license_file=LICENSE_FILE.is_file(),
-                  supported_panels=list(PANELS.values()))
+                  supported_panels=list(PANELS.values()), source_url=source_url())
+
+
+def source_url() -> str:
+    """Quellcode genau dieser Version (AGPL-3.0 §13: Nutzer über das Netz bekommen Zugang zum Quellcode)."""
+    import os
+    from . import __version__
+    repo = os.environ.get("HATCHTOWER_REPO", "").strip() or "skaot1910/hatchtower"
+    return f"https://github.com/{repo}/tree/v{__version__}"
 
 
 @app.get("/about/licenses.txt")

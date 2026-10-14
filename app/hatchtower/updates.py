@@ -27,6 +27,8 @@ TOKEN_FILE = Path("/etc/hatchtower/github-token")
 INTERVAL = 12 * 3600
 MANUAL_COOLDOWN = 5 * 60          # "Jetzt prüfen" höchstens alle 5 Minuten (Schutz vor Missbrauch und GitHub-Limits)
 HELPER_UNIT = Path("/etc/systemd/system/hatchtower-update.path")
+# Status und Protokoll schreibt root dorthin (für den Dienst nur lesbar); ältere Versionen schrieben in den Datenordner
+STATUS_DIR = Path("/var/lib/hatchtower-update")
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -119,7 +121,8 @@ def helper_installed() -> bool:
 
 
 def _files(data_dir: Path) -> tuple[Path, Path, Path]:
-    return data_dir / "update.request", data_dir / "update.state", data_dir / "update.log"
+    status = STATUS_DIR if (STATUS_DIR / "update.state").is_file() else data_dir
+    return data_dir / "update.request", status / "update.state", status / "update.log"
 
 
 def read_state(data_dir: Path) -> dict:

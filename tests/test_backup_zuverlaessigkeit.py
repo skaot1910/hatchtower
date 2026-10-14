@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import zipfile
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo

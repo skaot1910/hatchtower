@@ -12,7 +12,7 @@
 #  Umgebungsvariablen:
 #      HATCHTOWER_REPO      GitHub-Repository (Standard: skaot1910/hatchtower)
 #      HATCHTOWER_VERSION   bestimmte Version statt der neuesten, z. B. 0.13.0
-#      GITHUB_TOKEN         Lese-Token – nur nötig, solange das Repository privat ist
+#      GITHUB_TOKEN         Lese-Token – nur für ein privates Repository (z. B. eigener Fork) nötig
 #      GITHUB_TOKEN_FILE    alternativ: Datei, in der der Token steht
 #      HATCHTOWER_SAVE_TOKEN=1   Token nach der Installation für spätere Updates speichern
 #
@@ -71,7 +71,7 @@ case "$code" in
   200) ;;
   401) fail "The GitHub token was rejected (expired or wrong). Set a new one with: hatchtower github-token";;
   404) if [ -z "$TOKEN" ]; then
-         fail "No release found. Is the repository private? Then set GITHUB_TOKEN (see README)."
+         fail "No release found for $REPO. (For a private repository, set GITHUB_TOKEN.)"
        else
          fail "No release found${WANT:+ for version $WANT}, or the token has no read access to $REPO."
        fi;;

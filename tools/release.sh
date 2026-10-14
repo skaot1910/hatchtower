@@ -5,9 +5,12 @@
 #  Ablauf:
 #    1. Version in app/hatchtower/__init__.py erhöhen und in CHANGELOG.md beschreiben
 #    2. Änderungen committen
-#    3. bash tools/release.sh
+#    3. bash tools/release.sh          (normales Release, wird allen als Update angeboten)
+#       bash tools/release.sh --pre    (Testversion: GitHub-Prerelease, wird nicht automatisch angeboten;
+#                                       installieren mit HATCHTOWER_VERSION=<version> hatchtower update)
 #
-#  Das Skript prüft den Stand, setzt den Tag v<version>, lädt Commits und Tag hoch,
+#  Das Skript prüft den Stand, lädt die Commits hoch und wartet, bis die CI (Tests, Lint) für genau
+#  diesen Stand grün ist – sonst wird nichts veröffentlicht. Dann setzt es den Tag v<version>,
 #  baut das Paket aus genau diesem Tag (git archive, Linux-Zeilenenden, ohne lokale Dateien),
 #  berechnet die SHA-256-Prüfsumme und legt das GitHub-Release mit beiden Dateien an.
 #  Die Anmeldung kommt aus dem Git Credential Manager – es wird kein Token ausgegeben.
@@ -16,6 +19,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 REPO="${HATCHTOWER_REPO:-skaot1910/hatchtower}"
+PRE=0
+case "${1:-}" in
+  --pre) PRE=1;;
+  "") ;;
+  *) echo "Unbekannte Option: $1 (erlaubt: --pre)"; exit 1;;
+esac
 say()  { printf '\033[1;35m==>\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31mFehler:\033[0m %s\n' "$*" >&2; exit 1; }
 PYBIN="$(command -v python3 || command -v python)" || fail "Python wird gebraucht."
@@ -50,30 +59,64 @@ gh_api() { curl -sS -H "Authorization: Bearer $TOKEN" -H "Accept: application/vn
 
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   [ "$(git rev-list -n1 "$TAG")" = "$(git rev-parse HEAD)" ] || fail "Tag $TAG gibt es schon auf einem anderen Stand."
-else
+fi
+mkdir -p dist
+
+# --- CI abwarten: veröffentlicht wird nur ein Stand, dessen Prüfungen auf GitHub grün sind ----------
+SHA="$(git rev-parse HEAD)"
+say "Commits hochladen"
+git push -q origin main
+say "Warte auf die CI für ${SHA:0:7} (Tests unter Python 3.11 und 3.13, Lint) – dauert ein paar Minuten"
+state=waiting
+for _ in $(seq 1 90); do          # höchstens 15 Minuten
+  gh_api -o dist/checks.json "https://api.github.com/repos/$REPO/commits/$SHA/check-runs?per_page=100" || true
+  state="$(py - <<'PY'
+import json
+try:
+    runs = json.load(open("dist/checks.json")).get("check_runs", [])
+except (OSError, ValueError):
+    runs = []
+good = ("success", "skipped", "neutral")
+if not runs or any(r["status"] != "completed" for r in runs):
+    print("waiting")
+elif all(r["conclusion"] in good for r in runs):
+    print("ok")
+else:
+    print("failed " + ", ".join(r["name"] for r in runs if r["conclusion"] not in good))
+PY
+)"
+  case "$state" in
+    ok) break;;
+    failed*) rm -f dist/checks.json
+             fail "Die CI ist rot (${state#failed }) – es wurde nichts veröffentlicht. Details: https://github.com/$REPO/actions";;
+  esac
+  sleep 10
+done
+rm -f dist/checks.json
+[ "$state" = ok ] || fail "Die CI ist nach 15 Minuten nicht fertig – es wurde nichts veröffentlicht. Später erneut ausführen."
+say "CI grün"
+
+if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   say "Tag $TAG setzen"
   git tag -a "$TAG" -m "Hatchtower $VERSION"
 fi
-say "Commits und Tag hochladen"
-git push -q origin main
 git push -q origin "$TAG"
 
 say "Paket bauen"
-mkdir -p dist
 PKG="hatchtower-$VERSION.tar.gz"
 git archive --format=tar --prefix="hatchtower-$VERSION/" "$TAG" | gzip -n -9 > "dist/$PKG"
 ( cd dist && sha256sum "$PKG" | sed 's/ \*/  /' > "$PKG.sha256" )
 echo "    $(cat "dist/$PKG.sha256")"
 
 say "GitHub-Release anlegen"
-BODY="$(py -c 'import json,sys; print(json.dumps({"tag_name": sys.argv[1], "name": "Hatchtower " + sys.argv[2], "body": sys.stdin.read(), "draft": False, "prerelease": False}))' "$TAG" "$VERSION" <<< "$NOTES")"
+BODY="$(py -c 'import json,sys; pre = sys.argv[3] == "1"; print(json.dumps({"tag_name": sys.argv[1], "name": "Hatchtower " + sys.argv[2] + (" (Testversion)" if pre else ""), "body": sys.stdin.read(), "draft": False, "prerelease": pre, "make_latest": "false" if pre else "true"}))' "$TAG" "$VERSION" "$PRE" <<< "$NOTES")"
 code=$(gh_api -o dist/release.json -w '%{http_code}' -X POST "https://api.github.com/repos/$REPO/releases" -d "$BODY")
 if [ "$code" = "422" ]; then
   say "Release gibt es schon – Dateien werden ersetzt"
   code=$(gh_api -o dist/release.json -w '%{http_code}' "https://api.github.com/repos/$REPO/releases/tags/$TAG")
 fi
 [ "$code" = "200" ] || [ "$code" = "201" ] || fail "GitHub antwortet mit HTTP $code: $(cat dist/release.json)"
-read -r RID UPLOAD < <(py -c 'import json; r=json.load(open("dist/release.json")); print(r["id"], r["upload_url"].split("{")[0])')
+read -r _ UPLOAD < <(py -c 'import json; r=json.load(open("dist/release.json")); print(r["id"], r["upload_url"].split("{")[0])')
 
 # Vorhandene gleichnamige Dateien entfernen, dann hochladen
 upload() {

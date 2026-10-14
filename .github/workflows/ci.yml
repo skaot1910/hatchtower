@@ -1,0 +1,51 @@
+# Prüft jeden Push und Pull Request. tools/release.sh veröffentlicht nur, wenn dieser Lauf für den Stand grün ist.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]     # Debian 12 und Debian 13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            app/requirements.txt
+            tests/requirements.txt
+      - name: Pakete installieren
+        run: pip install -r app/requirements.txt -r tests/requirements.txt
+      - name: Tests
+        run: python -m pytest tests -q
+      - name: Rechte-Matrix-Doku aktuell
+        run: |
+          python tests/routes.py
+          git diff --exit-code docs/rechte-matrix.md
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: ruff
+        run: |
+          pip install "$(grep '^ruff==' tests/requirements.txt)"
+          ruff check app tests --select F,E9 --per-file-ignores "tests/*:F811"
+      - name: shellcheck
+        run: shellcheck -S warning installer/get.sh installer/install.sh installer/hatchtower proxmox/install.sh tools/release.sh

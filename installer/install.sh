@@ -18,6 +18,7 @@ APP_DIR=/opt/hatchtower
 ETC_DIR=/etc/hatchtower
 DATA_DIR=/var/lib/hatchtower
 BACKUP_DIR=/var/backups/hatchtower
+UPDATE_DIR=/var/lib/hatchtower-update
 ENV_FILE=$ETC_DIR/hatchtower.env
 SERVICE=hatchtower
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -68,7 +69,13 @@ fi
 id hatchtower >/dev/null 2>&1 || useradd --system --home-dir "$DATA_DIR" --shell /usr/sbin/nologin hatchtower
 install -d -o root  -g root  -m 755 "$APP_DIR"
 install -d -o root  -g hatchtower -m 750 "$ETC_DIR"
-install -d -o hatchtower -g hatchtower -m 750 "$DATA_DIR" "$DATA_DIR/logos" "$BACKUP_DIR"
+install -d -o hatchtower -g hatchtower -m 750 "$DATA_DIR" "$BACKUP_DIR"
+# Den Inhalt von $DATA_DIR kann der Dienst selbst verändern. Als root dort nur anlegen, nie Besitz oder Rechte
+# bestehender Einträge ändern – ein untergeschobener Symlink würde sonst auf beliebige Dateien zeigen.
+[ -e "$DATA_DIR/logos" ] || [ -L "$DATA_DIR/logos" ] || install -d -o hatchtower -g hatchtower -m 750 "$DATA_DIR/logos"
+[ -L "$DATA_DIR/hatchtower.db" ] && fail "$DATA_DIR/hatchtower.db is a symbolic link – refusing to continue."
+# Status und Protokoll von Updates aus der Weboberfläche: schreibt nur root, der Dienst darf lesen
+install -d -o root -g hatchtower -m 750 "$UPDATE_DIR"
 
 # --- Konfiguration (nur bei Neuinstallation erzeugen, nie überschreiben) ----
 # Zeitzone des Servers als Standard (in der Oberfläche änderbar)
@@ -107,7 +114,9 @@ if [ "$FRESH" -eq 0 ] && [ -f "$DATA_DIR/hatchtower.db" ]; then
   BK="$BACKUP_DIR/vor-update-$(date +%F_%H-%M).db"
   say "Backing up the database: $BK"
   sqlite3 "$DATA_DIR/hatchtower.db" ".backup '$BK'"
-  chown hatchtower:hatchtower "$BK"
+  chown -h hatchtower:hatchtower "$BK"
+  # Nur die letzten fünf Sicherungen vor Updates behalten
+  ls -1t "$BACKUP_DIR"/vor-update-*.db 2>/dev/null | tail -n +6 | while read -r old; do rm -f -- "$old"; done
 fi
 
 # --- Programm einspielen ---------------------------------------------------
@@ -192,11 +201,14 @@ if [ "$ok" -ne 1 ]; then
     rm -rf "$APP_DIR/app.failed"; mv "$APP_DIR/app" "$APP_DIR/app.failed"; mv "$APP_DIR/app.old" "$APP_DIR/app"
     # Versionsnummer zurück, sonst hält "hatchtower update" die fehlgeschlagene Version für installiert
     [ -n "$OLD_VERSION" ] && echo "$OLD_VERSION" > "$APP_DIR/VERSION"
-    # Datenbank auf den Stand von vor dem Update (die neue Version könnte sie schon umgebaut haben)
-    if [ -n "$BK" ] && [ -f "$BK" ]; then
+    # Python-Pakete wieder auf den Stand der vorherigen Version
+    "$APP_DIR/venv/bin/pip" install --quiet --disable-pip-version-check -r "$APP_DIR/app/requirements.txt" || true
+    # Datenbank auf den Stand von vor dem Update (die neue Version könnte sie schon umgebaut haben).
+    # Der Dienst ist gestoppt; einem Symlink an Stelle der Datenbank folgt root trotzdem nicht.
+    if [ -n "$BK" ] && [ -f "$BK" ] && [ ! -L "$DATA_DIR/hatchtower.db" ]; then
       cp -p "$DATA_DIR/hatchtower.db" "$BACKUP_DIR/nach-fehlgeschlagenem-update-$(date +%F_%H-%M).db" 2>/dev/null || true
       if sqlite3 "$DATA_DIR/hatchtower.db" ".restore '$BK'"; then
-        chown hatchtower:hatchtower "$DATA_DIR/hatchtower.db"
+        chown -h hatchtower:hatchtower "$DATA_DIR/hatchtower.db"
         echo "    Database restored to its state before the update ($BK)"
       fi
     fi

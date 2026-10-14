@@ -9,8 +9,10 @@
 **A simple, safe web page for your game servers – for you and your friends,
 without putting your server panel on the internet.**
 
+**Status: beta** – it works, but it is young and still changes quickly.
+
 ![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
-![Pelican](https://img.shields.io/badge/Pelican-1.0-2563eb)
+![Pelican](https://img.shields.io/badge/Pelican-1.0.0--rc.1-2563eb)
 ![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
 ![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE-22c55e)
 ![License](https://img.shields.io/badge/License-AGPL--3.0-8b5cf6)
@@ -114,7 +116,7 @@ All screenshots use a test panel with made-up servers and users.
   1 CPU core, 512 MB RAM, 2 GB disk
 - **Network access** from that machine to the panel and to **Wings** on each node (usually port `8080`;
   with Calagopus and its Wings proxy, the panel is enough)
-- **Root access** for the installation
+- **Root access** for the installation, and internet access to GitHub for installing and updating
 
 ## 5. Installation
 
@@ -217,8 +219,12 @@ nothing) or **to the original place** (replaces files, deletes nothing).
 Old backups are removed by **Keep: number / days**; the newest complete backup is always kept. Missed
 schedules run late (up to 6 hours), failures send a notification.
 
-**Hatchtower's own data** is backed up nightly to `/var/backups/hatchtower/`. For a complete backup including
-the keys, use **System → Data → Data transfer: export** and keep the file elsewhere.
+**Hatchtower's own data** (users, permissions, settings) is backed up nightly to `/var/backups/hatchtower/` and kept
+for 14 days – on the same disk. These copies only work together with `/etc/hatchtower/hatchtower.env`, which holds
+the key for the stored API keys. For a backup you can keep elsewhere, use **System → Data → Data transfer: export**
+(protected by a passphrase) and store the file on another machine.
+
+Hatchtower's backups and your panel's own backups are separate things – Hatchtower does not replace them.
 
 ## 10. Updating
 
@@ -229,6 +235,23 @@ hatchtower update
 ```
 
 The database is backed up first; if the new version does not start, Hatchtower rolls back automatically.
+What changed is listed under [Releases](https://github.com/skaot1910/hatchtower/releases).
+
+<details>
+<summary>Uninstalling</summary>
+
+In a Proxmox container made by the installer, simply delete the container. On another machine, as root:
+
+```bash
+systemctl disable --now hatchtower hatchtower-backup.timer hatchtower-update.path hatchtower-firewall 2>/dev/null
+rm -f /etc/systemd/system/hatchtower* /usr/local/bin/hatchtower /usr/sbin/hatchtower && systemctl daemon-reload
+nft delete table inet hatchtower 2>/dev/null
+rm -rf /opt/hatchtower /etc/hatchtower /var/lib/hatchtower /var/lib/hatchtower-update /var/backups/hatchtower
+userdel hatchtower
+```
+
+Then delete the Hatchtower API keys in your panel. Backups on your backup drive or SMB share are not touched.
+</details>
 
 ## 11. Troubleshooting
 
@@ -254,6 +277,8 @@ The database is backed up first; if the new version does not start, Hatchtower r
 Built in: Argon2id password hashing, login lockout, CSRF protection, strict CSP, server-side permission
 checks, enforced read-only mode, encrypted storage of keys.
 
+**Found a security problem?** Please report it privately, not as an issue – see [SECURITY.md](SECURITY.md).
+
 ## 13. FAQ
 
 **Do my friends need a panel account?** No, only a Hatchtower account via invite link.
@@ -261,6 +286,10 @@ checks, enforced read-only mode, encrypted storage of keys.
 **Does it replace my panel?** No. Servers, eggs and nodes are still managed in the panel.
 
 **Does it show player counts?** No – that is not reliable across games.
+
+**Does Hatchtower phone home?** No, there is no telemetry. It only connects to your panel and Wings, to GitHub
+(twice a day, to look for updates), to your game servers (Steam query, to read the in-game server name) and to the
+webhooks and mail server you set up.
 
 **Is it free?** Yes, under the AGPL-3.0.
 
@@ -281,11 +310,12 @@ checks, enforced read-only mode, encrypted storage of keys.
 | `/etc/hatchtower/hatchtower.env` | Internal keys – **never share** |
 | `/var/lib/hatchtower/hatchtower.db` | Database |
 | `/var/backups/hatchtower/` | Database backups |
+| `/var/lib/hatchtower-update/` | Status and log of updates started in the web interface |
 
 </details>
 
 **Reporting problems:** open a GitHub issue with your Hatchtower and panel version and what happened.
-Never post API keys, passwords or `hatchtower.env`.
+Never post API keys, passwords or `hatchtower.env`. Security problems go through [SECURITY.md](SECURITY.md).
 
 ## 14. License
 

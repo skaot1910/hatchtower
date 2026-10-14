@@ -1,4 +1,5 @@
-# Nur für die Tests (zusätzlich zu app/requirements.txt)
-pytest>=8
+# Nur für Tests und CI (zusätzlich zu app/requirements.txt), Versionen hält Dependabot aktuell
+pytest==9.1.1
+ruff==0.17.0
 # Zeitzonen-Daten für Windows; Debian bringt sie über das System mit
-tzdata
+tzdata==2026.5

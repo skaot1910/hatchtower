@@ -26,7 +26,7 @@ class Permission:
 
 PERMISSIONS: tuple[Permission, ...] = (
     Permission("server.view", "Sehen", "Allgemein",
-               "Server in der Übersicht sehen: Status, CPU, RAM, Speicher, Spieler, IP. Ohne dieses Recht ist der Server unsichtbar."),
+               "Server in der Übersicht sehen: Status, CPU, RAM, Speicher, Adresse. Ohne dieses Recht ist der Server unsichtbar."),
     Permission("server.password", "Passwort sehen", "Allgemein",
                "Das Beitritts-Passwort in Klarschrift sehen.", requires=("server.view",)),
     Permission("server.log", "Protokoll sehen", "Allgemein",

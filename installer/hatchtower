@@ -4,7 +4,7 @@
 #   hatchtower update                 neueste Version von GitHub laden und installieren
 #   hatchtower update --check         nur nachsehen, ob es eine neue Version gibt
 #   hatchtower update <paket.tar.gz>  ein vorhandenes Paket installieren
-#   hatchtower github-token [--remove]   Lese-Token für ein privates Repository hinterlegen
+#   hatchtower github-token [--remove]   Lese-Token hinterlegen (nur für ein privates Repository nötig)
 set -euo pipefail
 APP_DIR=/opt/hatchtower
 ENV_FILE=/etc/hatchtower/hatchtower.env
@@ -41,9 +41,13 @@ fi
 if [ "${1:-}" = "run-update-request" ]; then
   need_root
   DATA=/var/lib/hatchtower
-  REQ="$DATA/update.request"; STATE="$DATA/update.state"; LOG="$DATA/update.log"
-  [ -f "$REQ" ] || exit 0
+  # Die Anfrage liegt im Datenordner (dort darf der Dienst schreiben). Status und Protokoll schreibt root
+  # nur in einen eigenen Ordner, den der Dienst bloß lesen kann – so kann kein Symlink root umleiten.
+  STATUS=/var/lib/hatchtower-update
+  REQ="$DATA/update.request"; STATE="$STATUS/update.state"; LOG="$STATUS/update.log"
+  [ -f "$REQ" ] || [ -L "$REQ" ] || exit 0
   rm -f "$REQ"
+  install -d -o root -g hatchtower -m 750 "$STATUS"
   FROM="$(cat "$APP_DIR/VERSION" 2>/dev/null || echo ?)"
   STARTED="$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
   write_state() {
@@ -55,7 +59,7 @@ if [ "${1:-}" = "run-update-request" ]; then
   export HATCHTOWER_REPO="${HATCHTOWER_REPO:-$(repo)}"
   [ -n "$HATCHTOWER_REPO" ] || unset HATCHTOWER_REPO
   if bash "$APP_DIR/installer/get.sh" --update >>"$LOG" 2>&1; then
-    write_state done "$(cat "$APP_DIR/VERSION" 2>/dev/null)" "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
+    write_state "done" "$(cat "$APP_DIR/VERSION" 2>/dev/null)" "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
   else
     write_state failed "" "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)"
   fi
@@ -84,6 +88,7 @@ if [ "${1:-}" = "github-token" ]; then
 fi
 
 set -a
+# shellcheck source=/dev/null
 . "$ENV_FILE"
 set +a
 cd "$APP_DIR/app"

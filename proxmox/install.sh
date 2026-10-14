@@ -12,7 +12,7 @@
 #      HT_YES=1 HT_CTID=120 HT_IP=dhcp bash install.sh
 #  Variablen: HT_CTID HT_HOSTNAME HT_CORES HT_RAM HT_DISK HT_STORAGE HT_BRIDGE
 #             HT_IP (dhcp oder 192.168.1.50/24) HT_GW HT_ALLOW HT_PORT HT_VLAN
-#  Privates Repository: GITHUB_TOKEN setzen (wird nur bei Zustimmung im Container gespeichert).
+#  Nur für ein privates Repository (z. B. eigener Fork): GITHUB_TOKEN setzen (wird nur bei Zustimmung gespeichert).
 # =============================================================================
 set -euo pipefail
 
@@ -68,13 +68,14 @@ if [ "$HT_IP" != "dhcp" ]; then
   [[ "$HT_IP" == */* ]] || fail "Please give a fixed IP with its netmask, e.g. 192.168.1.50/24"
 fi
 
-# --- Token für ein privates Repository ------------------------------------------------
+# --- Token nur für ein privates Repository (z. B. eigener Fork) ------------------------
 TOKEN="${GITHUB_TOKEN:-}"
 code=$(curl -s -o /dev/null -w '%{http_code}' "https://api.github.com/repos/$REPO" || echo 000)
+[ "$code" = "000" ] && fail "GitHub cannot be reached. Check the internet connection and DNS of this Proxmox host."
 if [ "$code" != "200" ] && [ -z "$TOKEN" ]; then
   if [ -t 0 ] && [ "${HT_YES:-0}" != "1" ]; then
     echo
-    echo "The repository $REPO is private. Please enter a GitHub token with read access"
+    echo "The repository $REPO was not found or is private. For a private repository, enter a GitHub token with read access"
     echo "(it is not shown while typing):"
     read -rs TOKEN || true   # auch ohne Zeilenumbruch am Ende
     echo

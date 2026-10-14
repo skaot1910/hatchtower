@@ -12,7 +12,7 @@ from typing import Any, AsyncIterator
 from websockets.asyncio.client import connect
 from websockets.exceptions import WebSocketException
 
-from .ptero import PteroClient, PteroError, ReadOnlyViolation
+from .ptero import PteroClient, ReadOnlyViolation
 
 log = logging.getLogger("hatchtower.wings")
 

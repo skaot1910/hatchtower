@@ -1,0 +1,14 @@
+# Wöchentliche Vorschläge für neue Paketversionen; jede Änderung läuft durch die CI.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories: ["/app", "/tests"]
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
