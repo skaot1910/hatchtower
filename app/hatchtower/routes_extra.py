@@ -93,13 +93,12 @@ def owner_audit(request: Request, owner, action: str, **kw) -> None:
 STATUS_FIELDS = {"name": "Servername aus {panel}", "ingame": "Ingame-Servername", "status": "Status",
                  "started": "Gestartet/Gestoppt (Uhrzeit)", "address": "Adresse (IP und Port)",
                  "password": "Serverpasswort",
-                 "uptime": "Verfügbarkeitsbalken (30 Tage)",
-                 "incidents": "Störungs- und Wartungshistorie (30 Tage)"}
+                 "uptime": "Verfügbarkeitsbalken (30 Tage)"}
 STATUS_ORDER = {"running": 0, "starting": 1, "stopping": 2, "offline": 3, "suspended": 4, "unknown": 5}
-STATUS_DEFAULT = "name,status,address,uptime,incidents"
+STATUS_DEFAULT = "name,status,address,uptime"
 STATUS_DAYS = 30
-# In Discord eigene Auswahl; Verfügbarkeit und Störungshistorie gibt es dort nicht
-DISCORD_FIELDS = {k: v for k, v in STATUS_FIELDS.items() if k not in ("incidents", "uptime")}
+# In Discord eigene Auswahl; Verfügbarkeitsbalken gibt es dort nicht
+DISCORD_FIELDS = {k: v for k, v in STATUS_FIELDS.items() if k != "uptime"}
 DISCORD_DEFAULT = "name,status,address"
 
 
@@ -175,13 +174,7 @@ async def status_page(request: Request):
     return render(request, "status.html", user=None, logged_in=logged_in, servers=servers,
                   title=db.get_setting("status_title") or load_brand()["name"],
                   public_announcements=extras.active_announcements(public_only=True),
-                  fields=fields, summary=status_summary(servers, fields),
-                  incidents=status_incidents(servers, fields) if "incidents" in fields else [],
-                  history_days=STATUS_DAYS)
-
-
-def status_label(item: dict) -> str:
-    return item.get("name") or item.get("ingame") or item.get("egg") or "Server"
+                  fields=fields, summary=status_summary(servers, fields))
 
 
 def status_summary(servers: list[dict], fields: set[str]) -> dict | None:
@@ -199,44 +192,6 @@ def add_status_history(servers: list[dict], fields: set[str]) -> None:
         if "uptime" in fields:
             view = extras.uptime_bars(s["identifier"], STATUS_DAYS, settings.timezone)
             s["bars"], s["uptime_pct"] = view["bars"], view["pct"]
-
-
-def status_incidents(servers: list[dict], fields: set[str]) -> list[dict]:
-    """Abstürze der angezeigten Server und öffentliche Wartungen der letzten 30 Tage, neueste zuerst.
-    Technische Fehlermeldungen werden nicht gezeigt, nur eine allgemeine Beschreibung."""
-    from datetime import timedelta, timezone as tz_utc
-    since = (datetime.now(tz_utc.utc) - timedelta(days=STATUS_DAYS)).isoformat(timespec="seconds")
-    names = {s["identifier"]: status_label(s) for s in servers}
-    items = []
-    if names:
-        marks = ",".join("?" * len(names))
-        with db.connect() as con:
-            rows = con.execute(f"SELECT identifier, detected_at, outcome FROM crash_events WHERE detected_at >= ?"
-                               f" AND identifier IN ({marks}) ORDER BY detected_at DESC LIMIT 50",
-                               (since, *names)).fetchall()
-        for r in rows:
-            outcome = r["outcome"] or ""
-            if outcome.startswith(("Neu gestartet", "Restarted")):
-                text = "Absturz – von Hatchtower automatisch neu gestartet"
-            elif "Wings" in outcome:
-                text = "Absturz – der Server hat sich selbst neu gestartet"
-            else:
-                text = "Server unerwartet beendet"
-            items.append({"kind": "crash", "sort": r["detected_at"], "server": names[r["identifier"]],
-                          "time": fmt_dt(r["detected_at"], settings.timezone), "text": i18n.t(text)})
-    now = db.utcnow()
-    with db.connect() as con:
-        anns = con.execute("SELECT * FROM announcements WHERE public = 1 AND (ends_at IS NULL OR ends_at >= ?)"
-                           " ORDER BY COALESCE(starts_at, created_at) DESC LIMIT 20", (since,)).fetchall()
-    for a in anns:
-        start = a["starts_at"] or a["created_at"]
-        state = ("upcoming" if a["starts_at"] and a["starts_at"] > now else
-                 "ended" if a["ends_at"] and a["ends_at"] <= now else "active")
-        items.append({"kind": "maintenance", "sort": start, "state": state, "text": a["text"],
-                      "time": fmt_dt(start, settings.timezone) + (" – " + fmt_dt(a["ends_at"], settings.timezone)
-                                                                    if a["ends_at"] else "")})
-    items.sort(key=lambda x: x["sort"], reverse=True)
-    return items[:30]
 
 
 def discord_status_view(feed) -> tuple[str, list[dict], set[str], str, str]:

@@ -1109,11 +1109,6 @@ a.file-link:hover { color: var(--violet-3); }
 .uptime-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 2px 0 0; }
 .uptime-legend .ub { width: 10px; height: 10px; vertical-align: middle; margin-right: -8px; }
 
-.status-incidents h2 { font-size: 17px; margin: 10px 0 10px; }
-.incident-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.incident { display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
-.incident-mark { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--amber); }
-.incident-crash .incident-mark { background: var(--red); }
 
 .discord-link { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: 13px; font-weight: 600;
   color: var(--text); text-decoration: none; border: 1px solid var(--line-2); background: color-mix(in srgb, #5865f2 18%, transparent); }

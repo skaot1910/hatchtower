@@ -3,6 +3,12 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.27.2 – 2026-10-14
+
+- **Statusseite:** Die „Störungs- und Wartungshistorie“ ist von der öffentlichen Statusseite entfernt. Sie zeigte
+  neben öffentlichen Ankündigungen auch erkannte Abstürze der Server – das gehört nicht auf eine öffentliche Seite.
+  Aktive öffentliche Ankündigungen erscheinen weiterhin oben auf der Seite, die Verfügbarkeitsbalken bleiben unverändert.
+
 ## 0.27.1 – 2026-10-14
 
 Ersetzt 0.27.0: Der öffentliche Demo-Modus („Demo ansehen“ auf der Anmeldeseite) ist wieder vollständig entfernt.

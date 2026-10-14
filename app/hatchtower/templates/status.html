@@ -73,29 +73,5 @@
   <div class="empty"><p class="muted">{{ _("Gerade werden keine Server angezeigt.") }}</p></div>
   {% endif %}
 
-  {% if 'incidents' in fields %}
-  <section class="status-incidents">
-    <h2>{{ _("Störungen und Wartungen") }}</h2>
-    {% if incidents %}
-    <ul class="incident-list">
-      {% for i in incidents %}
-      <li class="incident incident-{{ i.kind }}">
-        <span class="incident-mark" aria-hidden="true"></span>
-        <div>
-          <div class="incident-title">
-            {% if i.kind == 'crash' %}<strong>{{ i.server }}</strong> · {{ i.text }}
-            {% else %}<strong>{{ _("Wartung") }}</strong>{% if i.state == 'upcoming' %} <span class="badge badge-warn">{{ _("geplant") }}</span>{% elif i.state == 'active' %} <span class="badge badge-warn">{{ _("läuft") }}</span>{% endif %} · {{ i.text }}{% endif %}
-          </div>
-          <div class="faint small">{{ i.time }}</div>
-        </div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="faint">{{ _("Keine Störungen in den letzten {n} Tagen.", n=history_days) }}</p>
-    {% endif %}
-  </section>
-  {% endif %}
-
 </div>
 {% endblock %}
