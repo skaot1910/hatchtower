@@ -47,8 +47,6 @@ class Settings:
     sync_interval: int = 300
     session_idle_minutes: int = 30
     session_max_hours: int = 12
-    # Öffentliche Demo: dieser Benutzer meldet sich ohne Passwort an und darf nichts verändern
-    demo_user: str = ""
 
     @property
     def read_only(self) -> bool:
@@ -101,7 +99,6 @@ def load_settings() -> Settings:
         data_key=_req("HATCHTOWER_DATA_KEY"),
         data_dir=Path(os.environ.get("HATCHTOWER_DATA_DIR", "").strip() or "/var/lib/hatchtower"),
         default_timezone=_valid_tz(os.environ.get("HATCHTOWER_TZ", "")),
-        demo_user=os.environ.get("HATCHTOWER_DEMO_USER", "").strip(),
     )
 
 

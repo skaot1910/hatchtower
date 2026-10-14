@@ -12,8 +12,6 @@ services:
       - "8000:8000"            # nur hinter Reverse-Proxy: "127.0.0.1:8000:8000"
     environment:
       HATCHTOWER_TZ: Europe/Berlin
-      # Öffentliche Demo (nur lesen), siehe docs/public-demo.md:
-      # HATCHTOWER_DEMO_USER: demo
     volumes:
       - hatchtower-data:/var/lib/hatchtower
       # Ziel für Backups (erscheint in Hatchtower unter „Datenträger“):

@@ -42,7 +42,6 @@ Grundregeln:
 |---|---|---|---|
 | GET | `/login` | – | Anmeldeseite |
 | POST | `/login` | Vorab-Token | Anmelden |
-| POST | `/demo/login` | Vorab-Token | Öffentliche Demo: als Demo-Benutzer anmelden (nur mit HATCHTOWER_DEMO_USER) |
 | GET | `/lang/{code}` | – | Sprache umschalten (angemeldet: im Konto gespeichert) |
 | GET | `/status` | – | Öffentliche Statusseite (abschaltbar) |
 | GET | `/status.json` | – | Statusseite als JSON, nur freigegebene Angaben |

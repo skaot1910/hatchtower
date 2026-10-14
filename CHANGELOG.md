@@ -3,7 +3,9 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
-## 0.27.0 – 2026-10-14
+## 0.27.1 – 2026-10-14
+
+Ersetzt 0.27.0: Der öffentliche Demo-Modus („Demo ansehen“ auf der Anmeldeseite) ist wieder vollständig entfernt.
 
 - **Neuer Einrichtungsassistent für die Verbindung:** Panel, Keys und Wings werden erst geprüft und dann gespeichert –
   und zwar nur nach ausdrücklicher Bestätigung. Bis dahin liegen die Eingaben verschlüsselt in einem Entwurf im
@@ -36,9 +38,6 @@ automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`
 - **Docker Compose:** Hatchtower lässt sich jetzt auch als Container betreiben (`docker compose up -d --build`).
   Schlüssel werden beim ersten Start im Volume angelegt, der Einrichtungscode steht im Log, Befehle gehen mit
   `docker compose exec hatchtower hatchtower …`. Die Update-Seite zeigt im Container den passenden Befehl
-- **Öffentlicher Demo-Modus:** Mit `HATCHTOWER_DEMO_USER` in der Umgebungsdatei zeigt die Anmeldeseite „Demo ansehen“.
-  Besucher sind dann als dieser Benutzer angemeldet und können weder in Hatchtower noch im Panel etwas verändern;
-  Owner arbeiten normal weiter. Anleitung in `docs/public-demo.md`
 - **Serverseite mit Reitern:** Übersicht, Konsole, Log-Archiv und Protokoll stehen in Reitern statt untereinander auf
   einer langen Seite; Links wie `#protokoll` öffnen den passenden Reiter
 - **Ruhigere Kopfzeile:** Sprache und Abmelden liegen im Kontomenü am eigenen Namen, die Kopfzeile ist auf dem

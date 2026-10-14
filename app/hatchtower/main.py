@@ -266,34 +266,15 @@ def current_user(request: Request) -> UserContext:
     if row is None:
         raise LoginRequired()
     request.state.csrf = row["csrf"]
-    demo = is_demo_user(row["username"])
     user = UserContext(
-        id=row["user_id"], username=row["username"], role=row["role"], read_only=settings.read_only or demo,
+        id=row["user_id"], username=row["username"], role=row["role"], read_only=settings.read_only,
         grants=load_grants(row["user_id"]), theme=row["theme"], language=row["language"],
         view_mode=row["view_mode"], view_locked=bool(row["view_locked"]),
     )
     if i18n.valid(row["language"]):
         i18n.set_language(row["language"])
     request.state.user = user
-    if demo and request.method not in ("GET", "HEAD") and request.url.path not in DEMO_ALLOWED:
-        audit.record("demo.blocked", result="blocked", user_id=user.id, username=user.username,
-                     ip=ip_of(request), detail=request.url.path)
-        raise DemoBlocked()
     return user
-
-
-# -- Öffentliche Demo ------------------------------------------------------------------
-# Mit HATCHTOWER_DEMO_USER in der Umgebungsdatei bietet die Anmeldeseite „Demo ansehen“ an.
-# Der Demo-Benutzer darf nur lesen: nichts in Hatchtower und nichts im Panel verändern.
-DEMO_ALLOWED = ("/logout",)
-
-
-class DemoBlocked(Exception):
-    pass
-
-
-def is_demo_user(username: str | None) -> bool:
-    return bool(settings.demo_user) and username == settings.demo_user
 
 
 def require_owner(request: Request) -> UserContext:
@@ -369,9 +350,7 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("here", request.url.path + (f"?{request.url.query}" if request.url.query else ""))
     context.setdefault("legal_links", legal.links())
     context.setdefault("discord_url", community_discord())
-    context.setdefault("demo_enabled", bool(settings.demo_user))
     context.setdefault("in_docker", os.environ.get("HATCHTOWER_DOCKER") == "1")
-    context.setdefault("is_demo", is_demo_user(getattr(context.get("user"), "username", None)))
     if template in ("login.html", "setup.html"):
         from . import mailer
         context.setdefault("forgot_enabled", mailer.load_config(vault).ready)
@@ -444,14 +423,6 @@ async def _invalid_request(request: Request, exc: RequestValidationError):
     """Ungültige Anfrage: nur die Namen der Felder melden, nie die gesendeten Werte (könnten API-Keys sein)."""
     fields = sorted({str(e.get("loc", ["?"])[-1]) for e in exc.errors()})
     return JSONResponse({"error": i18n.t("Ungültige Anfrage"), "fields": fields}, status_code=422)
-
-
-@app.exception_handler(DemoBlocked)
-async def _demo_blocked(request: Request, exc: DemoBlocked):
-    message = "Das ist eine öffentliche Demo: Hier lässt sich nichts verändern."
-    if request.url.path.startswith("/api/"):
-        return JSONResponse({"error": i18n.t(message)}, status_code=403)
-    return render(request, "error.html", status=403, title="Demo", message=message)
 
 
 @app.exception_handler(ReadOnlyViolation)
@@ -550,25 +521,6 @@ async def login(request: Request, username: str = Form(""), password: str = Form
     response = RedirectResponse("/", status_code=303)
     response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="strict",
                         secure=is_https(request), max_age=settings.session_max_hours * 3600)
-    response.delete_cookie(security.PRELOGIN_COOKIE)
-    return response
-
-
-@app.post("/demo/login")
-async def demo_login(request: Request, prelogin: str = Form("")):
-    """Öffentliche Demo: ohne Passwort als Demo-Benutzer anmelden. Owner kommen so nie hinein."""
-    ip = ip_of(request)
-    if not settings.demo_user or not security.prelogin_valid(settings.secret_key, request.cookies.get(security.PRELOGIN_COOKIE), prelogin):
-        return RedirectResponse("/login", status_code=303)
-    if throttle.ip_blocked(ip):
-        return RedirectResponse("/login", status_code=303)
-    with db.connect() as con:
-        row = con.execute("SELECT * FROM users WHERE username = ?", (settings.demo_user,)).fetchone()
-    if row is None or not row["is_active"] or row["role"] == "owner":
-        audit.record("login", result="failed", username=settings.demo_user[:64], ip=ip, detail="Demo nicht verfügbar")
-        return RedirectResponse("/login", status_code=303)
-    audit.record("login", user_id=row["id"], username=row["username"], ip=ip, detail="Demo")
-    response = login_response(request, row["id"], row["username"], "/")
     response.delete_cookie(security.PRELOGIN_COOKIE)
     return response
 

@@ -75,11 +75,6 @@
 </header>
 {% endif %}
 <main class="container">
-  {% if is_demo %}
-  <div class="announcement announcement-info demo-banner" role="note">
-    <span class="announcement-text">{{ _("Öffentliche Demo: Du siehst Hatchtower mit erfundenen Servern. Starten, Stoppen und alle Änderungen sind gesperrt.") }}</span>
-  </div>
-  {% endif %}
   {% for a in announcements or [] %}
   <div class="announcement announcement-{{ a.level }}" data-ann="{{ a.id }}" role="note">
     <span class="announcement-text">{{ a.text }}</span>

@@ -194,7 +194,6 @@ automatically.
 - Optional email: own address per user with confirmation, "forgot password", invites by email
 - Audit log that cannot be altered
 - Read-only mode: Hatchtower can run entirely read-only
-- Public demo mode: visitors look around as a read-only user without a password ([guide](docs/public-demo.md))
 
 **Automations and notifications**
 - Restart after a crash

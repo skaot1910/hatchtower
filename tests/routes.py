@@ -51,8 +51,6 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/login", "public", "Anmeldeseite"),
     R("POST", "/login", "public", "Anmelden", csrf="prelogin",
       form={"username": "olga", "password": PASSWORD}),
-    R("POST", "/demo/login", "public", "Öffentliche Demo: als Demo-Benutzer anmelden (nur mit HATCHTOWER_DEMO_USER)",
-      csrf="prelogin"),
     R("GET", "/lang/{code}", "public", "Sprache umschalten (angemeldet: im Konto gespeichert)"),
     R("GET", "/status", "public", "Öffentliche Statusseite (abschaltbar)"),
     R("GET", "/status.json", "public", "Statusseite als JSON, nur freigegebene Angaben"),

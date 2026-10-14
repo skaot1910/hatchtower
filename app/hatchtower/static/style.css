@@ -1245,9 +1245,3 @@ a.file-link:hover { color: var(--violet-3); }
 .confirm-box { border: 1px solid var(--accent-line); border-radius: var(--radius-sm); padding: 12px 14px; margin: 16px 0 10px; }
 .next-steps { padding-left: 18px; margin: 0 0 16px; }
 .next-steps li { margin-bottom: 4px; }
-
-/* Öffentliche Demo */
-.demo-login { display: grid; gap: 12px; padding: 14px; margin-bottom: 6px; border: 1px solid var(--accent-line);
-  border-radius: var(--radius-sm); background: var(--violet-bg); }
-.demo-login p { margin: 0; }
-.demo-or { text-align: center; margin: 10px 0; }

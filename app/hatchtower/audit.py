@@ -31,7 +31,6 @@ ACTION_LABELS = {
     "files.download_zip": "Als ZIP heruntergeladen",
     "access.denied": "Zugriff verweigert",
     "readonly.blocked": "Schreibzugriff blockiert",
-    "demo.blocked": "In der Demo blockiert",
     "preview.as_user": "Vorschau als Benutzer",
     "power.start": "Server gestartet",
     "power.stop": "Server gestoppt",
