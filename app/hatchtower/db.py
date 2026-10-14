@@ -302,7 +302,6 @@ MIGRATIONS: list[str] = [
     # 12: Spielerzahl im Verlauf (für die Statusseite) und Link zum Community-Discord
     """
     ALTER TABLE metrics ADD COLUMN players INTEGER;
-    INSERT OR IGNORE INTO app_settings (key, value) VALUES ('community_discord', 'https://discord.gg/uQDCrtjdKG');
     """,
     # 13: neue Meldungen (CPU dauerhaft hoch, Pterodactyl ausgefallen/wieder da) beim Webhook mit einschalten,
     #     wenn dort schon eine Auswahl gespeichert ist; Spielerverlauf von der Statusseite entfernt
@@ -552,6 +551,10 @@ MIGRATIONS: list[str] = [
         finished_at    TEXT
     );
     CREATE INDEX backup_restores_run ON backup_restores(run_id);
+    """,
+    # 27: drop the community Discord that migration 12 used to preset on every install
+    """
+    DELETE FROM app_settings WHERE key = 'community_discord' AND value = 'https://discord.gg/uQDCrtjdKG';
     """,
 ]
 

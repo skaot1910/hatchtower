@@ -3,6 +3,12 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.32.1 – 2026-10-14
+
+- Footer: link to the Hatchtower support Discord (visible to owners)
+- New installations no longer come with a preset community Discord link; existing installations that still have
+  the old preset get it removed (an invite entered under "Appearance" is kept)
+
 ## 0.32.0 – 2026-10-14
 
 First public beta.

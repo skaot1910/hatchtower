@@ -336,6 +336,8 @@ def check_csrf_header(request: Request) -> None:
         raise Forbidden("Die Sitzung ist abgelaufen. Lade die Seite neu.")
 
 
+# Support Discord of the Hatchtower project itself (footer, owners only)
+PROJECT_DISCORD = "https://discord.gg/tDQny3fnjw"
 DISCORD_RE = re.compile(r"^https://(discord\.gg|discord\.com/invite)/[A-Za-z0-9-]{2,32}$")
 
 
@@ -356,6 +358,7 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("here", request.url.path + (f"?{request.url.query}" if request.url.query else ""))
     context.setdefault("legal_links", legal.links())
     context.setdefault("discord_url", community_discord())
+    context.setdefault("project_discord", PROJECT_DISCORD)
     if template in ("login.html", "setup.html"):
         from . import mailer
         context.setdefault("forgot_enabled", mailer.load_config(vault).ready)
