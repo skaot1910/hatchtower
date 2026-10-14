@@ -3,6 +3,26 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.30.0 – 2026-10-14
+
+**Backups**
+- **Ergebnis nach dem Ende:** Ist eine Wiederherstellung, ein Backup oder eine Prüfung fertig, steht oben auf der
+  Backup-Seite, ob es geklappt hat – z. B. „Wiederherstellung abgeschlossen: … – 37 Dateien in den Ordner …
+  zurückgespielt“ oder bei Fehlern mit Grund. Bisher verschwand der Vorgang nur aus „Laufende Vorgänge“
+- **Mehrere Backups auf einmal:** Gespeicherte Backups lassen sich mit Auswahlkästchen markieren und gemeinsam
+  löschen oder prüfen (höchstens 10 Prüfungen auf einmal). Eine Aktion geht nur, wenn sie für alle ausgewählten
+  Backups erlaubt ist
+
+**Benutzer**
+- **Neuer Reiter „Neue Benutzer“:** Einladungslinks, offene Einladungen, direktes Anlegen und die E-Mail-Pflicht
+  liegen jetzt getrennt von der Benutzerliste
+- **Übersichtlichere Benutzerliste:** aufgeteilt in Owner, Benutzer und Deaktiviert, mit Zählern, Knopf „Benutzer
+  hinzufügen“, Hinweis auf offene Einladungen und Suche (ab 7 Benutzern)
+
+**Sonstiges**
+- „Log-Archiv“ in den Serverdetails heißt jetzt „Konsolen-Archiv“, wie überall sonst
+- Mitlaufende Auswahlleisten (Backups, Datei-Explorer) werden nicht mehr vom umbrechenden Seitenkopf verdeckt
+
 ## 0.29.1 – 2026-10-14
 
 - **Backups:** Wiederherstellen, Löschen und andere Knöpfe sind wieder immer sichtbar. Sie erschienen teilweise erst

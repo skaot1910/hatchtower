@@ -134,6 +134,8 @@ async def backups_page(request: Request):
         "can_restore": bool(r["file"]) and r["kind"] == "target" and user.can(r["identifier"], "backups.restore"),
         "can_delete": bool(r["file"]) and has(user, r["identifier"], "backups.manage"),
     } for r in runs if has(user, r["identifier"], "backups.view")][:100]
+    for x in run_list:                 # Auswahlkästchen nur, wo eine Sammelaktion möglich ist
+        x["can_select"] = x["can_delete"] or x["can_verify"]
     restore_list = [{
         "x": x, "at": fmt_dt(x["finished_at"] or x["started_at"], settings.timezone),
         "backup_at": fmt_dt(x["backup_at"], settings.timezone) if x["backup_at"] else "",
@@ -149,8 +151,55 @@ async def backups_page(request: Request):
                       "data_dir": str(settings.data_dir / "backups"), "host_uid": 100000 + (uid or 0),
                       "host_gid": 100000 + (gid or 0)}
     return render(request, "backups.html", jobs=job_list, runs=run_list, targets=targets, restores=restore_list,
-                  active=active_for(user),
+                  active=active_for(user), finished=finished_results(user, request.query_params.get("done", "")),
                   can_create=user.can_any("backups.manage"), **owner_data)
+
+
+MAX_DONE = 20
+
+
+def finished_results(user, done: str) -> list[dict]:
+    """Meldungen zu Vorgängen, die gerade fertig geworden sind. Der Browser hängt ihre Nummern an die
+    Adresse („?done=12,verify-12,restore-3“), sobald sie aus „Laufende Vorgänge“ verschwinden."""
+    t = i18n.t
+    results = []
+    for key in [k for k in done.split(",") if k][:MAX_DONE]:
+        kind, _sep, num = key.rpartition("-")
+        if not num.isdigit() or kind not in ("", "verify", "restore"):
+            continue
+        with db.connect() as con:
+            row = con.execute("SELECT * FROM backup_restores WHERE id = ?" if kind == "restore"
+                              else "SELECT * FROM backup_runs WHERE id = ?", (int(num),)).fetchone()
+        if row is None or not has(user, row["identifier"], "backups.view") or row["status"] in ("queued", "running"):
+            continue
+        server = row["server_name"] or row["identifier"]
+        label = f"{row['job_name']} · {server}"
+        detail = row["detail"] or ""
+        if kind == "restore":
+            where = t("an den ursprünglichen Ort") if row["mode"] == "overwrite" else                 t("in den Ordner {ordner}", ordner=row["dest"])
+            if row["status"] == "ok":
+                text = t("Wiederherstellung abgeschlossen: {was} – {n} Dateien {wohin} zurückgespielt.",
+                         was=label, n=row["files"] or 0, wohin=where)
+            elif row["status"] == "cancelled":
+                text = t("Wiederherstellung abgebrochen: {was}. Bis dahin zurückgespielte Dateien bleiben auf dem"
+                         " Server.", was=label)
+            else:
+                text = t("Wiederherstellung {status}: {was}", status=t(backups.STATUS_LABELS.get(row["status"],
+                                                                                              row["status"])), was=label)
+        elif kind == "verify":
+            if row["verify_ok"]:
+                text, detail = t("Prüfung bestanden: {was} ist unbeschädigt.", was=label), ""
+            else:
+                text, detail = t("Prüfung fehlgeschlagen: {was}", was=label), row["verify_detail"] or ""
+            results.append({"ok": bool(row["verify_ok"]), "text": text, "detail": detail})
+            continue
+        elif row["status"] == "ok":
+            text = t("Backup fertig: {was}", was=label)
+        else:
+            text = t("Backup {status}: {was}", status=t(backups.STATUS_LABELS.get(row["status"], row["status"])),
+                     was=label)
+        results.append({"ok": row["status"] in ("ok", "cancelled"), "text": text, "detail": detail})
+    return results
 
 
 @app.get("/api/backups/status")
@@ -578,6 +627,20 @@ async def backup_restore_cancel(request: Request, restore_id: int):
     return {"ok": True, "message": i18n.t("Wird abgebrochen …")}
 
 
+async def delete_run(request: Request, user, run) -> str | None:
+    """Löscht ein gespeichertes Backup (Datei und Eintrag). Gibt den Grund zurück, wenn es gerade nicht geht."""
+    if run["status"] in ("queued", "running"):
+        return i18n.t("Läuft noch")
+    if manager().file_in_use(run["id"]):
+        return i18n.t("Dieses Backup wird gerade geprüft oder zurückgespielt. Bitte warten, bis das fertig ist.")
+    await manager().delete_file(run)
+    with db.connect() as con:
+        con.execute("DELETE FROM backup_runs WHERE id = ?", (run["id"],))
+    audit_user(request, user, "backup.file_delete", server=run["identifier"],
+               detail={"job": run["job_name"], "datei": run["file"]})
+    return None
+
+
 @app.post("/admin/backups/runs/{run_id}/delete")
 async def backup_run_delete(request: Request, run_id: int):
     user = require_backups(request, "backups.manage")
@@ -587,16 +650,59 @@ async def backup_run_delete(request: Request, run_id: int):
         return back("/admin/backups")
     if not has(user, run["identifier"], "backups.manage"):
         deny(request, user, "backups.manage", run["identifier"])
-    if run["status"] in ("queued", "running"):
-        return back("/admin/backups", "Läuft noch")
-    if manager().file_in_use(run_id):
-        return back("/admin/backups", "Dieses Backup wird gerade geprüft oder zurückgespielt. Bitte warten, bis das fertig ist.")
-    await manager().delete_file(run)
+    problem = await delete_run(request, user, run)
+    return back("/admin/backups", problem or "Backup gelöscht")
+
+
+MAX_BULK = 200
+MAX_BULK_VERIFY = 10
+
+
+@app.post("/admin/backups/runs/bulk")
+async def backup_runs_bulk(request: Request, action: str = Form("")):
+    """Mehrere gespeicherte Backups auf einmal löschen oder prüfen. Fehlt für eines davon das Recht,
+    passiert gar nichts (und der Versuch steht im Audit-Log)."""
+    key = {"delete": "backups.manage", "verify": "backups.run"}.get(action)
+    if key is None:
+        return back("/admin/backups#gespeichert", "Bitte eine Aktion wählen.")
+    user = require_backups(request, key)
+    await check_csrf(request)
+    ids = sorted({int(v) for v in (await request.form()).getlist("run") if str(v).isdigit()})[:MAX_BULK]
     with db.connect() as con:
-        con.execute("DELETE FROM backup_runs WHERE id = ?", (run_id,))
-    audit_user(request, user, "backup.file_delete", server=run["identifier"],
-               detail={"job": run["job_name"], "datei": run["file"]})
-    return back("/admin/backups", "Backup gelöscht")
+        runs = [r for r in (con.execute("SELECT * FROM backup_runs WHERE id = ?", (i,)).fetchone() for i in ids)
+                if r is not None and r["file"]]
+    if not runs:
+        return back("/admin/backups#gespeichert", "Keine Backups ausgewählt.")
+    for run in runs:
+        if not has(user, run["identifier"], key):
+            deny(request, user, key, run["identifier"])
+    problems = []
+    if action == "delete":
+        done = 0
+        for run in runs:
+            problem = await delete_run(request, user, run)
+            if problem:
+                problems.append(f"{run['job_name']} · {run['server_name'] or run['identifier']}: {problem}")
+            else:
+                done += 1
+        message = i18n.t("1 Backup gelöscht.") if done == 1 else i18n.t("{n} Backups gelöscht.", n=done)
+    else:
+        runs = [r for r in runs if r["kind"] == "target"]
+        if len(runs) > MAX_BULK_VERIFY:
+            return back("/admin/backups#gespeichert", i18n.t("Bitte höchstens {n} Backups auf einmal prüfen.",
+                                                              n=MAX_BULK_VERIFY))
+        started = []
+        for run in runs:
+            try:
+                manager().start_verify(run, user.id, user.username)
+                started.append(f"verify-{run['id']}")
+            except BackupError as exc:
+                problems.append(f"{run['job_name']} · {run['server_name'] or run['identifier']}: {exc}")
+        message = i18n.t("Prüfung für {n} Backups gestartet. Das Ergebnis erscheint oben, sobald sie fertig sind.",
+                         n=len(started))
+    if problems:
+        message += " " + i18n.t("Nicht möglich: {liste}", liste="; ".join(problems[:5]))
+    return back("/admin/backups#gespeichert", message)
 
 
 # -- Aus dem Datei-Explorer --------------------------------------------------------------------------

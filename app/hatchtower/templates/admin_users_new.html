@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% import "_viewmode.html" as vm with context %}
+{% block title %}{{ _("Neue Benutzer") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Neue Benutzer") }}</h1><p class="muted">{{ _("Per Einladungslink, bei dem der Benutzer Name und Passwort selbst wählt, oder direkt mit Startpasswort.") }}</p></div>
+  <a class="btn btn-ghost" href="/admin/users">{{ _("Zur Benutzerliste") }}</a>
+</div>
+
+<div class="two-col">
+<section class="card" id="einladen">
+  <h2 class="card-h">{{ _("Per Einladungslink") }}</h2>
+  {% if invite_link %}
+  <div class="flash" role="status">{{ invite_message }}</div>
+  <label>{{ _("Einladungslink ({gueltig}, {nutzbar})", gueltig=invite_valid.validity, nutzbar=_("nur einmal") if invite_valid.uses == 1 else (_("für {k} Konten", k=invite_valid.uses) if invite_valid.uses else _("beliebig oft"))) }}
+    <input class="mono copy-field" value="{{ invite_link }}" readonly data-select-on-focus>
+  </label>
+  {% endif %}
+  <p class="muted small">{{ _("Der neue Benutzer wählt Benutzername und Passwort selbst. Du musst kein Passwort weitergeben.") }}</p>
+  {% if not groups %}
+  <form method="post" action="/admin/groups/starter" class="hint">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="target" value="users">
+    <p class="small">{{ _("Damit Eingeladene gleich loslegen können, brauchst du eine Rechtegruppe. Vorschläge: „Zuschauer“ (nur sehen), „Spieler“ (starten und neu starten) und „Moderator“ (zusätzlich stoppen und Konsole).") }}</p>
+    <button class="chip chip-sm" type="submit">{{ _("Vorschlagsgruppen anlegen") }}</button>
+  </form>
+  {% endif %}
+  <form method="post" action="/admin/users/invite" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Rolle") }}
+      <select name="role">
+        <option value="user">{{ _("Benutzer: darf nur, was du pro Server freigibst") }}</option>
+        <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
+      </select>
+    </label>
+    {% if groups %}
+    <fieldset class="perm-group">
+      <legend>{{ _("Zugriff gleich nach der Anmeldung (nur Rolle Benutzer)") }}</legend>
+      <label>{{ _("Rechtegruppe") }}
+        <select name="access_group">
+          <option value="">{{ _("keiner – Rechte vergebe ich später") }}</option>
+          {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}{% if g.description %} – {{ g.description }}{% endif %}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="toggle-list">
+        {% for ident, name in servers %}<label class="check"><input type="checkbox" name="access_server" value="{{ ident }}"> {{ name }}</label>{% endfor %}
+        <label class="check"><input type="checkbox" name="access_all" value="1"> <strong>{{ _("Alle Server, auch künftige") }}</strong></label>
+      </div>
+      <p class="faint small">{{ _("Die Gruppe gilt für die angehakten Server. Später änderst du das wie bei jedem Benutzer unter „Rechte und Konto“.") }}</p>
+    </fieldset>
+    {% endif %}
+    <div class="invite-limits">
+      <label>{{ _("Gültig für") }}
+        <select name="days">
+          {% for d in invite_days %}<option value="{{ d }}"{% if d == 7 %} selected{% endif %}>{% if d == 0 %}{{ _("unbegrenzt") }}{% elif d == 1 %}{{ _("1 Tag") }}{% else %}{{ _("{n} Tage", n=d) }}{% endif %}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _("Nutzbar") }}
+        <select name="uses">
+          {% for n in invite_uses %}<option value="{{ n }}">{% if n == 0 %}{{ _("unbegrenzt") }}{% elif n == 1 %}{{ _("einmal") }}{% else %}{{ _("{n} Konten", n=n) }}{% endif %}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    {{ vm.fields() }}
+    <label>{{ _("Beschreibung (optional, nur intern)") }}<input name="note" maxlength="200" autocomplete="off" placeholder="{{ _("z. B. für wen der Link ist") }}"></label>
+    {% if mail_ready %}
+    <label>{{ _("Per E-Mail schicken an (optional)") }}<input name="email" type="email" maxlength="254" autocomplete="off"></label>
+    {% endif %}
+    <button class="btn btn-primary" type="submit">{{ _("Einladungslink erstellen") }}</button>
+  </form>
+</section>
+
+<section class="card" id="anlegen">
+  <h2 class="card-h">{{ _("Direkt anlegen") }}</h2>
+  <form method="post" action="/admin/users" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ _("Benutzername") }}<input name="username" required maxlength="32" pattern="[A-Za-z0-9._\-]+" autocomplete="off"></label>
+    <label>{{ _("Startpasswort") }}<input name="password" type="text" required minlength="15" autocomplete="off" spellcheck="false"></label>
+    <p class="faint small">{{ _("Mindestens 15 Zeichen mit Groß- und Kleinbuchstaben, Zahl und Sonderzeichen. Gib es dem Benutzer sicher weiter; er kann es danach unter „Konto“ ändern.") }}</p>
+    <label>{{ _("Rolle") }}
+      <select name="role">
+        <option value="user">{{ _("Benutzer: darf nur, was du pro Server freigibst") }}</option>
+        <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
+      </select>
+    </label>
+    {{ vm.fields() }}
+    <label>{{ _("E-Mail-Adresse") if email_required else _("E-Mail-Adresse (optional)") }}<input name="email" type="email" maxlength="254" autocomplete="off"{% if not mail_ready %} disabled{% endif %}></label>
+    <label class="check"><input type="checkbox" name="no_email" value="1"> {{ _("Ohne E-Mail-Adresse anlegen (der Benutzer kann dann auch selbst keine hinterlegen)") }}</label>
+    <p class="faint small">{% if mail_ready %}{{ _("An die Adresse geht ein Bestätigungslink.") }}{% else %}{{ _("E-Mail ist in Hatchtower nicht eingeschaltet – eine Adresse kann erst danach hinterlegt werden.") }}{% endif %}</p>
+    <button class="btn btn-primary" type="submit">{{ _("Benutzer anlegen") }}</button>
+  </form>
+</section>
+</div>
+
+{% if invites %}
+<section class="card" id="offen">
+  <h2 class="card-h">{{ _("Offene Einladungen") }} <span class="faint">({{ invites|length }})</span></h2>
+  <ul class="plain-list">
+    {% for i in invites %}
+    <li class="invite-row">
+      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.view %} · {{ _("Ansicht") }}: {{ _("Einfach") if i.view == 'simple' else _("Alles") }}{% if i.view_locked %} ({{ _("festgelegt") }}){% endif %}{% endif %}{% if i.access %} · {{ _("Zugriff") }}: {{ i.access }}{% endif %}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {% if i.expires %}{{ _("gültig bis {date}", date=i.expires) }}{% else %}{{ _("unbegrenzt gültig") }}{% endif %}</span></span>
+      {% if i.link %}<details class="invite-link"><summary class="chip chip-sm">{{ _("Link anzeigen") }}</summary>
+        <input class="mono copy-field" value="{{ i.link }}" readonly data-select-on-focus aria-label="{{ _("Einladungslink") }}">
+      </details>{% else %}<span class="faint small">{{ _("Link nicht mehr abrufbar (vor Version 0.19.2 erstellt)") }}</span>{% endif %}
+      <form method="post" action="/admin/users/invites/{{ i.hash }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Zurückziehen") }}</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card" id="email-pflicht">
+  <h2 class="card-h">{{ _("E-Mail-Adressen der Benutzer") }}</h2>
+  <form method="post" action="/admin/users/email-policy" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="optional" value="1"{% if email_optional %} checked{% endif %}> {{ _("Benutzer ohne E-Mail-Adresse erlauben") }}</label>
+    <p class="faint small">{{ _("Aus: Wenn E-Mail eingeschaltet ist, brauchen neue Benutzer (direkt angelegt oder per Einladung) eine E-Mail-Adresse. Einzelne Benutzer kannst du trotzdem „ohne E-Mail-Adresse“ anlegen. Ist E-Mail ausgeschaltet, gilt keine Pflicht.") }}</p>
+    {% if not mail_ready %}<p class="faint small">{{ _("E-Mail ist gerade ausgeschaltet.") }} <a href="/admin/mail">{{ _("E-Mail einrichten") }}</a></p>{% endif %}
+    <button class="btn btn-ghost" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
+{% endblock %}

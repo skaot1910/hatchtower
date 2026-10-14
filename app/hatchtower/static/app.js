@@ -1304,8 +1304,16 @@
       rform.addEventListener("change", syncMode);
       syncMode();
     }
+    startRunSelection();
     var box = document.getElementById("backup-active");
     if (!box) return;
+    // Ergebnismeldung nur einmal zeigen: „done“ aus der Adresse nehmen, damit Neuladen sie nicht wiederholt
+    var params = new URLSearchParams(window.location.search);
+    if (params.has("done")) {
+      params.delete("done");
+      var rest = params.toString();
+      history.replaceState(null, "", window.location.pathname + (rest ? "?" + rest : "") + window.location.hash);
+    }
     var list = document.getElementById("backup-active-list");
     var empty = document.getElementById("backup-active-empty");
     var known = [];
@@ -1361,9 +1369,11 @@
         })
         .then(function (data) {
           var now = data.active.map(function (a) { return String(a.id); });
-          // Ein Lauf ist fertig geworden: Seite neu laden, damit Tabellen und „Zuletzt“ stimmen
-          if (known.some(function (id) { return now.indexOf(id) < 0; })) {
-            window.location.reload();
+          // Ein Lauf ist fertig geworden: Seite neu laden, damit Tabellen und „Zuletzt“ stimmen,
+          // und oben melden, wie er ausgegangen ist
+          var finished = known.filter(function (id) { return now.indexOf(id) < 0; });
+          if (finished.length) {
+            window.location = window.location.pathname + "?done=" + encodeURIComponent(finished.join(","));
             return;
           }
           known = now;
@@ -1391,10 +1401,86 @@
     tick();
   }
 
+  // ---- Höhe der Kopfzeile für mitlaufende Leisten (bricht je nach Breite um) ------------------
+  function startTopbarHeight() {
+    var bar = document.querySelector(".topbar");
+    if (!bar) return;
+    function apply() { document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px"); }
+    if (window.ResizeObserver) new ResizeObserver(apply).observe(bar);
+    apply();
+  }
+
+  // ---- Backups: mehrere gespeicherte Backups auswählen (löschen, prüfen) -------------------
+  function startRunSelection() {
+    var form = document.getElementById("runs-form");
+    if (!form) return;
+    var boxes = document.querySelectorAll('input[name="run"][form="runs-form"]');
+    var all = document.getElementById("runs-all");
+    var count = document.getElementById("runs-count");
+    var del = form.querySelector('button[value="delete"]');
+    var verify = form.querySelector('button[value="verify"]');
+    function update() {
+      var n = 0, canDelete = true, canVerify = true;
+      boxes.forEach(function (b) {
+        b.closest("tr").classList.toggle("is-selected", b.checked);
+        if (!b.checked) return;
+        n++;
+        if (b.dataset.canDelete !== "1") canDelete = false;
+        if (b.dataset.canVerify !== "1") canVerify = false;
+      });
+      form.hidden = n === 0;
+      count.textContent = n === 1 ? tr("1 Backup ausgewählt") : tr("{n} Backups ausgewählt", { n: n });
+      // Eine Aktion geht nur, wenn sie für alle ausgewählten Backups erlaubt ist
+      if (del) { del.disabled = !canDelete; del.title = canDelete ? "" : tr("Nicht für alle ausgewählten Backups möglich"); }
+      if (verify) { verify.disabled = !canVerify; verify.title = canVerify ? "" : tr("Nicht für alle ausgewählten Backups möglich"); }
+      if (all) {
+        all.checked = n > 0 && n === boxes.length;
+        all.indeterminate = n > 0 && n < boxes.length;
+      }
+    }
+    boxes.forEach(function (b) { b.addEventListener("change", update); });
+    if (all) {
+      all.addEventListener("change", function () {
+        boxes.forEach(function (b) { b.checked = all.checked; });
+        update();
+      });
+    }
+    document.getElementById("runs-clear").addEventListener("click", function () {
+      boxes.forEach(function (b) { b.checked = false; });
+      update();
+    });
+    form.addEventListener("submit", function (ev) {
+      if (ev.submitter && ev.submitter.value === "delete" && !window.confirm(form.dataset.confirmDelete)) ev.preventDefault();
+    });
+    update();
+  }
+
   // ---- Felder zum Kopieren (z. B. Einladungslink) ----------------------------------------
   function startCopyFields() {
     document.querySelectorAll("[data-select-on-focus]").forEach(function (f) {
       f.addEventListener("focus", function () { f.select(); });
+    });
+  }
+
+  // ---- Benutzerliste: Suche über Name, E-Mail-Adresse und Notiz ---------------------------
+  function startUserFilter() {
+    var input = document.getElementById("user-filter");
+    if (!input) return;
+    var empty = document.getElementById("user-filter-empty");
+    input.addEventListener("input", function () {
+      var q = input.value.trim().toLowerCase();
+      var any = false;
+      document.querySelectorAll("[data-user-section]").forEach(function (sec) {
+        var shown = 0;
+        sec.querySelectorAll("[data-user-row]").forEach(function (row) {
+          var hit = !q || row.dataset.userRow.indexOf(q) !== -1;
+          row.classList.toggle("filtered-out", !hit);
+          if (hit) shown++;
+        });
+        sec.classList.toggle("filtered-out", shown === 0);
+        if (shown) any = true;
+      });
+      if (empty) empty.hidden = any;
     });
   }
 
@@ -1433,6 +1519,8 @@
     checkDesktopMode();
     startViewToggle();
     startStatusFilter();
+    startUserFilter();
+    startTopbarHeight();
     startSort();
     startFileSelection();
     startCharts();

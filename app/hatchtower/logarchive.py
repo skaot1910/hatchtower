@@ -78,7 +78,7 @@ class LogArchive:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                log.exception("Log-Archiv")
+                log.exception("Konsolen-Archiv")
             await asyncio.sleep(RECHECK)
 
     def _store(self, ident: str, lines: list[str], dedup: bool = False) -> None:
@@ -138,9 +138,9 @@ class LogArchive:
                     self._store(ident, buffer, fresh())
                 raise
             except PteroError as exc:
-                log.info("Log-Archiv %s: %s", ident, exc)
+                log.info("Konsolen-Archiv %s: %s", ident, exc)
             except Exception:
-                log.exception("Log-Archiv %s", ident)
+                log.exception("Konsolen-Archiv %s", ident)
             if buffer:
                 self._store(ident, buffer, fresh())
             await asyncio.sleep(delay)

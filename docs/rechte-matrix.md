@@ -36,7 +36,7 @@ Grundregeln:
 | `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups`<br>`GET /api/backups/status` |  |
 | `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` | Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“. |
 | `backups.restore` | Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.run` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` | Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“. |
-| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |  |
+| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/bulk`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |  |
 
 ## Öffentlich
 
@@ -159,6 +159,7 @@ Grundregeln:
 | POST | `/admin/backups/runs/{run_id}/restore` | `backups.restore` | Formular | schreibt | Backup auf den Server zurückspielen (eigener Ordner oder Originalort; Stoppen nur mit den Steuerrechten) |
 | POST | `/api/backups/restores/{restore_id}/cancel` | `backups.restore` | Header | liest | Laufende Wiederherstellung abbrechen |
 | POST | `/admin/backups/runs/{run_id}/delete` | `backups.manage` | Formular | liest | Gespeichertes Backup löschen |
+| POST | `/admin/backups/runs/bulk` | `backups.manage` | Formular | liest | Mehrere gespeicherte Backups löschen (Prüfen mehrerer: Recht „Backups ausführen“) |
 
 ## Nur Owner
 
@@ -176,6 +177,7 @@ Grundregeln:
 | POST | `/admin/connection/nodes` | Formular | Abweichende Wings-Adressen |
 | POST | `/admin/connection/options` | Formular | Modus (im Assistenten auch öffentliche Adresse, Proxy, Zeitzone) |
 | GET | `/admin/users` | – | Benutzerliste |
+| GET | `/admin/users/new` | – | Neue Benutzer: einladen und direkt anlegen |
 | POST | `/admin/users` | Formular | Benutzer anlegen |
 | POST | `/admin/users/invite` | Formular | Einladungslink erstellen |
 | POST | `/admin/users/invites/{token_hash}/revoke` | Formular | Einladung zurückziehen |

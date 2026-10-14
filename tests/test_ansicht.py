@@ -61,7 +61,7 @@ def test_einladung_uebernimmt_ansicht(world):
     r = owner.post("/admin/users/invite", data={"csrf": owner.csrf, "days": "3", "uses": "1",
                                                 "view_mode": "simple", "view_locked": "1"})
     link = re.search(r'value="https?://[^"]*(/invite/[^"]+)"', r.text).group(1)
-    assert "festgelegt" in owner.get("/admin/users").text
+    assert "festgelegt" in owner.get("/admin/users/new").text
     c, prelogin = world.anonymous_with_prelogin()
     c.post(link, data={"username": "eingeladen", "password": PW, "repeat": PW, "prelogin": prelogin})
     assert _view("eingeladen") == ("simple", 1)

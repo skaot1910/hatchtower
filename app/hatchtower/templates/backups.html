@@ -16,6 +16,12 @@
 </details>
 {% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Backups laufen trotzdem, nur Jobs, die den Server vorher stoppen, schlagen fehl.") }}</div>{% endif %}
 
+{% if finished %}
+<section class="backup-results" id="backup-results" role="status">
+  {% for f in finished %}<div class="{{ 'flash' if f.ok else 'alert' }} backup-result"><strong>{{ f.text }}</strong>{% if f.detail %}<div class="small">{{ f.detail }}</div>{% endif %}</div>{% endfor %}
+</section>
+{% endif %}
+
 <section class="card" id="backup-active" data-status="/api/backups/status">
   <h2 class="card-h">{{ _("Laufende Vorgänge") }}</h2>
   <script type="application/json" id="backup-active-data">{{ active|tojson }}</script>
@@ -75,15 +81,26 @@
   {% endif %}
 </section>
 
-<section class="card">
+<section class="card" id="gespeichert">
   <h2 class="card-h">{{ _("Gespeicherte und letzte Backups") }}</h2>
+  {% set selectable = runs|selectattr("can_select")|list %}
+  {% if selectable %}
+  <form method="post" action="/admin/backups/runs/bulk" id="runs-form" class="selection-bar" hidden data-confirm-delete="{{ _("Die ausgewählten Backups wirklich löschen? Die Dateien werden vom Ziel entfernt.") }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <span id="runs-count">{{ _("0 ausgewählt") }}</span>
+    {% if runs|selectattr("can_verify")|list %}<button class="btn btn-ghost btn-sm" type="submit" name="action" value="verify">{{ _("Prüfen") }}</button>{% endif %}
+    {% if runs|selectattr("can_delete")|list %}<button class="btn btn-danger btn-sm" type="submit" name="action" value="delete">{{ _("Löschen") }}</button>{% endif %}
+    <button class="btn btn-ghost btn-sm" type="button" id="runs-clear">{{ _("Auswahl aufheben") }}</button>
+  </form>
+  {% endif %}
   {% if runs %}
   <div class="table-card">
-  <table class="table stack-table">
-    <thead><tr><th>{{ _("Wann") }}</th><th>{{ _("Job") }}</th><th>{{ _("Server") }}</th><th>{{ _("Ergebnis") }}</th><th class="num">{{ _("Größe") }}</th><th></th></tr></thead>
+  <table class="table stack-table runs-table">
+    <thead><tr>{% if selectable %}<th class="sel"><input type="checkbox" id="runs-all" aria-label="{{ _("Alle auswählen") }}"></th>{% endif %}<th>{{ _("Wann") }}</th><th>{{ _("Job") }}</th><th>{{ _("Server") }}</th><th>{{ _("Ergebnis") }}</th><th class="num">{{ _("Größe") }}</th><th></th></tr></thead>
     <tbody>
     {% for x in runs %}
       <tr>
+        {% if selectable %}<td class="sel">{% if x.can_select %}<input type="checkbox" name="run" value="{{ x.r.id }}" form="runs-form" data-can-delete="{{ 1 if x.can_delete else 0 }}" data-can-verify="{{ 1 if x.can_verify else 0 }}" aria-label="{{ _("Backup vom {zeit} auswählen", zeit=x.at) }}">{% endif %}</td>{% endif %}
         <td class="nowrap faint small">{{ x.at }}</td>
         <td data-label="{{ _("Job") }}">{{ x.r.job_name }}{% if x.r.kind == 'download' %}<div class="faint small">{{ _("Direktdownload") }}{% if x.r.started_name %} · {{ x.r.started_name }}{% endif %}</div>{% elif x.r.trigger == 'schedule' %}<div class="faint small">{{ _("Zeitplan") }}</div>{% elif x.r.started_name %}<div class="faint small">{{ x.r.started_name }}</div>{% endif %}</td>
         <td data-label="{{ _("Server") }}">{{ x.r.server_name or x.r.identifier }}</td>

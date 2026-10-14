@@ -29,7 +29,7 @@
 <nav class="subnav server-tabs" id="server-tabs" aria-label="{{ _("Bereiche des Servers") }}" hidden>
   <a href="#uebersicht" data-tab-link="uebersicht">{{ _("Übersicht") }}</a>
   {% if server.can_console %}<a href="#konsole" data-tab-link="konsole">{{ _("Konsole") }}</a>{% endif %}
-  {% if server.can_archive %}<a href="#log-archiv" data-tab-link="log-archiv">{{ _("Log-Archiv") }}</a>{% endif %}
+  {% if server.can_archive %}<a href="#log-archiv" data-tab-link="log-archiv">{{ _("Konsolen-Archiv") }}</a>{% endif %}
   {% if server.can_log %}<a href="#protokoll" data-tab-link="protokoll">{{ _("Protokoll") }}</a>{% endif %}
 </nav>
 <div class="two-col" id="uebersicht" data-tab="uebersicht">
@@ -100,7 +100,7 @@
 {% if server.can_archive and not simple_view %}
 <section class="card" id="log-archiv" data-tab="log-archiv" data-logs="/api/servers/{{ server.identifier }}/logs" data-download="/servers/{{ server.identifier }}/logs.txt">
   <div class="console-toolbar">
-    <h2 class="card-h">{{ _("Log-Archiv") }}</h2>
+    <h2 class="card-h">{{ _("Konsolen-Archiv") }}</h2>
     {% if archive_days %}<span class="faint small">{{ _("Hatchtower schreibt die Konsole mit und behält sie {n} Tage.", n=archive_days) }}</span>{% endif %}
   </div>
   {% if archive_days %}

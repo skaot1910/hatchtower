@@ -406,11 +406,24 @@ def test_offener_einladungslink_bleibt_kopierbar(world):
     owner = world.client(world.ids["olga"])
     r = owner.post("/admin/users/invite", data={"csrf": owner.csrf, "note": "Wiederholen"})
     link = re.search(r'value="(https?://[^"]*/invite/[^"]+)"', r.text).group(1)
-    page = owner.get("/admin/users").text
+    page = owner.get("/admin/users/new").text
     assert page.count(link) == 1
     with db.connect() as con:
         enc = con.execute("SELECT token_enc FROM tokens WHERE note = 'Wiederholen'").fetchone()[0]
     assert enc and link.rsplit("/", 1)[1] not in enc
+
+
+def test_benutzerliste_und_neue_benutzer_getrennt(world):
+    owner = world.client(world.ids["olga"])
+    owner.post("/admin/users/invite", data={"csrf": owner.csrf, "note": "Getrennt"})
+    liste = owner.get("/admin/users").text
+    assert "/admin/users/invite" not in liste and 'href="/admin/users/new#offen"' in liste
+    assert 'data-user-section' in liste
+    neu = owner.get("/admin/users/new")
+    assert neu.status_code == 200 and "Getrennt" in neu.text and 'action="/admin/users"' in neu.text
+    # der Reiter „Neue Benutzer“ ist aktiv, nicht „Benutzer“
+    assert re.search(r'href="/admin/users/new" class="active"', neu.text)
+    assert re.search(r'href="/admin/users" class="active"', liste)
 
 
 def test_einladung_ohne_ablauf(world):
@@ -422,7 +435,7 @@ def test_einladung_ohne_ablauf(world):
                            " ORDER BY rowid DESC", (world.ids["olga"],)).fetchone()[0] == accounts.NEVER
     retention.cleanup()
     assert world.audit("invite.expire") == []
-    assert "unbegrenzt gültig" in owner.get("/admin/users").text
+    assert "unbegrenzt gültig" in owner.get("/admin/users/new").text
 
 
 def test_einladung_ungueltige_auswahl_wird_ersetzt(world):

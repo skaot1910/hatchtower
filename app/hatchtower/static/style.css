@@ -538,7 +538,7 @@ a.file-link:hover { color: var(--violet-3); }
 .files-table .sel { width: 36px; padding-right: 0; }
 .files-table tr.is-selected td { background: color-mix(in srgb, var(--violet) 8%, transparent); }
 .selection-bar {
-  position: sticky; top: 62px; z-index: 5; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  position: sticky; top: calc(var(--topbar-h, 54px) + 8px); z-index: 5; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   margin-bottom: 12px; padding: 10px 14px; border-radius: var(--radius-sm);
   background: var(--violet-bg); border: 1px solid var(--accent-line);
 }
@@ -703,7 +703,6 @@ a.file-link:hover { color: var(--violet-3); }
   .files-table input[type="checkbox"] { width: 22px; height: 22px; }
   .file-link { font-size: 16px; }
   .file-link span { overflow-wrap: anywhere; }
-  .selection-bar { top: 66px; }
   .selection-bar .faint { width: 100%; }
   .file-tools { flex-direction: column; align-items: stretch; gap: 14px; }
   .inline-form { width: 100%; }
@@ -1263,3 +1262,27 @@ a.file-link:hover { color: var(--violet-3); }
 /* Bereich mit endgültigen Aktionen (z. B. Benutzer löschen): klar von normalen Aktionen getrennt */
 .card-danger { border-color: var(--red-line); }
 .card-danger .card-h { color: var(--red-fg); }
+
+/* Benutzerliste: Abschnitte Owner/Benutzer/Deaktiviert, Zähler und Suche */
+.head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.user-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.user-counts { display: flex; gap: 6px; flex-wrap: wrap; }
+.user-tools input { padding: 6px 10px; font-size: 13px; min-width: 220px; }
+.user-section .card-h { margin: 0; padding: 16px 18px 4px; }
+.user-section .card-h .faint { text-transform: none; letter-spacing: 0; }
+.user-section.filtered-out, .user-section tr.filtered-out { display: none; }
+@media (max-width: 720px) {
+  .user-tools input { flex: 1 1 100%; min-width: 0; padding: 10px 12px; }
+  .head-actions { width: 100%; }
+}
+
+/* Backups: Ergebnis fertiger Vorgänge, Auswahl gespeicherter Backups */
+.backup-results { display: grid; gap: 8px; margin-bottom: 18px; }
+.backup-results .flash, .backup-results .alert { margin: 0; }
+.backup-result .small { margin-top: 2px; font-weight: 400; }
+.runs-table .sel { width: 36px; padding-right: 0; }
+.runs-table tr.is-selected td { background: color-mix(in srgb, var(--violet) 8%, transparent); }
+#runs-count { font-weight: 600; color: var(--violet-3); }
+@media (max-width: 720px) {
+  .runs-table td.sel { float: right; width: auto; padding: 0 0 0 10px; }
+}

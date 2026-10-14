@@ -226,8 +226,8 @@ class RestorePtero(TreePtero):
         self.folders.append(f"{root.rstrip('/')}/{name}")
 
 
-def make_stored_backup(env, entries: dict[str, bytes], status="ok") -> int:
-    rel = "Welt/Server_srv-a/test.zip"
+def make_stored_backup(env, entries: dict[str, bytes], status="ok", rel="Welt/Server_srv-a/test.zip",
+                       ident="srv-a") -> int:
     path = env.target / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -236,9 +236,9 @@ def make_stored_backup(env, entries: dict[str, bytes], status="ok") -> int:
     with db.connect() as con:
         return con.execute(
             "INSERT INTO backup_runs (batch, job_id, job_name, identifier, server_name, target_id, kind, file, size,"
-            " files, status, queued_at, finished_at) VALUES ('t', ?, 'Welt', 'srv-a', 'Server srv-a', ?, 'target', ?, ?,"
-            " ?, ?, ?, ?)", (env.job_id, env.world.args["target_id"], rel, path.stat().st_size, len(entries), status,
-                             db.utcnow(), db.utcnow())).lastrowid
+            " files, status, queued_at, finished_at) VALUES ('t', ?, 'Welt', ?, ?, ?, 'target', ?, ?,"
+            " ?, ?, ?, ?)", (env.job_id, ident, f"Server {ident}", env.world.args["target_id"], rel,
+                             path.stat().st_size, len(entries), status, db.utcnow(), db.utcnow())).lastrowid
 
 
 def restore(env, run_id, mode="folder", stop=False):
@@ -373,3 +373,63 @@ def test_originalort_braucht_bestaetigung_und_stoppen_die_steuerrechte(renv):
     r = c.post(f"/admin/backups/runs/{run_id}/restore", data={"csrf": c.csrf, "mode": "overwrite", "confirm": "1",
                                                                "stop": "1"})
     assert r.status_code == 403 and not renv.manager.restores
+
+
+# -- Ergebnis fertiger Vorgänge und Sammelaktionen -----------------------------------------------------
+
+def test_ergebnis_der_wiederherstellung_wird_gemeldet(renv):
+    run_id = make_stored_backup(renv, {"server.properties": b"motd", "world/level.dat": b"L"})
+    row = restore(renv, run_id)
+    c = renv.world.client(renv.world.ids["olga"])
+    page = c.get("/admin/backups", params={"done": f"restore-{row['id']},quatsch,verify-x"}).text
+    assert "Wiederherstellung abgeschlossen" in page and "2 Dateien" in page and row["dest"] in page
+    assert 'id="backup-results"' not in c.get("/admin/backups").text          # ohne „done“ keine Meldung
+    # wer den Server nicht sieht, bekommt auch keine Meldung dazu
+    uid = renv.world.user("nachbar", grants={"srv-b": {"backups.view"}})
+    other = renv.world.client(uid).get("/admin/backups", params={"done": f"restore-{row['id']}"}).text
+    assert "Wiederherstellung abgeschlossen" not in other
+
+
+def test_fehlgeschlagene_pruefung_wird_gemeldet(renv):
+    run_id = make_stored_backup(renv, {"a.txt": b"x"})
+    with db.connect() as con:
+        con.execute("UPDATE backup_runs SET verified_at = ?, verify_ok = 0, verify_detail = 'CRC falsch' WHERE id = ?",
+                    (db.utcnow(), run_id))
+    page = renv.world.client(renv.world.ids["olga"]).get("/admin/backups", params={"done": f"verify-{run_id}"}).text
+    assert "Prüfung fehlgeschlagen" in page and "CRC falsch" in page
+
+
+def test_mehrere_backups_auf_einmal_loeschen(renv):
+    main.app.state.backups = renv.manager
+    first = make_stored_backup(renv, {"a.txt": b"1"}, rel="Welt/Server_srv-a/eins.zip")
+    second = make_stored_backup(renv, {"a.txt": b"2"}, rel="Welt/Server_srv-a/zwei.zip")
+    c = renv.world.client(renv.world.ids["olga"])
+    r = c.post("/admin/backups/runs/bulk", data={"csrf": c.csrf, "action": "delete", "run": [str(first), str(second)]})
+    assert r.status_code == 303 and "2%20Backups%20gel" in r.headers["location"]
+    assert backups_run(first) is None and backups_run(second) is None
+    assert not (renv.target / "Welt/Server_srv-a/eins.zip").exists()
+    assert len(renv.world.audit("backup.file_delete")) == 2
+
+
+def test_sammelaktion_nur_wenn_alle_backups_erlaubt_sind(renv):
+    main.app.state.backups = renv.manager
+    mine = make_stored_backup(renv, {"a.txt": b"1"}, rel="Welt/Server_srv-a/eins.zip")
+    other = make_stored_backup(renv, {"a.txt": b"2"}, rel="Welt/Server_srv-b/zwei.zip", ident="srv-b")
+    uid = renv.world.user("mod", grants={"srv-a": {"backups.manage"}, "srv-b": {"backups.view"}})
+    c = renv.world.client(uid)
+    r = c.post("/admin/backups/runs/bulk", data={"csrf": c.csrf, "action": "delete", "run": [str(mine), str(other)]})
+    assert r.status_code == 403
+    assert backups_run(mine) is not None and backups_run(other) is not None        # auch das eigene bleibt
+    page = c.get("/admin/backups").text
+    assert f'name="run" value="{mine}"' in page and f'name="run" value="{other}"' not in page
+
+
+def test_mehrere_backups_pruefen(renv, monkeypatch):
+    main.app.state.backups = renv.manager
+    ids = [make_stored_backup(renv, {"a.txt": b"1"}, rel=f"Welt/Server_srv-a/{n}.zip") for n in ("eins", "zwei")]
+    started = []
+    monkeypatch.setattr(renv.manager, "start_verify", lambda run, uid, name: started.append(run["id"]))
+    c = renv.world.client(renv.world.ids["olga"])
+    r = c.post("/admin/backups/runs/bulk", data={"csrf": c.csrf, "action": "verify", "run": [str(i) for i in ids]})
+    assert r.status_code == 303 and "2%20Backups" in r.headers["location"]
+    assert started == ids

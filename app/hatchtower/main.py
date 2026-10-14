@@ -54,6 +54,7 @@ templates.env.filters["hash_version"] = lambda v: __import__("hashlib").sha256(
 NAV_SECTIONS = {
     "users": [
         ("/admin/users", "Benutzer", ("/admin/users/",)),
+        ("/admin/users/new", "Neue Benutzer", ("/admin/users/invite",)),
         ("/admin/groups", "Rechtegruppen", ()),
         ("/admin/audit", "Audit-Log", ()),
     ],
@@ -76,12 +77,15 @@ NAV_SECTIONS = {
 
 
 def nav_tab(path: str) -> tuple[str | None, str | None]:
-    """Bereich und aktiver Reiter zu einer Adresse, sonst (None, None)."""
+    """Bereich und aktiver Reiter zu einer Adresse, sonst (None, None). Der genaueste Treffer gewinnt
+    (z. B. „/admin/users/new“ vor dem Pfad-Anfang „/admin/users/“)."""
+    best, length = (None, None), -1
     for section, tabs in NAV_SECTIONS.items():
         for href, _label, prefixes in tabs:
-            if path == href or path.startswith(prefixes):
-                return section, href
-    return None, None
+            hits = ([len(href) + 1] if path == href else []) + [len(p) for p in prefixes if path.startswith(p)]
+            if hits and max(hits) > length:
+                best, length = (section, href), max(hits)
+    return best
 
 
 def load_connection() -> None:
@@ -1774,6 +1778,7 @@ def server_names() -> dict[str, str]:
 @app.get("/admin/users", response_class=HTMLResponse)
 async def admin_users(request: Request):
     require_owner(request)
+    from . import accounts, mailer
     names = server_names()
     with db.connect() as con:
         users = con.execute("SELECT * FROM users ORDER BY username COLLATE NOCASE").fetchall()
@@ -1786,6 +1791,20 @@ async def admin_users(request: Request):
         visible = sum(1 for ident in names if "server.view" in grants.get(ident, set()))
         rows.append({"u": u, "access": access, "visible": visible,
                      "last_login": fmt_dt(u["last_login_at"], settings.timezone)})
+    # Abschnitte der Liste: Owner, Benutzer, Deaktiviert
+    sections = [("Owner", [r for r in rows if r["u"]["is_active"] and r["u"]["role"] == "owner"]),
+                ("Benutzer", [r for r in rows if r["u"]["is_active"] and r["u"]["role"] != "owner"]),
+                ("Deaktiviert", [r for r in rows if not r["u"]["is_active"]])]
+    return render(request, "admin_users.html", sections=[s for s in sections if s[1]], user_count=len(rows),
+                  server_count=len(names), invite_count=len(accounts.open_invites()),
+                  email_required=mailer.email_required(mailer.load_config(vault)))
+
+
+@app.get("/admin/users/new", response_class=HTMLResponse)
+async def admin_users_new(request: Request):
+    """Einladungslinks, offene Einladungen und direktes Anlegen – getrennt von der Benutzerliste."""
+    require_owner(request)
+    names = server_names()
     from . import accounts, mailer
     from .routes_extra import describe_invite_access, link_base
     base = link_base(request)
@@ -1803,7 +1822,7 @@ async def admin_users(request: Request):
                 "note": i["note"], "uses": accounts.uses_text(i["uses"], i["max_uses"]),
                 "access": describe_invite_access(__import__("json").loads(i["data"] or "{}").get("access"))}
                for i in accounts.open_invites()]
-    return render(request, "admin_users.html", rows=rows, error=None, server_count=len(names), invites=invites,
+    return render(request, "admin_users_new.html", error=None, invites=invites,
                   invite_link=getattr(request.state, "invite_link", None),
                   invite_message=getattr(request.state, "invite_message", None),
                   invite_valid=getattr(request.state, "invite_valid", None),
@@ -1823,16 +1842,17 @@ async def admin_user_create(request: Request, username: str = Form(""), password
     await check_csrf(request)
     username = username.strip()
     if not username or len(username) > 32 or not all(c.isalnum() or c in "-_." for c in username):
-        return back("/admin/users", "Benutzername: 1–32 Zeichen, nur Buchstaben, Zahlen, - _ .")
+        return back("/admin/users/new#anlegen", "Benutzername: 1–32 Zeichen, nur Buchstaben, Zahlen, - _ .")
     problem = security.password_message(password, username)
     if problem:
-        return back("/admin/users", problem)
+        return back("/admin/users/new#anlegen", problem)
     cfg = mailer.load_config(vault)
     email = email.strip() if cfg.ready and not no_email else ""   # ohne eingeschaltete E-Mail ist das Feld gesperrt
     if not email and not no_email and mailer.email_required(cfg):
-        return back("/admin/users", "Bitte eine E-Mail-Adresse angeben oder „ohne E-Mail-Adresse“ wählen")
+        return back("/admin/users/new#anlegen",
+                    "Bitte eine E-Mail-Adresse angeben oder „ohne E-Mail-Adresse“ wählen")
     if email and not mailer.valid_email(email):
-        return back("/admin/users", "Bitte eine gültige E-Mail-Adresse eingeben")
+        return back("/admin/users/new#anlegen", "Bitte eine gültige E-Mail-Adresse eingeben")
     role = "owner" if role == "owner" else "user"
     view, locked = view_choice(view_mode, view_locked)
     try:
@@ -1845,7 +1865,7 @@ async def admin_user_create(request: Request, username: str = Form(""), password
             )
             new_id = cur.lastrowid
     except Exception:
-        return back("/admin/users", "Diesen Benutzernamen gibt es schon")
+        return back("/admin/users/new#anlegen", "Diesen Benutzernamen gibt es schon")
     audit.record("user.create", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"user": username, "role": role, "email": email or ("keine" if no_email else None),
                          "ansicht": (view or "standard") + (" (festgelegt)" if locked else "")})
@@ -2023,7 +2043,7 @@ async def admin_group_starter(request: Request, target: str = Form("")):
     if created:
         audit.record("group.save", user_id=owner.id, username=owner.username, ip=ip_of(request),
                      detail={"vorlagen": created})
-    url = "/admin/users#einladen" if target == "users" else "/admin/groups"
+    url = "/admin/users/new#einladen" if target == "users" else "/admin/groups"
     if not created:
         return back(url, "Die Vorschlagsgruppen gibt es schon")
     return back(url, i18n.t("Gruppen angelegt: {namen}. Du kannst sie jederzeit anpassen.", namen=", ".join(created)))

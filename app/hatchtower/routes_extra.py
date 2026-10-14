@@ -567,7 +567,7 @@ async def admin_users_email_policy(request: Request, optional: str = Form("")):
     await check_csrf(request)
     db.set_setting("users_email_optional", "1" if optional else "0", owner.id)
     owner_audit(request, owner, "settings.mail", detail={"Benutzer ohne E-Mail-Adresse erlaubt": bool(optional)})
-    return back("/admin/users#email-pflicht", "Gespeichert")
+    return back("/admin/users/new#email-pflicht", "Gespeichert")
 
 
 # == Einladungen ===============================================================================
@@ -637,7 +637,7 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
     uses = uses if uses in accounts.INVITE_USES else 1
     email, note = email.strip(), " ".join(note.split())[:200]
     if email and not mailer.valid_email(email):
-        return back("/admin/users#einladen", "Bitte eine gültige E-Mail-Adresse eingeben")
+        return back("/admin/users/new#einladen", "Bitte eine gültige E-Mail-Adresse eingeben")
     view, locked = view_choice(view_mode, view_locked)
     access = invite_access_from_form(await request.form()) if role == "user" else None
     raw = accounts.create("invite", email=email or None,
@@ -665,7 +665,7 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
                                                        "ansicht": (view or "standard") + (" (festgelegt)" if locked else ""),
                                                        "days": days or "∞", "uses": uses or "∞",
                                                        "zugriff": describe_invite_access(access)})
-    from .main import admin_users
+    from .main import admin_users_new
     request.state.invite_link = link
     request.state.invite_message = i18n.t(message)
     if access and access["all"] and group_has_write(access["group"]):
@@ -673,7 +673,7 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
             "Achtung: Die Gruppe enthält Steuer- oder Schreibrechte – wer den Link nutzt, kann damit auch jeden neu"
             " hinzukommenden Server sofort steuern.")
     request.state.invite_valid = {"validity": accounts.validity_text(days), "uses": uses}
-    return await admin_users(request)
+    return await admin_users_new(request)
 
 
 @app.post("/admin/users/invites/{token_hash}/revoke")
@@ -684,7 +684,7 @@ async def admin_invite_revoke(request: Request, token_hash: str):
         row = con.execute("SELECT * FROM tokens WHERE token_hash = ? AND purpose = 'invite'", (token_hash,)).fetchone()
     if row is not None and accounts.revoke_invite(token_hash):
         owner_audit(request, owner, "user.invite_revoke", detail=accounts.invite_info(row))
-    return back("/admin/users#einladen", "Einladung zurückgezogen")
+    return back("/admin/users/new#einladen", "Einladung zurückgezogen")
 
 
 @app.get("/invite/{token}", response_class=HTMLResponse)

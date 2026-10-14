@@ -167,6 +167,7 @@ ROUTES: tuple[Route, ...] = (
 
     # -- Owner: Benutzer und Rechte ---------------------------------------------------------
     R("GET", "/admin/users", "owner", "Benutzerliste"),
+    R("GET", "/admin/users/new", "owner", "Neue Benutzer: einladen und direkt anlegen"),
     R("POST", "/admin/users", "owner", "Benutzer anlegen", csrf="form",
       form={"username": "eindringling", "password": PASSWORD, "role": "owner"}),
     R("POST", "/admin/users/invite", "owner", "Einladungslink erstellen", csrf="form", form={"role": "owner"}),
@@ -247,6 +248,9 @@ ROUTES: tuple[Route, ...] = (
       perm="backups.restore", csrf="header", json={}, args={"restore_id": "run_id"}),
     R("POST", "/admin/backups/runs/{run_id}/delete", "backup", "Gespeichertes Backup löschen",
       perm="backups.manage", csrf="form"),
+    R("POST", "/admin/backups/runs/bulk", "backup",
+      "Mehrere gespeicherte Backups löschen (Prüfen mehrerer: Recht „Backups ausführen“)",
+      perm="backups.manage", csrf="form", form={"action": "delete"}),
     R("POST", "/admin/backups/targets", "owner", "Backup-Ziel anlegen (Laufwerk im Container oder SMB-Freigabe)",
       csrf="form", form={"name": "Gekapert", "mount": "data", "subdir": "gekapert"}),
     R("POST", "/admin/backups/targets/{target_id}", "owner", "Backup-Ziel ändern (SMB: Verbindung wird geprüft)",
