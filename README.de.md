@@ -370,19 +370,24 @@ Es gibt zwei Rollen:
 
 **Jemanden einladen:** **Benutzer → Per Einladungslink**. Gültigkeit und wie oft der Link benutzt werden darf
 wählen, Link verschicken (z. B. in Discord). Die Person wählt Benutzername und Passwort selbst – du hast mit
-ihrem Passwort nie zu tun.
+ihrem Passwort nie zu tun. Wahlweise legst du gleich im Einladungsformular eine **Rechtegruppe und Server** fest:
+Die Person hat dann direkt nach der Anmeldung genau diesen Zugriff – ohne zweiten Schritt.
 
 **Rechte vergeben:** Benutzer öffnen → **Rechte pro Server**. Pro Server eine **Gruppe** (z. B. „Spieler“) wählen
 oder einzelne Rechte ankreuzen. „Alle Server, auch künftige“ gibt automatisch Zugriff auf neue Server. Die
 Zusammenfassung darunter sagt in Worten, was die Person sieht.
 
-**Rechtegruppen** (Benutzer → Rechtegruppen) sind wiederverwendbare Pakete, zum Beispiel:
+**Rechtegruppen** (Benutzer → Rechtegruppen) sind wiederverwendbare Pakete. Mit **„Vorschlagsgruppen anlegen“**
+bekommst du drei für den Anfang, die du jederzeit anpassen kannst:
 
-| Gruppe (Beispiel) | Typische Rechte |
+| Vorschlag | Rechte |
 |---|---|
-| Nur ansehen | Server, Adresse und Status sehen |
-| Spieler | + Passwort sehen, starten, neu starten |
-| Moderator | + stoppen, Konsole, Dateien, Automationen, Backups |
+| Zuschauer | Server, Status, Adresse und Passwort sehen |
+| Spieler | + starten und neu starten (nicht stoppen) |
+| Moderator | + stoppen, Konsole lesen, Befehle senden, Konsolen-Archiv, Server-Protokoll |
+
+Rechte, die mehr erlauben, als der Name vermuten lässt (z. B. gibt „Backups starten“ Zugriff auf alle gesicherten
+Dateien, Konsolenbefehle reichen je nach Spiel weit), tragen auf der Gruppen- und Benutzerseite einen Hinweis.
 
 Unter **„Was bedeutet welches Recht?“** auf der Benutzerseite ist jedes Recht erklärt. Hatchtower prüft jedes
 Recht **auf dem Server** bei jeder Anfrage – ein ausgeblendeter Knopf ist nicht der einzige Schutz. Wer nur neu

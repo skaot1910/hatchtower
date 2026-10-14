@@ -35,6 +35,11 @@ EVENTS = {
 }
 # Verwaltungsmeldungen: E-Mail nur an Owner
 PANEL_EVENTS = {"panel_down", "panel_up", "new_server", "backup_failed", "backup_ok"}
+
+
+def events_for(is_owner: bool) -> dict[str, str]:
+    """Ereignisse, zu denen dieser Benutzer überhaupt E-Mails bekommen kann (Konto-Seite)."""
+    return {k: v for k, v in EVENTS.items() if is_owner or k not in PANEL_EVENTS}
 COOLDOWN = {"disk": 6 * 3600, "ram": 3600, "cpu": 3600, "panel_down": 0, "panel_up": 0, "new_server": 0,
             "backup_failed": 0, "backup_ok": 0}
 DEFAULT_COOLDOWN = 120

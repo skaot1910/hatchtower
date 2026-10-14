@@ -30,18 +30,12 @@ DURATIONS = (30, 60, 90, 120, 180, 240, 360, 480, 720)
 
 def creator_allows(sched) -> bool:
     """Zeitpläne von Benutzern (nicht Owner) laufen nur, solange der Ersteller die nötigen Rechte noch hat.
-    Zeitpläne gelöschter Benutzer werden beim Löschen entfernt; ohne Ersteller (ältere Einträge) gilt: erlaubt."""
-    from .permissions import AUTOMATION_NEEDS, load_grants
-    if not sched["created_by"]:
-        return True
-    with db.connect() as con:
-        creator = con.execute("SELECT role, is_active FROM users WHERE id = ?", (sched["created_by"],)).fetchone()
-    if creator is None or creator["role"] == "owner":
-        return True
+    Zeitpläne gelöschter Benutzer werden beim Löschen entfernt (und liefen sonst auch nicht mehr)."""
+    from .permissions import AUTOMATION_NEEDS, creator_allows as still_allowed
     need = {"automation.manage", *AUTOMATION_NEEDS.get(sched["action"], ("-",))}
     if sched["warn_command"]:
         need.add("console.command")
-    return bool(creator["is_active"]) and need <= load_grants(sched["created_by"]).get(sched["identifier"], set())
+    return still_allowed(sched["created_by"], sched["identifier"], need)
 
 
 class Automation:

@@ -191,6 +191,7 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/admin/groups", "owner", "Rechtegruppen"),
     R("POST", "/admin/groups", "owner", "Rechtegruppe speichern", csrf="form",
       form={"name": "Gekapert", "perm__sftp.delete": "1"}),
+    R("POST", "/admin/groups/starter", "owner", "Vorschlagsgruppen anlegen", csrf="form"),
     R("POST", "/admin/groups/{group_id}/delete", "owner", "Rechtegruppe löschen", csrf="form"),
 
     # -- Owner: Betrieb -----------------------------------------------------------------------
@@ -345,17 +346,19 @@ def render_markdown() -> str:
         "- Rechte mit ✎ sind Schreibrechte: Im Read-Only-Modus hat sie niemand, auch kein Owner.",
         "- Jede verweigerte Aktion landet als `access.denied` im Audit-Log.",
         "- Zustandsändernde Anfragen brauchen ein CSRF-Token (Formularfeld oder Header `X-CSRF-Token`).",
+        "- Zeitpläne und geplante Backup-Jobs eines Benutzers laufen nur, solange er aktiv ist und die nötigen "
+        "Rechte noch hat; gibt es ihn nicht mehr, laufen sie nicht.",
         "",
         "## Rechte",
         "",
-        "| Recht | Name | Schreibrecht | Setzt voraus | Routen |",
-        "|---|---|---|---|---|",
+        "| Recht | Name | Schreibrecht | Setzt voraus | Routen | Achtung |",
+        "|---|---|---|---|---|---|",
     ]
     for p in PERMISSIONS:
         used = sorted({f"`{r.method} {r.path}`" + (f" ({r.case})" if r.case else "")
                        for r in ROUTES if r.perm == p.key})
         out.append(f"| `{p.key}` | {p.label} | {'✎' if p.write else ''} | "
-                   f"{', '.join(f'`{d}`' for d in p.requires) or '–'} | {'<br>'.join(used)} |")
+                   f"{', '.join(f'`{d}`' for d in p.requires) or '–'} | {'<br>'.join(used)} | {p.note} |")
     for access, title in ACCESS_TITLES.items():
         rows = [r for r in ROUTES if r.access == access]
         out += ["", f"## {title}", ""]

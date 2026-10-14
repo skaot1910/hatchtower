@@ -26,8 +26,9 @@ from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, 
 from .config import DB_KEYS, apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
 from .monitor import Monitor
-from .permissions import (BY_KEY, PERMISSIONS, UserContext, describe_access, grouped_permissions, load_assignments,
-                          load_default_group, load_grants, load_groups, save_assignments, save_default_group, save_group,
+from .permissions import (BY_KEY, PERMISSIONS, UserContext, create_starter_groups, describe_access,
+                          grouped_permissions, load_assignments, load_default_group, load_grants, load_groups,
+                          save_assignments, save_default_group, save_group, starter_groups_missing,
                           users_with_default_access, with_dependencies)
 from .ptero import PteroClient, PteroError, ReadOnlyViolation
 from .views import SERVER_QUERY, fmt_dt, fmt_size, server_view
@@ -1291,6 +1292,26 @@ POWER_COOLDOWN = 5.0
 _power_last: dict[str, float] = {}
 
 
+def power_error_text(exc: PteroError, technical: bool) -> str:
+    """Verständliche Meldung, wenn Start/Stop scheitert. Die Rohmeldung des Panels (HTTP-Code, Request-ID)
+    sehen nur Owner; sie steht immer im Audit-Log."""
+    if exc.status == 429:
+        text = i18n.t("Das Panel hat gerade zu viele Anfragen bekommen. Versuch es in einer Minute noch einmal.")
+    elif exc.status == 409:
+        text = i18n.t("Der Server ist gerade beschäftigt, z. B. mit einer Installation, einem Update oder einer"
+                      " Übertragung. Versuch es später noch einmal.")
+    elif exc.status in (401, 403):
+        text = i18n.t("Hatchtower darf diesen Server im Panel gerade nicht steuern.")
+    elif exc.status is None or exc.status >= 500:
+        text = i18n.t("Der Server ist gerade nicht erreichbar, weil das Panel oder der Spieleserver-Rechner nicht"
+                      " antwortet. Versuch es gleich noch einmal.")
+    else:
+        text = i18n.t("Das hat nicht geklappt. Versuch es noch einmal.")
+    if technical:
+        return f"{text} ({exc})"
+    return text if exc.status in (409, 429) else f"{text} {i18n.t('Wenn es wieder passiert, sag dem Owner Bescheid.')}"
+
+
 async def json_body(request: Request) -> dict:
     try:
         body = await request.json()
@@ -1321,7 +1342,7 @@ async def api_power(request: Request, ident: str):
     except PteroError as exc:
         audit.record(f"power.{signal}", result="error", user_id=user.id, username=user.username,
                      ip=ip_of(request), server=ident, detail=str(exc))
-        return JSONResponse({"error": str(exc)}, status_code=502)
+        return JSONResponse({"error": power_error_text(exc, user.is_owner)}, status_code=502)
     app.state.automation.note_power(ident, signal)
     app.state.monitor.follow(ident)
     if signal in ("start", "restart"):
@@ -1680,7 +1701,7 @@ def account_context(user: UserContext) -> dict:
         pending = con.execute("SELECT email FROM tokens WHERE purpose = 'verify' AND user_id = ? AND expires_at > ?",
                               (user.id, db.utcnow())).fetchone()
     return {"themes": themes.THEMES, "me": me, "pending_email": pending["email"] if pending else None,
-            "mail_ready": mailer.load_config(vault).ready, "events": notify.EVENTS, "audit_days": retention.audit_days(),
+            "mail_ready": mailer.load_config(vault).ready, "events": notify.events_for(user.is_owner), "audit_days": retention.audit_days(),
             "my_events": set((me["notify_events"] if me["notify_events"] is not None else ",".join(notify.EVENTS)).split(","))}
 
 
@@ -1766,7 +1787,7 @@ async def admin_users(request: Request):
         rows.append({"u": u, "access": access, "visible": visible,
                      "last_login": fmt_dt(u["last_login_at"], settings.timezone)})
     from . import accounts, mailer
-    from .routes_extra import link_base
+    from .routes_extra import describe_invite_access, link_base
     base = link_base(request)
 
     def invite_link(i) -> str | None:
@@ -1779,13 +1800,15 @@ async def admin_users(request: Request):
                 "email": i["email"], "created": fmt_dt(i["created_at"], settings.timezone),
                 "expires": None if i["expires_at"] == accounts.NEVER else fmt_dt(i["expires_at"], settings.timezone),
                 "creator": i["creator"], "link": invite_link(i),
-                "note": i["note"], "uses": accounts.uses_text(i["uses"], i["max_uses"])}
+                "note": i["note"], "uses": accounts.uses_text(i["uses"], i["max_uses"]),
+                "access": describe_invite_access(__import__("json").loads(i["data"] or "{}").get("access"))}
                for i in accounts.open_invites()]
     return render(request, "admin_users.html", rows=rows, error=None, server_count=len(names), invites=invites,
                   invite_link=getattr(request.state, "invite_link", None),
                   invite_message=getattr(request.state, "invite_message", None),
                   invite_valid=getattr(request.state, "invite_valid", None),
                   invite_days=accounts.INVITE_DAYS, invite_uses=accounts.INVITE_USES,
+                  groups=load_groups(), servers=sorted(names.items(), key=lambda kv: kv[1].lower()),
                   mail_ready=mailer.load_config(vault).ready, email_optional=mailer.email_optional(),
                   email_required=mailer.email_required(mailer.load_config(vault)))
 
@@ -1964,6 +1987,7 @@ async def admin_groups(request: Request, edit: int | None = None):
     groups = load_groups()
     editing = next((g for g in groups if g["id"] == edit), None)
     return render(request, "admin_groups.html", groups=groups, editing=editing, grouped=grouped_permissions(),
+                  starter_missing=starter_groups_missing(groups),
                   labels={p.key: i18n.t(p.label) for p in PERMISSIONS}, deps={p.key: list(p.requires) for p in PERMISSIONS})
 
 
@@ -1990,6 +2014,21 @@ async def admin_group_save(request: Request, group_id: str = Form(""), name: str
     return back("/admin/groups", i18n.t("Gruppe „{name}“ gespeichert", name=name))
 
 
+@app.post("/admin/groups/starter")
+async def admin_group_starter(request: Request, target: str = Form("")):
+    """Vorschlagsgruppen anlegen (Zuschauer, Spieler, Moderator), vorhandene Namen bleiben unberührt."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    created = create_starter_groups()
+    if created:
+        audit.record("group.save", user_id=owner.id, username=owner.username, ip=ip_of(request),
+                     detail={"vorlagen": created})
+    url = "/admin/users#einladen" if target == "users" else "/admin/groups"
+    if not created:
+        return back(url, "Die Vorschlagsgruppen gibt es schon")
+    return back(url, i18n.t("Gruppen angelegt: {namen}. Du kannst sie jederzeit anpassen.", namen=", ".join(created)))
+
+
 @app.post("/admin/groups/{group_id}/delete")
 async def admin_group_delete(request: Request, group_id: int):
     owner = require_owner(request)
@@ -2000,7 +2039,8 @@ async def admin_group_delete(request: Request, group_id: int):
     with db.connect() as con:
         con.execute("DELETE FROM perm_groups WHERE id = ?", (group_id,))
     audit.record("group.delete", user_id=owner.id, username=owner.username, ip=ip_of(request),
-                 detail={"gruppe": group["name"], "zuweisungen_entfernt": group["usage"]})
+                 detail={"gruppe": group["name"], "zuweisungen_entfernt": group["usage"],
+                         "alle_server_entfernt": group["default_users"]})
     return back("/admin/groups", i18n.t("Gruppe „{name}“ gelöscht", name=group["name"]))
 
 

@@ -3,6 +3,31 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.29.0 – 2026-10-14
+
+**Freunde einladen in einem Schritt**
+- **Einladung mit Zugriff:** Im Einladungsformular lassen sich eine Rechtegruppe und Server (oder „Alle Server, auch
+  künftige“) festlegen. Wer den Link nutzt, sieht die Server direkt nach der Anmeldung – ohne dass der Owner danach
+  noch Rechte vergeben muss. Offene Einladungen und das Audit-Log zeigen den Zugriff. Wurde die Gruppe inzwischen
+  gelöscht, gibt es keinen Zugriff. Bei „Alle Server“ mit Steuer- oder Schreibrechten erscheint eine Warnung
+- **Vorschlagsgruppen:** „Zuschauer“ (sehen, Adresse, Passwort), „Spieler“ (zusätzlich starten und neu starten,
+  nicht stoppen) und „Moderator“ (zusätzlich stoppen, Konsole, Protokoll) mit einem Klick anlegen – unter
+  Benutzer → Rechtegruppen und im Einladungsformular, solange noch keine Gruppe existiert
+- **Verständliche Fehler beim Starten und Stoppen:** Statt „Pterodactyl antwortet mit HTTP 409 …“ steht da z. B.
+  „Der Server ist gerade beschäftigt“ oder „Das Panel hat gerade zu viele Anfragen bekommen“. Owner sehen
+  zusätzlich die technische Meldung, das Audit-Log bleibt vollständig
+
+**Rechtesystem überprüft**
+- Zeitpläne und Backup-Jobs folgen jetzt derselben Regel: Sie laufen nur, solange ihr Ersteller existiert und die
+  nötigen Rechte für den Server hat (bisher liefen Zeitpläne eines gelöschten Erstellers weiter)
+- Rechtegruppen zeigen, wer sie für „Alle Server, auch künftige“ nutzt; beim Löschen warnt die Bestätigung, dass
+  diese Benutzer den Zugriff verlieren, und das Audit-Log vermerkt es
+- Hinweise bei Rechten, die mehr erlauben, als der Name vermuten lässt: Backups starten/herunterladen und
+  wiederherstellen (umgehen die Datei-Rechte), Herunterladen (Konfigurationsdateien), Befehle senden
+- Benutzer ohne Owner-Rolle sehen in den Benachrichtigungen nur noch Meldungen, die sie auch bekommen können
+- Neue Tests: Benutzer, der nur neu starten darf, gegen alle anderen Routen; Ersteller-Regeln; Gruppe löschen;
+  Einladung mit Zugriff
+
 ## 0.28.3 – 2026-10-14
 
 - SFTP-Port (2022) wird nicht mehr geprüft – weder im Selbsttest unter System → Zustand noch in der Wings-Übersicht

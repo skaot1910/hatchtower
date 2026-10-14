@@ -366,19 +366,24 @@ There are two roles:
 
 **Inviting someone:** **Users → By invitation link**. Choose how long the link is valid and how often it can
 be used, then send the link (e.g. in Discord). The person picks their own username and password – you never
-handle their password.
+handle their password. Optionally pick a **permission group and servers** right in the invitation form: the person
+then has exactly that access as soon as they sign up – no second step needed.
 
 **Giving permissions:** open the user → **Permissions per server**. For each server, pick a **group**
 (e.g. "Player") or tick single permissions. "All servers, including future ones" gives access to new
 servers automatically. The summary line under the list says in plain words what the person can see.
 
-**Permission groups** (Users → Permission groups) are reusable sets such as:
+**Permission groups** (Users → Permission groups) are reusable sets. With **"Create suggested groups"** you get
+three to start with and can adjust them at any time:
 
-| Group (example) | Typical permissions |
+| Suggested group | Permissions |
 |---|---|
-| View only | see the server, address and status |
-| Player | + see password, start, restart |
-| Moderator | + stop, console, files, automations, backups |
+| Viewer | see the server, status, address and password |
+| Player | + start and restart (not stop) |
+| Moderator | + stop, read the console, send commands, console archive, server log |
+
+Permissions that allow more than their name suggests (e.g. starting backups gives access to all backed-up files,
+sending commands can be far-reaching depending on the game) carry a note on the group and user pages.
 
 Under **"What does each permission mean?"** on the user page every permission is explained.
 Hatchtower checks every permission **on the server side** for every request – hiding a button is not the

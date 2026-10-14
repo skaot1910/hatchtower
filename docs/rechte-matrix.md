@@ -9,33 +9,34 @@ Grundregeln:
 - Rechte mit ✎ sind Schreibrechte: Im Read-Only-Modus hat sie niemand, auch kein Owner.
 - Jede verweigerte Aktion landet als `access.denied` im Audit-Log.
 - Zustandsändernde Anfragen brauchen ein CSRF-Token (Formularfeld oder Header `X-CSRF-Token`).
+- Zeitpläne und geplante Backup-Jobs eines Benutzers laufen nur, solange er aktiv ist und die nötigen Rechte noch hat; gibt es ihn nicht mehr, laufen sie nicht.
 
 ## Rechte
 
-| Recht | Name | Schreibrecht | Setzt voraus | Routen |
-|---|---|---|---|---|
-| `server.view` | Sehen |  | – | `GET /api/servers/{ident}/metrics`<br>`GET /servers/{ident}`<br>`POST /api/servers/{ident}/favorite` |
-| `server.password` | Passwort sehen |  | `server.view` |  |
-| `server.log` | Protokoll sehen |  | `server.view` |  |
-| `server.manage` | Server verwalten |  | `server.view` | `GET /servers/{ident}/settings`<br>`POST /servers/{ident}/logo/delete`<br>`POST /servers/{ident}/logo`<br>`POST /servers/{ident}/settings` |
-| `power.start` | Start | ✎ | `server.view` | `POST /api/servers/{ident}/power` (start) |
-| `power.stop` | Stop | ✎ | `server.view` | `POST /api/servers/{ident}/power` (stop) |
-| `power.restart` | Restart | ✎ | `server.view` | `POST /api/servers/{ident}/power` (restart) |
-| `console.read` | Konsole lesen |  | `server.view` | `GET /servers/{ident}/console/stream` |
-| `console.command` | Befehle senden | ✎ | `server.view`, `console.read` | `POST /api/servers/{ident}/command` |
-| `console.archive` | Konsolen-Archiv sehen |  | `server.view` | `GET /api/servers/{ident}/logs`<br>`GET /servers/{ident}/logs.txt` |
-| `sftp.view` | Dateien ansehen |  | `server.view` | `GET /servers/{ident}/files` |
-| `sftp.download` | Herunterladen |  | `server.view`, `sftp.view` | `GET /servers/{ident}/files/download`<br>`POST /servers/{ident}/files/zip` |
-| `sftp.upload` | Hochladen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/upload` |
-| `sftp.edit` | Bearbeiten | ✎ | `server.view`, `sftp.view`, `sftp.download` | `GET /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/restore` |
-| `sftp.rename` | Umbenennen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/rename` |
-| `sftp.create_directory` | Ordner anlegen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/mkdir` |
-| `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete` |
-| `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |
-| `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups`<br>`GET /api/backups/status` |
-| `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` |
-| `backups.restore` | Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.run` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` |
-| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |
+| Recht | Name | Schreibrecht | Setzt voraus | Routen | Achtung |
+|---|---|---|---|---|---|
+| `server.view` | Sehen |  | – | `GET /api/servers/{ident}/metrics`<br>`GET /servers/{ident}`<br>`POST /api/servers/{ident}/favorite` |  |
+| `server.password` | Passwort sehen |  | `server.view` |  |  |
+| `server.log` | Protokoll sehen |  | `server.view` |  |  |
+| `server.manage` | Server verwalten |  | `server.view` | `GET /servers/{ident}/settings`<br>`POST /servers/{ident}/logo/delete`<br>`POST /servers/{ident}/logo`<br>`POST /servers/{ident}/settings` |  |
+| `power.start` | Start | ✎ | `server.view` | `POST /api/servers/{ident}/power` (start) |  |
+| `power.stop` | Stop | ✎ | `server.view` | `POST /api/servers/{ident}/power` (stop) |  |
+| `power.restart` | Restart | ✎ | `server.view` | `POST /api/servers/{ident}/power` (restart) |  |
+| `console.read` | Konsole lesen |  | `server.view` | `GET /servers/{ident}/console/stream` |  |
+| `console.command` | Befehle senden | ✎ | `server.view`, `console.read` | `POST /api/servers/{ident}/command` | Je nach Spiel reichen Befehle weit, z. B. Spieler zu Admins machen oder die Welt verändern. |
+| `console.archive` | Konsolen-Archiv sehen |  | `server.view` | `GET /api/servers/{ident}/logs`<br>`GET /servers/{ident}/logs.txt` |  |
+| `sftp.view` | Dateien ansehen |  | `server.view` | `GET /servers/{ident}/files` |  |
+| `sftp.download` | Herunterladen |  | `server.view`, `sftp.view` | `GET /servers/{ident}/files/download`<br>`POST /servers/{ident}/files/zip` | Konfigurationsdateien können Passwörter und Zugangsschlüssel enthalten. |
+| `sftp.upload` | Hochladen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/upload` |  |
+| `sftp.edit` | Bearbeiten | ✎ | `server.view`, `sftp.view`, `sftp.download` | `GET /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/restore` |  |
+| `sftp.rename` | Umbenennen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/rename` |  |
+| `sftp.create_directory` | Ordner anlegen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/mkdir` |  |
+| `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete` |  |
+| `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |  |
+| `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups`<br>`GET /api/backups/status` |  |
+| `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` | Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“. |
+| `backups.restore` | Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.run` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` | Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“. |
+| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |  |
 
 ## Öffentlich
 
@@ -190,6 +191,7 @@ Grundregeln:
 | POST | `/admin/servers/{ident}/reviewed` | Formular | Hinweis auf neuen Server als erledigt markieren |
 | GET | `/admin/groups` | – | Rechtegruppen |
 | POST | `/admin/groups` | Formular | Rechtegruppe speichern |
+| POST | `/admin/groups/starter` | Formular | Vorschlagsgruppen anlegen |
 | POST | `/admin/groups/{group_id}/delete` | Formular | Rechtegruppe löschen |
 | GET | `/admin/audit` | – | Audit-Log |
 | GET | `/admin/audit/export` | – | Audit-Log als CSV/TXT |

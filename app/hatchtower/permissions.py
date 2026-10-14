@@ -20,6 +20,8 @@ class Permission:
     description: str
     write: bool = False
     requires: tuple[str, ...] = ()
+    # Hinweis für Admins, wenn das Recht mehr erlaubt, als der Name vermuten lässt
+    note: str = ""
 
 
 PERMISSIONS: tuple[Permission, ...] = (
@@ -38,12 +40,14 @@ PERMISSIONS: tuple[Permission, ...] = (
     Permission("power.restart", "Restart", "Steuerung", "Server neu starten.", write=True, requires=("server.view",)),
     Permission("console.read", "Konsole lesen", "Konsole", "Das Live-Log mitlesen.", requires=("server.view",)),
     Permission("console.command", "Befehle senden", "Konsole", "Befehle in die Konsole schreiben.",
-               write=True, requires=("server.view", "console.read")),
+               write=True, requires=("server.view", "console.read"),
+               note="Je nach Spiel reichen Befehle weit, z. B. Spieler zu Admins machen oder die Welt verändern."),
     Permission("console.archive", "Konsolen-Archiv sehen", "Konsole",
                "Das mitgeschriebene Konsolen-Archiv durchsuchen und herunterladen.", requires=("server.view",)),
     Permission("sftp.view", "Dateien ansehen", "Dateien", "Ordner und Dateien auflisten.", requires=("server.view",)),
     Permission("sftp.download", "Herunterladen", "Dateien", "Dateien herunterladen.",
-               requires=("server.view", "sftp.view")),
+               requires=("server.view", "sftp.view"),
+               note="Konfigurationsdateien können Passwörter und Zugangsschlüssel enthalten."),
     Permission("sftp.upload", "Hochladen", "Dateien", "Dateien hochladen.", write=True,
                requires=("server.view", "sftp.view")),
     Permission("sftp.edit", "Bearbeiten", "Dateien", "Dateien bearbeiten.", write=True,
@@ -64,11 +68,13 @@ PERMISSIONS: tuple[Permission, ...] = (
     Permission("backups.run", "Backups starten und herunterladen", "Backups",
                "Backup-Jobs von Hand starten, laufende abbrechen und gespeicherte Backups herunterladen. Ein"
                " Backup enthält die Dateien des Servers. Jobs, die den Server stoppen, nur mit den Steuerrechten dazu.",
-               requires=("server.view", "backups.view")),
+               requires=("server.view", "backups.view"),
+               note="Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“."),
     Permission("backups.restore", "Backups wiederherstellen", "Backups",
                "Ein gespeichertes Backup auf den Server zurückspielen – in einen eigenen Ordner oder an den"
                " ursprünglichen Ort, wobei gleichnamige Dateien ersetzt werden. Server vorher stoppen nur mit den"
-               " Steuerrechten dazu.", write=True, requires=("server.view", "backups.view", "backups.run")),
+               " Steuerrechten dazu.", write=True, requires=("server.view", "backups.view", "backups.run"),
+               note="Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“."),
     Permission("backups.manage", "Backup-Jobs verwalten", "Backups",
                "Backup-Jobs anlegen, ändern und löschen und im Datei-Explorer Dateien und Ordner hinzufügen."
                " Jobs mit mehreren Servern nur, wenn das Recht für alle gilt; Stoppen vor dem Backup nur mit"
@@ -190,6 +196,21 @@ def load_grants(user_id: int) -> dict[str, set[str]]:
     return {ident: with_dependencies(keys) for ident, keys in grants.items()}
 
 
+def creator_allows(created_by: int | None, identifier: str, need: set[str]) -> bool:
+    """Geplante Aufgaben eines Benutzers (Zeitpläne, Backup-Jobs) laufen nur, solange er die nötigen
+    Rechte für diesen Server noch hat. Ohne Ersteller (ältere Einträge) und von Ownern: erlaubt.
+    Gibt es den Ersteller nicht mehr, läuft nichts."""
+    if not created_by:
+        return True
+    with db.connect() as con:
+        creator = con.execute("SELECT role, is_active FROM users WHERE id = ?", (created_by,)).fetchone()
+    if creator is None:
+        return False
+    if creator["role"] == "owner":
+        return True
+    return bool(creator["is_active"]) and need <= load_grants(created_by).get(identifier, set())
+
+
 def load_default_group(user_id: int) -> int | None:
     with db.connect() as con:
         row = con.execute("SELECT group_id FROM user_default_access WHERE user_id = ?", (user_id,)).fetchone()
@@ -255,11 +276,15 @@ def load_groups() -> list[dict]:
         items = con.execute("SELECT group_id, permission FROM perm_group_items").fetchall()
         usage = {r["group_id"]: r["n"] for r in con.execute(
             "SELECT group_id, COUNT(*) AS n FROM user_server_groups GROUP BY group_id")}
+        # „Alle Server, auch künftige“ zählt extra: Löschen der Gruppe nimmt diesen Benutzern jeden Zugriff
+        default_users = {r["group_id"]: r["n"] for r in con.execute(
+            "SELECT group_id, COUNT(*) AS n FROM user_default_access GROUP BY group_id")}
     keys: dict[int, set[str]] = {}
     for it in items:
         keys.setdefault(it["group_id"], set()).add(it["permission"])
     return [{"id": g["id"], "name": g["name"], "description": g["description"] or "",
-             "keys": [k for k in ALL_KEYS if k in keys.get(g["id"], set())], "usage": usage.get(g["id"], 0)}
+             "keys": [k for k in ALL_KEYS if k in keys.get(g["id"], set())], "usage": usage.get(g["id"], 0),
+             "default_users": default_users.get(g["id"], 0)}
             for g in groups]
 
 
@@ -277,6 +302,36 @@ def save_group(group_id: int | None, name: str, description: str, keys: set[str]
         con.executemany("INSERT INTO perm_group_items (group_id, permission) VALUES (?, ?)",
                         [(group_id, k) for k in sorted(with_dependencies(keys))])
     return group_id
+
+
+# Vorschläge für den Anfang: von wenig zu viel, nur so viele Schreibrechte wie nötig
+STARTER_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("Gruppe|Zuschauer", "Sieht, ob der Server läuft, dazu Adresse und Passwort",
+     ("server.view", "server.password")),
+    ("Gruppe|Spieler", "Darf den Server außerdem starten und neu starten, aber nicht stoppen",
+     ("server.view", "server.password", "power.start", "power.restart")),
+    ("Gruppe|Moderator", "Steuert den Server, liest die Konsole, sendet Befehle und sieht das Protokoll",
+     ("server.view", "server.password", "server.log", "power.start", "power.stop", "power.restart",
+      "console.read", "console.command", "console.archive")),
+)
+
+
+def starter_groups_missing(groups: list[dict]) -> bool:
+    names = {g["name"].casefold() for g in groups}
+    return any(t(key).casefold() not in names for key, _, _ in STARTER_GROUPS)
+
+
+def create_starter_groups() -> list[str]:
+    """Legt die Vorschlagsgruppen an, deren Name es noch nicht gibt. Gibt die neuen Namen zurück."""
+    with db.connect() as con:
+        existing = {r["name"].casefold() for r in con.execute("SELECT name FROM perm_groups")}
+    created = []
+    for key, description, keys in STARTER_GROUPS:
+        name = t(key)
+        if name.casefold() not in existing:
+            save_group(None, name, t(description), set(keys))
+            created.append(name)
+    return created
 
 
 def describe_access(assignments: dict[str, dict], groups: dict[int, str], server_names: dict[str, str],

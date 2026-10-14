@@ -27,7 +27,7 @@ from .main import (BACKUP_SUFFIX, LoginRequired, app, apply_connection, back, ch
                    current_user, file_action, files_back, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
 from .panels import PANELS
-from .permissions import load_grants
+from .permissions import BY_KEY, load_grants, load_groups, save_assignments, save_default_group
 from .views import STATE_LABELS, fmt_dt, is_stale, monogram
 
 
@@ -420,8 +420,12 @@ async def account_notify(request: Request, notify_email: str = Form("")):
     user = current_user(request)
     await check_csrf(request)
     form = await request.form()
-    events = [e for e in notify.EVENTS if form.get(f"event__{e}")]
+    shown = notify.events_for(user.is_owner)
     with db.connect() as con:
+        # Owner-Meldungen sieht ein Benutzer nicht im Formular; seine bisherige Auswahl dazu bleibt erhalten
+        row = con.execute("SELECT notify_events FROM users WHERE id = ?", (user.id,)).fetchone()
+        before = set((row["notify_events"] if row["notify_events"] is not None else ",".join(notify.EVENTS)).split(","))
+        events = [e for e in notify.EVENTS if (form.get(f"event__{e}") if e in shown else e in before)]
         con.execute("UPDATE users SET notify_email = ?, notify_events = ? WHERE id = ?",
                     (1 if notify_email else 0, ",".join(events), user.id))
     audit.record("settings.notify", user_id=user.id, username=user.username, ip=ip_of(request),
@@ -568,6 +572,59 @@ async def admin_users_email_policy(request: Request, optional: str = Form("")):
 
 # == Einladungen ===============================================================================
 
+def invite_access_from_form(form) -> dict | None:
+    """Zugriff, den ein eingeladener Benutzer sofort bekommt: eine Rechtegruppe für ausgewählte
+    Server oder für „Alle Server, auch künftige“. Ohne Gruppe oder Server: keiner."""
+    groups = {g["id"] for g in load_groups()}
+    raw = str(form.get("access_group", ""))
+    if not raw.isdigit() or int(raw) not in groups:
+        return None
+    if form.get("access_all"):
+        return {"group": int(raw), "all": True, "servers": []}
+    known = server_names()
+    servers = sorted({str(s) for s in form.getlist("access_server") if str(s) in known})
+    return {"group": int(raw), "all": False, "servers": servers} if servers else None
+
+
+def describe_invite_access(access: dict | None) -> str | None:
+    """Kurztext für Liste und Audit-Log, z. B. „Spieler: Valheim, Terraria“."""
+    if not access:
+        return None
+    group = next((g["name"] for g in load_groups() if g["id"] == access.get("group")), None)
+    if group is None:
+        return i18n.t("Gruppe gelöscht, kein Zugriff")
+    if access.get("all"):
+        return i18n.t("{gruppe}: alle Server, auch künftige", gruppe=group)
+    names = server_names()
+    return f"{group}: " + ", ".join(names.get(s, s) for s in access.get("servers", []))
+
+
+def apply_invite_access(user_id: int, access: dict | None) -> dict | None:
+    """Beim Annehmen: Zugriff aus der Einladung vergeben. Die Gruppe wird erst jetzt aufgelöst –
+    wurde sie inzwischen gelöscht, bekommt der Benutzer nichts und der Owner vergibt von Hand."""
+    if not access:
+        return None
+    group = next((g for g in load_groups() if g["id"] == access.get("group")), None)
+    if group is None:
+        return None
+    label = f"Gruppe {group['name']}"
+    if access.get("all"):
+        save_default_group(user_id, group["id"])
+        return {"Alle Server, auch künftige": label}
+    known = server_names()
+    assignments = {s: {"mode": "group", "group_id": group["id"], "keys": set()}
+                   for s in access.get("servers", []) if s in known}
+    if not assignments:
+        return None
+    save_assignments(user_id, assignments)
+    return {known[s]: label for s in assignments}
+
+
+def group_has_write(group_id: int | None) -> bool:
+    group = next((g for g in load_groups() if g["id"] == group_id), None)
+    return bool(group) and any(BY_KEY[k].write for k in group["keys"] if k in BY_KEY)
+
+
 @app.post("/admin/users/invite", response_class=HTMLResponse)
 async def admin_invite(request: Request, role: str = Form("user"), email: str = Form(""), days: int = Form(7),
                        uses: int = Form(1), note: str = Form(""), view_mode: str = Form(""),
@@ -582,7 +639,9 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
     if email and not mailer.valid_email(email):
         return back("/admin/users#einladen", "Bitte eine gültige E-Mail-Adresse eingeben")
     view, locked = view_choice(view_mode, view_locked)
-    raw = accounts.create("invite", email=email or None, data={"role": role, "view": view, "view_locked": locked},
+    access = invite_access_from_form(await request.form()) if role == "user" else None
+    raw = accounts.create("invite", email=email or None,
+                          data={"role": role, "view": view, "view_locked": locked, "access": access},
                           created_by=owner.id,
                           hours=days * 24, max_uses=uses, note=note or None, encrypt=vault.encrypt)
     link = f"{link_base(request)}/invite/{raw}"
@@ -604,10 +663,15 @@ async def admin_invite(request: Request, role: str = Form("user"), email: str = 
                 message = i18n.t("E-Mail konnte nicht verschickt werden: {grund}", grund=exc)
     owner_audit(request, owner, "user.invite", detail={"role": role, "email": email or None, "invite": note or None,
                                                        "ansicht": (view or "standard") + (" (festgelegt)" if locked else ""),
-                                                       "days": days or "∞", "uses": uses or "∞"})
+                                                       "days": days or "∞", "uses": uses or "∞",
+                                                       "zugriff": describe_invite_access(access)})
     from .main import admin_users
     request.state.invite_link = link
     request.state.invite_message = i18n.t(message)
+    if access and access["all"] and group_has_write(access["group"]):
+        request.state.invite_message += " " + i18n.t(
+            "Achtung: Die Gruppe enthält Steuer- oder Schreibrechte – wer den Link nutzt, kann damit auch jeden neu"
+            " hinzukommenden Server sofort steuern.")
     request.state.invite_valid = {"validity": accounts.validity_text(days), "uses": uses}
     return await admin_users(request)
 
@@ -676,8 +740,10 @@ async def invite_accept(request: Request, token: str, username: str = Form(""), 
         accounts.release_invite(token)
         throttle.record_failure(ip_of(request))
         return fail("Diesen Benutzernamen gibt es schon")
+    granted = apply_invite_access(user_id, data.get("access")) if role == "user" else None
     info = accounts.invite_info({**dict(row), "uses": row["uses"] + 1})
-    audit.record("invite.accept", user_id=user_id, username=username, ip=ip_of(request), detail={"role": role, **info})
+    audit.record("invite.accept", user_id=user_id, username=username, ip=ip_of(request),
+                 detail={"role": role, **info, **({"zugriff": granted} if granted else {})})
     if accounts.finish_invite(token):
         audit.record("invite.used_up", user_id=user_id, username=username, ip=ip_of(request), detail=info)
     target = "/"

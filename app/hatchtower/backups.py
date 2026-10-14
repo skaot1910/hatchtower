@@ -30,7 +30,8 @@ from typing import AsyncIterator
 from zoneinfo import ZoneInfo
 
 from . import audit, db, i18n, notify
-from .permissions import BACKUP_STOP_NEEDS, load_grants
+from . import permissions
+from .permissions import BACKUP_STOP_NEEDS
 from .ptero import PteroError
 from .views import fmt_size
 
@@ -503,16 +504,10 @@ def stop_problems(user, idents: list[str], stop_mode: str, warn_command: str | N
 
 def creator_allows(job, ident: str) -> bool:
     """Geplante Läufe eines Benutzers (nicht Owner) nur, solange er die nötigen Rechte noch hat."""
-    if not job["created_by"]:
-        return True
-    with db.connect() as con:
-        creator = con.execute("SELECT role, is_active FROM users WHERE id = ?", (job["created_by"],)).fetchone()
-    if creator is None or creator["role"] == "owner":
-        return creator is not None
     need = {"backups.manage", *BACKUP_STOP_NEEDS.get(job["stop_mode"], ())}
     if job["stop_mode"] != "none" and job["warn_command"]:
         need.add("console.command")
-    return bool(creator["is_active"]) and need <= load_grants(job["created_by"]).get(ident, set())
+    return permissions.creator_allows(job["created_by"], ident, need)
 
 
 def retention_drop(rows, keep_count: int | None, keep_days: int | None, now: datetime | None = None) -> list:

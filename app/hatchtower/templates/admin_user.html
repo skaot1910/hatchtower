@@ -59,7 +59,7 @@
           <fieldset class="perm-group">
             <legend>{{ _(gname) }}</legend>
             {% for p in perms %}
-            <label class="check" title="{{ _(p.description) }}">
+            <label class="check" title="{{ _(p.description) }}{% if p.note %} {{ _(p.note) }}{% endif %}">
               <input type="checkbox" name="perm__{{ s.identifier }}__{{ p.key }}" data-key="{{ p.key }}" value="1"
                      {% if a and a.mode == 'custom' and p.key in a['keys'] %}checked{% endif %}>
               {{ _(p.label) }}
@@ -81,7 +81,7 @@
     <dl>
       {% for p in permissions %}
       <dt>{{ _(p.label) }}{% if p.write %} <span class="badge">{{ _("Schreibrecht") }}</span>{% endif %}</dt>
-      <dd>{{ _(p.description) }}{% if p.requires %} {{ _("Setzt automatisch:") }} {% for d in p.requires %}{{ labels[d] }}{% if not loop.last %}, {% endif %}{% endfor %}.{% endif %}</dd>
+      <dd>{{ _(p.description) }}{% if p.requires %} {{ _("Setzt automatisch:") }} {% for d in p.requires %}{{ labels[d] }}{% if not loop.last %}, {% endif %}{% endfor %}.{% endif %}{% if p.note %} <span class="warn-text">{{ _(p.note) }}</span>{% endif %}</dd>
       {% endfor %}
     </dl>
   </details>

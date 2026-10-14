@@ -38,6 +38,13 @@
   </label>
   {% endif %}
   <p class="muted small">{{ _("Der neue Benutzer wählt Benutzername und Passwort selbst. Du musst kein Passwort weitergeben.") }}</p>
+  {% if not groups %}
+  <form method="post" action="/admin/groups/starter" class="hint">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="target" value="users">
+    <p class="small">{{ _("Damit Eingeladene gleich loslegen können, brauchst du eine Rechtegruppe. Vorschläge: „Zuschauer“ (nur sehen), „Spieler“ (starten und neu starten) und „Moderator“ (zusätzlich stoppen und Konsole).") }}</p>
+    <button class="chip chip-sm" type="submit">{{ _("Vorschlagsgruppen anlegen") }}</button>
+  </form>
+  {% endif %}
   <form method="post" action="/admin/users/invite" class="form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <label>{{ _("Rolle") }}
@@ -46,6 +53,22 @@
         <option value="owner">{{ _("Owner: darf alles, inklusive Benutzerverwaltung") }}</option>
       </select>
     </label>
+    {% if groups %}
+    <fieldset class="perm-group">
+      <legend>{{ _("Zugriff gleich nach der Anmeldung (nur Rolle Benutzer)") }}</legend>
+      <label>{{ _("Rechtegruppe") }}
+        <select name="access_group">
+          <option value="">{{ _("keiner – Rechte vergebe ich später") }}</option>
+          {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}{% if g.description %} – {{ g.description }}{% endif %}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="toggle-list">
+        {% for ident, name in servers %}<label class="check"><input type="checkbox" name="access_server" value="{{ ident }}"> {{ name }}</label>{% endfor %}
+        <label class="check"><input type="checkbox" name="access_all" value="1"> <strong>{{ _("Alle Server, auch künftige") }}</strong></label>
+      </div>
+      <p class="faint small">{{ _("Die Gruppe gilt für die angehakten Server. Später änderst du das wie bei jedem Benutzer unter „Rechte und Konto“.") }}</p>
+    </fieldset>
+    {% endif %}
     <div class="invite-limits">
       <label>{{ _("Gültig für") }}
         <select name="days">
@@ -70,7 +93,7 @@
   <ul class="plain-list">
     {% for i in invites %}
     <li class="invite-row">
-      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.view %} · {{ _("Ansicht") }}: {{ _("Einfach") if i.view == 'simple' else _("Alles") }}{% if i.view_locked %} ({{ _("festgelegt") }}){% endif %}{% endif %}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {% if i.expires %}{{ _("gültig bis {date}", date=i.expires) }}{% else %}{{ _("unbegrenzt gültig") }}{% endif %}</span></span>
+      <span>{% if i.note %}<strong>{{ i.note }}</strong> · {% endif %}{{ _("Owner") if i.role == 'owner' else _("Rolle|Benutzer") }}{% if i.view %} · {{ _("Ansicht") }}: {{ _("Einfach") if i.view == 'simple' else _("Alles") }}{% if i.view_locked %} ({{ _("festgelegt") }}){% endif %}{% endif %}{% if i.access %} · {{ _("Zugriff") }}: {{ i.access }}{% endif %}{% if i.email %} · {{ i.email }}{% endif %} <span class="faint small">· {{ _("genutzt {n}", n=i.uses) }} · {{ _("erstellt {date}", date=i.created) }}{% if i.creator %} {{ _("von {name}", name=i.creator) }}{% endif %} · {% if i.expires %}{{ _("gültig bis {date}", date=i.expires) }}{% else %}{{ _("unbegrenzt gültig") }}{% endif %}</span></span>
       {% if i.link %}<details class="invite-link"><summary class="chip chip-sm">{{ _("Link anzeigen") }}</summary>
         <input class="mono copy-field" value="{{ i.link }}" readonly data-select-on-focus aria-label="{{ _("Einladungslink") }}">
       </details>{% else %}<span class="faint small">{{ _("Link nicht mehr abrufbar (vor Version 0.19.2 erstellt)") }}</span>{% endif %}
