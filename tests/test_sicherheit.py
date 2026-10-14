@@ -138,7 +138,7 @@ def test_owner_eingriff_entwertet_reset_link(world, how):
     if how == "owner_password":
         c.post(f"/admin/users/{uid}/password", data={"csrf": c.csrf, "password": NEW_PASSWORD})
     else:
-        c.post(f"/admin/users/{uid}/update", data={"csrf": c.csrf, "role": "user", "is_active": ""})
+        c.post(f"/admin/users/{uid}/active", data={"csrf": c.csrf, "active": "0"})
     assert accounts.get(reset, "reset") is None
 
 

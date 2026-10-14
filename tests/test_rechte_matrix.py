@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+from urllib.parse import unquote
 
 import pytest
 from fastapi.routing import APIRoute
@@ -569,6 +570,47 @@ def test_konsolen_archiv_braucht_eigenes_recht(world):
     page = world.client(nur_live).get("/servers/srv-a").text
     assert 'id="log-archiv"' not in page
     assert 'id="log-archiv"' in world.client(nur_archiv).get("/servers/srv-a").text
+
+
+def _active(uid):
+    with db.connect() as con:
+        return con.execute("SELECT is_active FROM users WHERE id = ?", (uid,)).fetchone()[0]
+
+
+def test_konto_deaktivieren_und_wieder_aktivieren(world):
+    owner = world.client(world.ids["olga"])
+    uid = world.ids["victim"]
+    victim = world.client(uid)
+    assert victim.get("/").status_code == 200
+    r = owner.post(f"/admin/users/{uid}/active", data={"csrf": owner.csrf, "active": "0"})
+    assert r.status_code == 303 and _active(uid) == 0
+    assert victim.get("/").headers.get("location") == "/login"            # überall abgemeldet
+    assert world.audit("user.disable")
+    page = owner.get(f"/admin/users/{uid}").text
+    assert 'name="active" value="1"' in page and 'name="active" value="0"' not in page
+    assert "Wieder aktivieren" in owner.get("/admin/users").text
+    r = owner.post(f"/admin/users/{uid}/active", data={"csrf": owner.csrf, "active": "1", "next": "list"})
+    assert r.headers["location"].startswith("/admin/users?") and _active(uid) == 1
+    assert world.audit("user.enable")
+
+
+def test_speichern_des_kontos_aendert_den_aktiv_status_nicht(world):
+    owner = world.client(world.ids["olga"])
+    uid = world.ids["victim"]
+    owner.post(f"/admin/users/{uid}/update", data={"csrf": owner.csrf, "role": "user"})     # ohne is_active
+    assert _active(uid) == 1
+
+
+def test_owner_deaktiviert_sich_nicht_selbst_aber_andere_owner(world):
+    olga = world.ids["olga"]
+    owner = world.client(olga)
+    r = owner.post(f"/admin/users/{olga}/active", data={"csrf": owner.csrf, "active": "0"})
+    assert "selbst" in unquote(r.headers["location"]) and _active(olga) == 1
+    assert 'name="active" value="0"' not in owner.get(f"/admin/users/{olga}").text
+    zweit = world.user("zweit", role="owner")
+    assert 'name="active" value="0"' in owner.get(f"/admin/users/{zweit}").text
+    owner.post(f"/admin/users/{zweit}/active", data={"csrf": owner.csrf, "active": "0"})
+    assert _active(zweit) == 0
 
 
 def test_notiz_zum_benutzer(world):

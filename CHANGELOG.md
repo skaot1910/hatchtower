@@ -3,6 +3,14 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.30.1 – 2026-10-14
+
+- **Konten deaktivieren und wieder aktivieren:** eigener Knopf „Konto deaktivieren“ auf der Seite eines Benutzers
+  (nur für Owner, mit Rückfrage) statt des unauffälligen Häkchens „Konto aktiv“. Deaktivierte Konten zeigen einen
+  Hinweis mit „Wieder aktivieren“, ebenso die Benutzerliste im Abschnitt „Deaktiviert“. Beides steht als eigene
+  Aktion im Audit-Log
+- Ein Owner kann sich nicht mehr selbst deaktivieren (bisher möglich, solange es einen zweiten Owner gab)
+
 ## 0.30.0 – 2026-10-14
 
 **Backups**

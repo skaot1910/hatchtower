@@ -184,7 +184,8 @@ Grundregeln:
 | GET | `/admin/users/{user_id}` | – | Benutzer bearbeiten |
 | GET | `/admin/users/{user_id}/export` | – | Daten eines Benutzers herunterladen |
 | POST | `/admin/users/{user_id}/permissions` | Formular | Rechte pro Server vergeben |
-| POST | `/admin/users/{user_id}/update` | Formular | Rolle und Aktiv-Status |
+| POST | `/admin/users/{user_id}/update` | Formular | Rolle, Ansicht und Notiz |
+| POST | `/admin/users/{user_id}/active` | Formular | Konto deaktivieren oder wieder aktivieren |
 | POST | `/admin/users/{user_id}/password` | Formular | Passwort eines Benutzers setzen |
 | POST | `/admin/users/{user_id}/email` | Formular | E-Mail-Adresse eines Benutzers setzen oder entfernen |
 | POST | `/admin/users/{user_id}/no-email` | Formular | Benutzer auf „ohne E-Mail-Adresse“ stellen |

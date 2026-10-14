@@ -1286,3 +1286,7 @@ a.file-link:hover { color: var(--violet-3); }
 @media (max-width: 720px) {
   .runs-table td.sel { float: right; width: auto; padding: 0 0 0 10px; }
 }
+
+/* Benutzer: deaktiviertes Konto */
+.account-off { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.account-off form, .head-actions form { margin: 0; }

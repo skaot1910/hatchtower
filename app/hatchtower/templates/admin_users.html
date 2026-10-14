@@ -35,7 +35,8 @@
         </td>
         {% endif %}
         <td class="faint" data-label="{{ _("Letzte Anmeldung") }}">{{ r.last_login }}</td>
-        <td class="num"><a class="chip chip-sm" href="/admin/users/{{ r.u.id }}">{{ _("Rechte und Konto") }}</a></td>
+        <td class="num row-actions"><a class="chip chip-sm" href="/admin/users/{{ r.u.id }}">{{ _("Rechte und Konto") }}</a>
+          {% if not r.u.is_active %}<form method="post" action="/admin/users/{{ r.u.id }}/active"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="active" value="1"><input type="hidden" name="next" value="list"><button class="chip chip-sm" type="submit">{{ _("Wieder aktivieren") }}</button></form>{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>

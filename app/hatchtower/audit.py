@@ -15,6 +15,8 @@ ACTION_LABELS = {
     "password.change": "Eigenes Passwort geändert",
     "user.create": "Benutzer angelegt",
     "user.update": "Benutzer geändert",
+    "user.disable": "Benutzer deaktiviert",
+    "user.enable": "Benutzer wieder aktiviert",
     "user.delete": "Benutzer gelöscht",
     "user.self_delete": "Eigenes Konto gelöscht",
     "system.update_check": "Nach Updates gesucht",

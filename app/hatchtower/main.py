@@ -2065,8 +2065,7 @@ async def admin_group_delete(request: Request, group_id: int):
 
 
 @app.post("/admin/users/{user_id}/update")
-async def admin_user_update(request: Request, user_id: int, role: str = Form("user"), is_active: str = Form(""),
-                            note: str | None = Form(None), view_form: str = Form(""), view_mode: str = Form(""),
+async def admin_user_update(request: Request, user_id: int, role: str = Form("user"), note: str | None = Form(None), view_form: str = Form(""), view_mode: str = Form(""),
                             view_locked: str = Form("")):
     owner = require_owner(request)
     await check_csrf(request)
@@ -2074,8 +2073,8 @@ async def admin_user_update(request: Request, user_id: int, role: str = Form("us
     if target is None:
         return back("/admin/users")
     role = "owner" if role == "owner" else "user"
-    active = 1 if is_active else 0
-    losing_owner = target["role"] == "owner" and target["is_active"] and (role != "owner" or not active)
+    active = target["is_active"]          # Aktivieren/Deaktivieren nur über /active (eigener Knopf)
+    losing_owner = target["role"] == "owner" and target["is_active"] and role != "owner"
     if losing_owner and active_owner_count() <= 1:
         return back(f"/admin/users/{user_id}", "Es muss mindestens ein aktiver Owner bleiben")
     note = target["note"] if note is None else (note.strip()[:500] or None)
@@ -2086,15 +2085,42 @@ async def admin_user_update(request: Request, user_id: int, role: str = Form("us
     with db.connect() as con:
         con.execute("UPDATE users SET role = ?, is_active = ?, note = ?, view_mode = ?, view_locked = ? WHERE id = ?",
                     (role, active, note, view, locked, user_id))
-    if not active:
-        security.delete_user_sessions(user_id)
-    detail = {"user": target["username"], "role": role, "active": bool(active)}
+    detail = {"user": target["username"], "role": role}
     if note != target["note"]:
         detail["note"] = note
     if view != target["view_mode"] or locked != target["view_locked"]:
         detail["ansicht"] = (view or "standard") + (" (festgelegt)" if locked else "")
     audit.record("user.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail=detail)
     return back(f"/admin/users/{user_id}", "Benutzer gespeichert")
+
+
+@app.post("/admin/users/{user_id}/active")
+async def admin_user_active(request: Request, user_id: int, active: str = Form(""), next: str = Form("")):
+    """Konto deaktivieren (Anmelden gesperrt, alle Sitzungen beendet) oder wieder aktivieren. Nur Owner;
+    sich selbst und den letzten aktiven Owner kann man nicht deaktivieren."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    target = get_user_or_404(user_id)
+    if target is None:
+        return back("/admin/users")
+    page = "/admin/users" if next == "list" else f"/admin/users/{user_id}"
+    enable = active == "1"
+    if bool(target["is_active"]) == enable:
+        return back(page)
+    if not enable:
+        if target["id"] == owner.id:
+            return back(page, "Du kannst dich nicht selbst deaktivieren")
+        if target["role"] == "owner" and active_owner_count() <= 1:
+            return back(page, "Es muss mindestens ein aktiver Owner bleiben")
+    with db.connect() as con:
+        con.execute("UPDATE users SET is_active = ? WHERE id = ?", (1 if enable else 0, user_id))
+    if not enable:
+        security.delete_user_sessions(user_id)
+    audit.record("user.enable" if enable else "user.disable", user_id=owner.id, username=owner.username,
+                 ip=ip_of(request), detail={"user": target["username"]})
+    if enable:
+        return back(page, i18n.t("{name} ist wieder aktiv und kann sich anmelden.", name=target["username"]))
+    return back(page, i18n.t("{name} ist deaktiviert und wurde überall abgemeldet.", name=target["username"]))
 
 
 @app.post("/admin/users/{user_id}/password")

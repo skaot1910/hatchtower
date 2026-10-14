@@ -8,8 +8,25 @@
     <p class="muted">{{ _("Owner") if target.role == 'owner' else _("Rolle|Benutzer") }}{% if not target.is_active %} · {{ _("deaktiviert") }}{% endif %}</p>
     {% if target.note %}<p class="faint small">{{ target.note }}</p>{% endif %}
   </div>
-  {% if target.role != 'owner' %}<a class="btn btn-ghost" href="/?als={{ target.id }}">{{ _("Vorschau als {name}", name=target.username) }}</a>{% endif %}
+  <div class="head-actions">
+    {% if target.role != 'owner' %}<a class="btn btn-ghost" href="/?als={{ target.id }}">{{ _("Vorschau als {name}", name=target.username) }}</a>{% endif %}
+    {% if target.is_active and target.id != user.id %}
+    <form method="post" action="/admin/users/{{ target.id }}/active" data-confirm="{{ _("{name} deaktivieren? Das Konto wird überall abgemeldet und kann sich nicht mehr anmelden, bis du es wieder aktivierst. Rechte und Einstellungen bleiben erhalten.", name=target.username) }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="active" value="0">
+      <button class="btn btn-danger" type="submit">{{ _("Konto deaktivieren") }}</button>
+    </form>
+    {% endif %}
+  </div>
 </div>
+{% if not target.is_active %}
+<div class="alert account-off">
+  <span>{{ _("Dieses Konto ist deaktiviert. {name} kann sich nicht anmelden; Rechte und Einstellungen bleiben erhalten.", name=target.username) }}</span>
+  <form method="post" action="/admin/users/{{ target.id }}/active">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="active" value="1">
+    <button class="btn btn-primary btn-sm" type="submit">{{ _("Wieder aktivieren") }}</button>
+  </form>
+</div>
+{% endif %}
 
 {% if target.role == 'owner' %}
 <div class="card"><p>{{ _("Owner dürfen alles auf allen Servern. Rechte pro Server sind für Owner nicht nötig.") }}</p></div>
@@ -99,7 +116,6 @@
           <option value="owner" {% if target.role == 'owner' %}selected{% endif %}>{{ _("Owner") }}</option>
         </select>
       </label>
-      <label class="check"><input type="checkbox" name="is_active" value="1" {% if target.is_active %}checked{% endif %}> {{ _("Konto aktiv") }}</label>
       {{ vm.fields(target.view_mode or "", target.view_locked) }}
       <label>{{ _("Notiz (nur für Owner sichtbar)") }}
         <textarea name="note" rows="2" maxlength="500" placeholder="{{ _("z. B. wer das ist oder woher das Konto kommt") }}">{{ target.note or '' }}</textarea>
@@ -162,7 +178,7 @@
 </section>
 <section class="card card-danger">
   <h2 class="card-h">{{ _("Benutzer löschen") }}</h2>
-  <p class="muted small">{{ _("Beim Löschen verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Einträge im Audit-Log werden nach Ablauf der Aufbewahrungsfrist gelöscht. Soll jemand nur vorübergehend nicht hinein, nimm stattdessen oben den Haken bei „Konto aktiv“ heraus.") }}</p>
+  <p class="muted small">{{ _("Beim Löschen verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Einträge im Audit-Log werden nach Ablauf der Aufbewahrungsfrist gelöscht. Soll jemand nur vorübergehend nicht hinein, nimm stattdessen oben „Konto deaktivieren“.") }}</p>
   <form method="post" action="/admin/users/{{ target.id }}/delete" data-confirm="{{ _("{name} endgültig löschen? Das lässt sich nicht rückgängig machen.", name=target.username) }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <button class="btn btn-danger btn-sm" type="submit">{{ _("Benutzer endgültig löschen") }}</button>
