@@ -9,7 +9,12 @@
 **A simple, safe web page for your game servers – for you and your friends,
 without putting your server panel on the internet.**
 
+**Hatchtower does not replace Pterodactyl, Pelican or Calagopus.** It sits on top of your existing panel and
+controls it through the panel's API – your panel keeps running as before.
+
 **Status: beta** – it works, but it is young and still changes quickly.
+
+**A Claude project:** Hatchtower was written with [Claude](https://claude.ai) (Anthropic), guided and tested by me.
 
 ![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
 ![Pelican](https://img.shields.io/badge/Pelican-1.0.0--rc.1-2563eb)
