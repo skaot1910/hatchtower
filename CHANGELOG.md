@@ -3,6 +3,25 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.32.0 – 2026-10-14
+
+Erste öffentliche Beta.
+
+**Sicherheit und Updates**
+- Status und Protokoll von Updates aus der Weboberfläche liegen jetzt in `/var/lib/hatchtower-update` (gehört root,
+  für den Dienst nur lesbar). Installer und Update folgen keinen Symlinks im Datenordner mehr
+- Alle Python-Pakete haben feste, getestete Versionen; ein automatisches Zurückgehen nach einem fehlgeschlagenen
+  Update setzt auch die Pakete zurück
+- Von den Datenbank-Sicherungen vor Updates bleiben die letzten fünf
+- Sicherheitslücken vertraulich melden: siehe `SECURITY.md`
+
+**Sonstiges**
+- „Über Hatchtower“ verlinkt den Quellcode genau der installierten Version
+- README: Beta-Hinweis, Deinstallation, welche Verbindungen Hatchtower aufbaut (keine Telemetrie), Hinweise zu den
+  Datenbank-Sicherungen
+- Docker-Unterstützung entfernt – offiziell unterstützt werden der Debian- und der Proxmox-Installer
+- Installation und Updates brauchen keinen GitHub-Token mehr (nur noch für private Forks)
+
 ## 0.31.0 – 2026-10-14
 
 **Datei-Explorer**
