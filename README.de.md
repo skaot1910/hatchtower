@@ -196,6 +196,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/skaot1910/hatchtower/mai
 ```
 
 Das Skript lädt die neueste Version, prüft die Prüfsumme und installiert sie.
+Kommt `curl: command not found`, zuerst curl installieren: `apt-get install -y curl`.
 
 <details>
 <summary>Optionen (Port, welche IPs zugreifen dürfen)</summary>
@@ -275,7 +276,8 @@ bash -c "$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: appli
 ```
 
 Der erste ist für **A** (Proxmox-Host), der zweite für **B**. Der Token wird auf dem Hatchtower-Rechner
-gespeichert, damit spätere Updates klappen. Abgelaufen? `hatchtower github-token`.
+gespeichert, damit spätere Updates klappen (bei **A** fragt das Skript vorher – Enter heißt ja; ohne Rückfragen
+`HT_SAVE_TOKEN=1` ergänzen). Abgelaufen oder nicht gespeichert? `hatchtower github-token`.
 
 <details>
 <summary>Token anlegen (für den Repository-Inhaber)</summary>

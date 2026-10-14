@@ -3,6 +3,12 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.28.1 – 2026-10-14
+
+- `hatchtower github-token` übernimmt den Token jetzt auch, wenn er ohne Zeilenumbruch am Ende kommt (z. B. aus einer
+  Datei oder Pipe). Bisher brach der Befehl dann ohne Meldung ab; gleiches im Proxmox-Installer
+- README: Hinweis, falls `curl` fehlt, und wie der Token bei der Proxmox-Installation ohne Rückfragen gespeichert wird
+
 ## 0.28.0 – 2026-10-14
 
 - **Backups wiederherstellen:** Gespeicherte Backups lassen sich direkt in Hatchtower auf den Server zurückspielen –

@@ -76,7 +76,8 @@ if [ "$code" != "200" ] && [ -z "$TOKEN" ]; then
     echo
     echo "The repository $REPO is private. Please enter a GitHub token with read access"
     echo "(it is not shown while typing):"
-    read -rs TOKEN; echo
+    read -rs TOKEN || true   # auch ohne Zeilenumbruch am Ende
+    echo
   fi
   [ -n "$TOKEN" ] || fail "Without a token the private repository cannot be reached."
 fi

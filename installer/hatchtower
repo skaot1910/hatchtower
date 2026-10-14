@@ -69,7 +69,8 @@ if [ "${1:-}" = "github-token" ]; then
   fi
   REPO="$(repo)"; REPO="${REPO:-skaot1910/hatchtower}"
   echo "Enter a read token for $REPO (not shown while typing, Enter to cancel):"
-  read -rs TOKEN; echo
+  read -rs TOKEN || true   # auch ohne Zeilenumbruch am Ende (z. B. aus einer Pipe)
+  echo
   TOKEN="$(printf '%s' "$TOKEN" | tr -d ' \r\n')"
   [ -n "$TOKEN" ] || { echo "Cancelled."; exit 1; }
   code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
