@@ -3,6 +3,14 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.29.1 – 2026-10-14
+
+- **Backups:** Wiederherstellen, Löschen und andere Knöpfe sind wieder immer sichtbar. Sie erschienen teilweise erst
+  beim Überfahren der Zeile (gilt auch für Automationen und Ankündigungen); nur die Dateiliste blendet Umbenennen und
+  Löschen weiterhin erst beim Überfahren ein
+- **README** gekürzt und auf das Wesentliche beschränkt, mit kurzer Entstehungsgeschichte; Screenshots der Übersicht
+  in der Listenansicht
+
 ## 0.29.0 – 2026-10-14
 
 **Freunde einladen in einem Schritt**

@@ -1220,8 +1220,8 @@ a.file-link:hover { color: var(--violet-3); }
 
 /* Dateien: Umbenennen und Löschen erst beim Überfahren der Zeile zeigen, damit die Liste ruhig bleibt */
 @media (hover: hover) and (pointer: fine) and (min-width: 721px) {
-  .row-actions form { opacity: 0; transition: opacity .12s; }
-  tr:hover .row-actions form, tr:focus-within .row-actions form { opacity: 1; }
+  .files-table .row-actions form { opacity: 0; transition: opacity .12s; }
+  .files-table tr:hover .row-actions form, .files-table tr:focus-within .row-actions form { opacity: 1; }
 }
 
 /* ---- Verbindungsprüfung (Assistent, Panel-Seite) ---------------------------------------------- */
