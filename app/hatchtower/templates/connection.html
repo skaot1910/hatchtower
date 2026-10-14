@@ -36,7 +36,7 @@
   <div class="alert">{{ _("Die Nodes konnten nicht vom Panel gelesen werden: {e}", e=nodes_error) }}</div>
   {% elif nodes %}
   <table class="feature-table wings-table">
-    <thead><tr><th>{{ _("Node") }}</th><th>{{ _("Adresse") }}</th><th>{{ _("Verbindung") }}</th><th>{{ _("SFTP") }}</th></tr></thead>
+    <thead><tr><th>{{ _("Node") }}</th><th>{{ _("Adresse") }}</th><th>{{ _("Verbindung") }}</th></tr></thead>
     <tbody>
       {% for n in nodes %}
       <tr>
@@ -45,7 +45,6 @@
         <td>{% if n.connected %}<span class="pill state-running"><span class="dot"></span>{{ _("verbunden") }}</span>
             {% elif n.daemon_ok %}<span class="pill state-suspended"><span class="dot"></span>{{ _("antwortet nicht wie erwartet") }}</span>
             {% else %}<span class="pill state-suspended"><span class="dot"></span>{{ _("nicht erreichbar") }}</span>{% endif %}</td>
-        <td class="{{ 'good' if n.sftp_ok else 'faint' }}">{{ _("Port {port}", port=n.sftp_port) }} · {{ _("erreichbar") if n.sftp_ok else _("nicht erreichbar") }}</td>
       </tr>
       {% endfor %}
     </tbody>

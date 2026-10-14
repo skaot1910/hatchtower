@@ -98,11 +98,11 @@ def test_alles_in_ordnung(net):
     assert all(r.method == "GET" for r in t.seen), "die Prüfung darf nur lesen"
 
 
-def test_sftp_ist_nur_optional_wings_nur_warnung(net):
+def test_sftp_wird_nicht_geprueft_wings_nur_warnung(net):
     net["tcp"][("wings.test", 2022)] = False
     report = run(cand(), panel())
     assert report.errors == 0 and report.warnings == 0
-    assert any("SFTP" in x for x in titles(report, diagnose.OPTIONAL))
+    assert not any("SFTP" in x for lvl in (diagnose.OK, diagnose.OPTIONAL, diagnose.WARNING) for x in titles(report, lvl))
     net["tcp"][("wings.test", 8080)] = False
     report = run(cand(), panel())
     assert report.errors == 0 and report.warnings == 1 and report.ok_to_save

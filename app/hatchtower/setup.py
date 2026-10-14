@@ -209,22 +209,21 @@ async def tcp_check(host: str, port: int) -> bool:
 
 
 async def node_checks(client: PteroClient, overrides: dict) -> list[dict]:
-    """Erreichbarkeit aller Wings-Nodes (Daemon- und SFTP-Port), mit eventueller anderer Adresse."""
+    """Erreichbarkeit aller Wings-Nodes (Daemon-Port), mit eventueller anderer Adresse."""
     async def one(n: dict) -> dict:
         fqdn = n.get("fqdn") or ""
         override = overrides.get(fqdn, "")
         host = urlsplit(override).hostname if "://" in override else (override.split(":")[0] if override else fqdn)
         daemon_port = int(n.get("daemon_listen") or 8080)
-        sftp_port = int(n.get("daemon_sftp") or 2022)
         if override and "://" not in override and ":" in override:
             daemon_port = int(override.split(":")[1])
         elif "://" in override and urlsplit(override).port:
             daemon_port = urlsplit(override).port
-        daemon_ok, sftp_ok = await asyncio.gather(tcp_check(host, daemon_port), tcp_check(host, sftp_port))
+        daemon_ok = await tcp_check(host, daemon_port)
         return {
             "name": n.get("name"), "fqdn": fqdn, "scheme": n.get("scheme", "http"), "override": override,
-            "host": host, "daemon_port": daemon_port, "sftp_port": sftp_port,
-            "daemon_ok": daemon_ok, "sftp_ok": sftp_ok, "maintenance": bool(n.get("maintenance_mode")),
+            "host": host, "daemon_port": daemon_port,
+            "daemon_ok": daemon_ok, "maintenance": bool(n.get("maintenance_mode")),
         }
     # alle Nodes gleichzeitig, damit ein nicht erreichbarer Node die Seite nicht mehrfach aufhält
     return list(await asyncio.gather(*(one(n) for n in await client.list_nodes())))

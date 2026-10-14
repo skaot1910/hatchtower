@@ -646,7 +646,7 @@ async def wings_overview(client: PteroClient, overrides: dict, panel_key: str) -
 
 async def check_wings(report: Report, cand: Candidate, client: PteroClient, transport=None) -> None:
     """Erreichbarkeit jedes Wings-Nodes – nur so weit, wie Hatchtower es braucht (Konsole, Dateiübertragung).
-    SFTP nutzt Hatchtower nicht; der Port wird nur zur Information geprüft."""
+    SFTP nutzt Hatchtower nicht und prüft es deshalb auch nicht."""
     why = Msg("Konsole, Downloads und Uploads laufen direkt zwischen Hatchtower und Wings. Übersicht, Status, "
               "Starten und Stoppen gehen auch ohne.")
     try:
@@ -684,10 +684,6 @@ async def check_wings(report: Report, cand: Candidate, client: PteroClient, tran
         else:
             any_ok = True
             report.add("wings", OK, Msg("Wings auf „{name}“ ist erreichbar ({target}).", name=name, target=target))
-        report.add("wings", OPTIONAL,
-                   Msg("SFTP auf „{name}“ (Port {port}) ist erreichbar.", name=name, port=n["sftp_port"]) if n["sftp_ok"]
-                   else Msg("SFTP auf „{name}“ (Port {port}) ist nicht erreichbar.", name=name, port=n["sftp_port"]),
-                   Msg("Hatchtower braucht SFTP nicht. Wichtig ist der Port nur für Programme wie FileZilla."))
     if nodes:
         report.caps["wings"] = False if any_bad and not any_ok else (True if any_ok else None)
 

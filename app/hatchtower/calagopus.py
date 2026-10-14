@@ -47,7 +47,6 @@ class CalagopusClient(PteroClient):
             nodes.append({
                 "id": n.get("uuid"), "name": n.get("name"), "fqdn": host, "scheme": parts.scheme or "http",
                 "daemon_listen": parts.port or (443 if parts.scheme == "https" else 80),
-                "daemon_sftp": int(n.get("sftp_port") or 2022),
                 "maintenance_mode": bool(n.get("maintenance_enabled")),
             })
             if host:

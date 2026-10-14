@@ -96,7 +96,6 @@
     <div class="node-checks">
       {% if n.daemon_ok is defined %}
       <span class="check-pill {{ 'ok' if n.daemon_ok else 'warn' }}">{{ '✓' if n.daemon_ok else '!' }} {{ _("Daemon") }} {{ n.host }}:{{ n.daemon_port }}</span>
-      <span class="check-pill {{ 'ok' if n.sftp_ok else 'opt' }}" title="{{ _("Hatchtower braucht SFTP nicht") }}">{{ '✓' if n.sftp_ok else '○' }} {{ _("SFTP") }} {{ n.host }}:{{ n.sftp_port }}</span>
       {% endif %}
     </div>
     <label class="node-override">{{ _("Andere Adresse für diesen Node (optional)") }}

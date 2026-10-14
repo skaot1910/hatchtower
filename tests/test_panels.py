@@ -77,7 +77,7 @@ def test_calagopus_serverliste():
 def test_calagopus_nodes_ueber_wings_proxy():
     c = FakeCalagopus()
     [n] = run(c.list_nodes())
-    assert (n["fqdn"], n["daemon_listen"], n["daemon_sftp"], n["scheme"]) == ("panel.test", 8000, 2022, "http")
+    assert (n["fqdn"], n["daemon_listen"], n["scheme"]) == ("panel.test", 8000, "http")
     # Signierte URLs über den Proxy gelten als bekannter Wings-Node, fremde nicht
     assert run(c.wings_url("http://panel.test:8000/wings-proxy/n1/download?token=t")).startswith("http://panel.test")
     with pytest.raises(Exception):

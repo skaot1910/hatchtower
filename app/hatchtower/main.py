@@ -2390,10 +2390,8 @@ async def admin_system(request: Request):
     except PteroError:
         node_list = []
     for n in node_list:
-        checks.append({"label": f"Wings {n['name']}: Daemon", "ok": n["daemon_ok"],
+        checks.append({"label": f"Wings {n['name']}", "ok": n["daemon_ok"],
                        "detail": f"{n['host']}:{n['daemon_port']} " + i18n.t("erreichbar" if n["daemon_ok"] else "nicht erreichbar")})
-        checks.append({"label": f"Wings {n['name']}: SFTP", "ok": n["sftp_ok"],
-                       "detail": f"{n['host']}:{n['sftp_port']} " + i18n.t("erreichbar" if n["sftp_ok"] else "nicht erreichbar")})
     m = app.state.monitor
     return render(request, "admin_system.html", checks=checks, last_ok=fmt_dt(m.last_ok, settings.timezone),
                   wings_total=len(node_list), wings_ok=sum(1 for n in node_list if n["daemon_ok"]),

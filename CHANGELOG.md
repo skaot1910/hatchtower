@@ -3,6 +3,12 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.28.3 – 2026-10-14
+
+- SFTP-Port (2022) wird nicht mehr geprüft – weder im Selbsttest unter System → Zustand noch in der Wings-Übersicht
+  oder im Einrichtungsassistenten. Hatchtower nutzt SFTP nicht; ein geschlossener Port sah bisher wie ein Fehler aus.
+  Dateien, Konsole, Uploads und Downloads laufen weiterhin über den Wings-Daemon-Port
+
 ## 0.28.2 – 2026-10-14
 
 - **Update erfolgreich:** Nach einem Update über die Oberfläche erscheint eine deutliche grüne Meldung mit der neuen
