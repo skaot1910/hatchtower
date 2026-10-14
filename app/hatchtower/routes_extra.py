@@ -412,6 +412,7 @@ async def verify_email(request: Request, token: str):
         con.execute("UPDATE users SET email = ?, email_verified = 1 WHERE id = ?", (row["email"], row["user_id"]))
         user = con.execute("SELECT username FROM users WHERE id = ?", (row["user_id"],)).fetchone()
     accounts.consume(token)
+    accounts.revoke_resets(row["user_id"])
     audit.record("email.verify", user_id=row["user_id"], username=user["username"] if user else None, ip=ip_of(request))
     return back("/account", "E-Mail-Adresse bestätigt")
 
@@ -441,7 +442,7 @@ async def account_email(request: Request, email: str = Form("")):
     if not email:
         with db.connect() as con:
             con.execute("UPDATE users SET email = NULL, email_verified = 0, notify_email = 0 WHERE id = ?", (user.id,))
-            con.execute("DELETE FROM tokens WHERE purpose = 'verify' AND user_id = ?", (user.id,))
+            con.execute("DELETE FROM tokens WHERE purpose IN ('verify', 'reset') AND user_id = ?", (user.id,))
         audit.record("email.change", user_id=user.id, username=user.username, ip=ip_of(request), detail="entfernt")
         return back("/account#email", "E-Mail-Adresse entfernt")
     if not mail_config().ready:
@@ -478,9 +479,12 @@ def user_data(user_id: int) -> dict:
     with db.connect() as con:
         u = dict(con.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
         u.pop("password_hash", None)
+        # Nur Einträge seit Anlage des Kontos: Benutzer-IDs und -namen gelöschter Konten können neu vergeben
+        # werden, deren Einträge (mit IP-Adressen) gehören nicht in diese Auskunft
         entries = [dict(r) for r in con.execute(
-            "SELECT ts, ip, action, server, detail, result FROM audit_log WHERE user_id = ? OR username = ? ORDER BY id",
-            (user_id, u["username"]))]
+            "SELECT ts, ip, action, server, detail, result FROM audit_log"
+            " WHERE (user_id = ? OR (user_id IS NULL AND username = ?)) AND ts >= ? ORDER BY id",
+            (user_id, u["username"], u["created_at"]))]
         sessions = [dict(r) for r in con.execute(
             "SELECT created_at, last_seen, ip, user_agent FROM sessions WHERE user_id = ?", (user_id,))]
         favs = [r["identifier"] for r in con.execute("SELECT identifier FROM favorites WHERE user_id = ?", (user_id,))]
@@ -558,7 +562,7 @@ async def admin_user_email(request: Request, user_id: int, email: str = Form("")
     if email and not mailer.valid_email(email):
         return back(target_url, "Bitte eine gültige E-Mail-Adresse eingeben")
     with db.connect() as con:
-        con.execute("DELETE FROM tokens WHERE purpose = 'verify' AND user_id = ?", (user_id,))
+        con.execute("DELETE FROM tokens WHERE purpose IN ('verify', 'reset') AND user_id = ?", (user_id,))
         if not email:
             con.execute("UPDATE users SET email = NULL, email_verified = 0, notify_email = 0 WHERE id = ?", (user_id,))
         else:
@@ -591,7 +595,7 @@ async def admin_user_no_email(request: Request, user_id: int, no_email: str = Fo
         if no_email:
             con.execute("UPDATE users SET no_email = 1, email = NULL, email_verified = 0, notify_email = 0 WHERE id = ?",
                         (user_id,))
-            con.execute("DELETE FROM tokens WHERE purpose = 'verify' AND user_id = ?", (user_id,))
+            con.execute("DELETE FROM tokens WHERE purpose IN ('verify', 'reset') AND user_id = ?", (user_id,))
         else:
             con.execute("UPDATE users SET no_email = 0 WHERE id = ?", (user_id,))
     owner_audit(request, owner, "user.update", detail={"user": target["username"], "ohne E-Mail": bool(no_email)})
@@ -756,6 +760,12 @@ async def admin_mail_save(request: Request, enabled: str = Form(""), host: str =
         problems.append("zum Einschalten: Server und Absender")
     if problems:
         return back("/admin/mail", i18n.t("Bitte prüfen: {list}", list=", ".join(i18n.t(x) for x in problems)))
+    old = mail_config()
+    # Das gespeicherte Passwort geht nur an den Server, für den es eingegeben wurde, und nicht unverschlüsselt
+    if old.password and not password and (not security.same_host(old.host, host)
+                                          or (security_ == "none" and old.security != "none")):
+        return back("/admin/mail", "Neuer SMTP-Server oder Verbindung ohne Verschlüsselung: Bitte das Passwort"
+                                   " noch einmal eingeben. Das gespeicherte geht nur an den bisherigen Server.")
     if enabled and not mail_config().base_url:
         # Ohne feste Adresse keine Links in E-Mails: die aktuelle übernehmen, änderbar unter System → Netzwerk
         db.set_setting("mail_base_url", link_base(request), owner.id)
@@ -1325,6 +1335,13 @@ async def setup_import(request: Request, token: str = Form(""), file: UploadFile
 
 # == Audit-Export ======================================================================================
 
+def csv_cell(value) -> str:
+    """Tabellenprogramme führen Zellen mit = + - @ als Formel aus. Im Audit-Log stehen auch Eingaben von
+    Fremden (z. B. der Benutzername eines fehlgeschlagenen Logins), deshalb solche Zellen entschärfen."""
+    text = str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
 @app.get("/admin/audit/export")
 async def admin_audit_export(request: Request, format: str = "csv", action: str = "", username: str = "",
                              server: str = ""):
@@ -1345,7 +1362,7 @@ async def admin_audit_export(request: Request, format: str = "csv", action: str 
         buf = io.StringIO()
         writer = csv.writer(buf, delimiter=";")
         writer.writerow(header)
-        writer.writerows(records)
+        writer.writerows([csv_cell(c) for c in r] for r in records)
         body, media, ext = "﻿" + buf.getvalue(), "text/csv; charset=utf-8", "csv"
     return Response(body, media_type=media,
                     headers={"Content-Disposition": f"attachment; filename*=UTF-8''hatchtower-audit-{stamp}.{ext}"})

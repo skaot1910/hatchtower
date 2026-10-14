@@ -1,0 +1,76 @@
+{# Ergebnisse der Verbindungsprüfung (diagnose.py): Stufen, einzelne Prüfungen mit Lösungsschritten, Funktionen #}
+
+{% macro legend(levels) %}
+<details class="legend check-legend">
+  <summary>{{ _("Was bedeuten die Zeichen?") }}</summary>
+  <dl>
+    {% for key in ('error', 'warning', 'optional', 'ok') %}
+    <dt><span class="check-icon level-{{ key }}" aria-hidden="true">{{ levels[key][0] }}</span> {{ _(levels[key][1]) }}</dt>
+    <dd>{{ _(levels[key][2]) if levels[key][2] else _("Alles in Ordnung.") }}</dd>
+    {% endfor %}
+  </dl>
+</details>
+{% endmacro %}
+
+{% macro item(c, levels, step_link=None) %}
+<li class="check-item level-{{ c.level }}">
+  <span class="check-icon level-{{ c.level }}" aria-hidden="true">{{ levels[c.level][0] }}</span>
+  <div class="check-body">
+    <strong>{{ _(c.title) }}</strong>{% if c.level != 'ok' %} <span class="check-level level-{{ c.level }}">{{ _(levels[c.level][1]) }}</span>{% endif %}
+    {% if c.detail %}<p class="small">{{ _(c.detail) }}</p>{% endif %}
+    {% if c.why %}<p class="faint small"><strong>{{ _("Warum wichtig:") }}</strong> {{ _(c.why) }}</p>{% endif %}
+    {% if c.fix %}
+    <div class="check-fix small">
+      <strong>{{ _("So behebst du das:") }}</strong>
+      <ol>{% for f in c.fix %}<li>{{ _(f) }}</li>{% endfor %}</ol>
+      {% if step_link %}<a href="{{ step_link }}">{{ _("Zum passenden Schritt") }} →</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</li>
+{% endmacro %}
+
+{# Prüfungen ausgewählter Bereiche; ok-Einträge nur, wenn show_ok #}
+{% macro checks(report, levels, areas, only=None, show_ok=True, links=False) %}
+{% for key, label in areas if (only is none or key in only) %}
+  {% set items = report.area(key) %}
+  {% if key in report.skipped %}
+  <h3 class="check-area">{{ _(label) }}</h3>
+  <p class="faint small">{{ _("Nicht geprüft – erst den Fehler oben beheben.") if key != 'client' or report.errors else _("Noch nicht geprüft – der Key fehlt noch.") }}</p>
+  {% elif items %}
+  <h3 class="check-area">{{ _(label) }}</h3>
+  <ul class="check-list">
+    {% for c in items if show_ok or c.level != 'ok' %}
+    {{ item(c, levels, ('/setup?step=' ~ ('nodes' if key == 'wings' else ('panel' if key in ('panel', 'app') else key))) if links else None) }}
+    {% endfor %}
+  </ul>
+  {% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% macro summary(report) %}
+{% if report.errors %}
+<div class="check-summary level-error" role="alert"><strong>{{ _("{n} Fehler", n=report.errors) }}</strong> – {{ _("so funktioniert die Verbindung nicht. Die Lösungsschritte stehen bei jedem Punkt.") }}{% if report.warnings %} {{ _("Dazu {n} Warnung(en).", n=report.warnings) }}{% endif %}</div>
+{% elif report.skipped %}
+<div class="check-summary level-optional" role="status">{{ _("Noch nicht alles geprüft. Gib die fehlenden Angaben in den nächsten Schritten ein.") }}</div>
+{% elif report.warnings %}
+<div class="check-summary level-warning" role="status"><strong>{{ _("{n} Warnung(en)", n=report.warnings) }}</strong> – {{ _("Hatchtower funktioniert, aber einiges ist eingeschränkt. Du kannst trotzdem speichern und es später beheben.") }}</div>
+{% else %}
+<div class="check-summary level-ok" role="status"><strong>{{ _("Alles in Ordnung.") }}</strong> {{ _("Alle Prüfungen sind bestanden.") }}</div>
+{% endif %}
+{% endmacro %}
+
+{% macro features(report, levels) %}
+<table class="feature-table">
+  <thead><tr><th>{{ _("Funktion") }}</th><th>{{ _("Status") }}</th></tr></thead>
+  <tbody>
+  {% for f in report.features %}
+  <tr>
+    <td>{{ _(f.name) }}{% if f.note %}<span class="faint small"> · {{ _(f.note) }}</span>{% endif %}</td>
+    <td><span class="check-icon level-{{ f.level }}" aria-hidden="true">{{ levels[f.level][0] }}</span>
+      {{ _("verfügbar") if f.level == 'ok' else (_("nicht verfügbar") if f.level == 'error' else (_("eingeschränkt") if f.level == 'warning' else (_("ausgeschaltet") if f.name.startswith('Starten') else _("nicht geprüft")))) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}

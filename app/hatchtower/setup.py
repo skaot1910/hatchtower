@@ -239,3 +239,100 @@ def save_values(values: dict[str, str], vault, user_id: int | None) -> None:
         elif name == "node_overrides":
             value = json.dumps(value)
         db.set_setting(key, value, user_id)
+
+
+# -- Entwurf einer Verbindung (Assistent) ------------------------------------------------------
+#
+# Was im Assistenten eingegeben wird, landet erst in einem Entwurf im Arbeitsspeicher (Keys verschlüsselt,
+# je Owner, 30 Minuten gültig). In die Datenbank kommt es erst, wenn der Owner die Prüfung gesehen und das
+# Speichern ausdrücklich bestätigt hat. Nach einem Neustart ist der Entwurf weg; die gespeicherte Verbindung
+# bleibt davon unberührt.
+
+DRAFT_MINUTES = 30
+_drafts: dict[int, dict] = {}
+
+
+def _draft_alive(draft: dict) -> bool:
+    return datetime.now(timezone.utc) - draft["touched"] < timedelta(minutes=DRAFT_MINUTES)
+
+
+def draft_get(user_id: int) -> dict | None:
+    draft = _drafts.get(user_id)
+    if draft is not None and not _draft_alive(draft):
+        _drafts.pop(user_id, None)
+        return None
+    return draft
+
+
+def draft_start(user_id: int, settings: Settings, vault) -> dict:
+    """Neuer Entwurf auf Basis der gespeicherten Verbindung (gespeicherte Keys bleiben, bis man sie ersetzt)."""
+    draft = {
+        "panel_type": settings.panel_type, "url": settings.pterodactyl_url,
+        "app_key": vault.encrypt(settings.app_key) if settings.app_key else "",
+        "client_key": vault.encrypt(settings.client_key) if settings.client_key and not settings.panel.single_key else "",
+        "node_overrides": dict(settings.node_overrides),
+        "repair": settings.configured,          # gab es schon eine Verbindung? Dann nach dem Speichern zur Panel-Seite
+        "new_keys": set(), "report": None, "version": 0, "checked_version": -1,
+        "touched": datetime.now(timezone.utc),
+    }
+    _drafts[user_id] = draft
+    return draft
+
+
+def draft_for(user_id: int, settings: Settings, vault) -> dict:
+    return draft_get(user_id) or draft_start(user_id, settings, vault)
+
+
+def same_origin_for_keys(old_url: str, new_url: str) -> bool:
+    """Dürfen gespeicherte Keys an die neue Adresse? Nur bei gleichem Host (ohne Groß-/Kleinschreibung) und ohne
+    Wechsel von https auf http. Sonst könnte, wer eine Owner-Sitzung übernimmt, die Adresse auf einen eigenen
+    Server umstellen und bekäme beim Verbindungstest die Keys im Klartext."""
+    old, new = urlsplit(old_url or ""), urlsplit(new_url or "")
+    if not old.hostname or not new.hostname or old.hostname.lower() != new.hostname.lower():
+        return False
+    return not (old.scheme == "https" and new.scheme != "https")
+
+
+def draft_update(draft: dict, vault, **values) -> list[str]:
+    """Werte übernehmen. Leere Keys bedeuten „behalten“ – aber nicht beim Wechsel der Panel-Art (alte Keys passen
+    nicht) und nie bei einer Adresse auf einem anderen Host (siehe same_origin_for_keys). Gibt die verworfenen
+    Keys zurück."""
+    dropped: list[str] = []
+
+    def drop(*names: str) -> None:
+        for name in names:
+            if draft[name] and not values.get(name):
+                dropped.append(name)
+            draft[name] = ""
+            draft["new_keys"].discard(name)
+
+    if "panel_type" in values and values["panel_type"] != draft["panel_type"]:
+        draft["panel_type"] = values["panel_type"]
+        drop("app_key", "client_key")
+        draft["node_overrides"] = {}
+    if values.get("url") is not None:
+        if draft["url"] and not same_origin_for_keys(draft["url"], values["url"]):
+            drop("app_key", "client_key")
+            draft["node_overrides"] = {}
+        draft["url"] = values["url"]
+    for name in ("app_key", "client_key"):
+        if values.get(name):
+            draft[name] = vault.encrypt(values[name])
+            draft["new_keys"].add(name)
+    if values.get("node_overrides") is not None:
+        draft["node_overrides"] = dict(values["node_overrides"])
+    draft["version"] += 1
+    draft["touched"] = datetime.now(timezone.utc)
+    return dropped
+
+
+def draft_candidate(draft: dict, vault):
+    from .diagnose import Candidate
+    return Candidate(panel_type=draft["panel_type"], url=draft["url"] or "",
+                     app_key=vault.decrypt(draft["app_key"]) or "" if draft["app_key"] else "",
+                     client_key=vault.decrypt(draft["client_key"]) or "" if draft["client_key"] else "",
+                     node_overrides=dict(draft["node_overrides"]))
+
+
+def draft_clear(user_id: int) -> None:
+    _drafts.pop(user_id, None)

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Hatchtower-Befehl im Container, z. B.:
+#   docker compose exec hatchtower hatchtower reset-password
+set -eu
+DATA="${HATCHTOWER_DATA_DIR:-/var/lib/hatchtower}"
+case "${1:-}" in
+  update|github-token|run-update-request)
+    echo "Im Container wird so aktualisiert: neue Version holen, dann  docker compose up -d --build"
+    exit 1;;
+esac
+if [ -z "${HATCHTOWER_SECRET_KEY:-}" ] && [ -f "$DATA/keys.env" ]; then
+  set -a; . "$DATA/keys.env"; set +a
+fi
+cd /opt/hatchtower/app
+exec python -m hatchtower.cli "$@"

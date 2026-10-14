@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import posixpath
 import re
 import time
@@ -14,13 +15,14 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
-from . import (APP_NAME, __version__, audit, automation, backups, db, extras, i18n, legal, logarchive, logos, retention,
-               security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
+from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, i18n, legal, logarchive, logos,
+               retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import DB_KEYS, apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
 from .monitor import Monitor
@@ -264,15 +266,34 @@ def current_user(request: Request) -> UserContext:
     if row is None:
         raise LoginRequired()
     request.state.csrf = row["csrf"]
+    demo = is_demo_user(row["username"])
     user = UserContext(
-        id=row["user_id"], username=row["username"], role=row["role"], read_only=settings.read_only,
+        id=row["user_id"], username=row["username"], role=row["role"], read_only=settings.read_only or demo,
         grants=load_grants(row["user_id"]), theme=row["theme"], language=row["language"],
         view_mode=row["view_mode"], view_locked=bool(row["view_locked"]),
     )
     if i18n.valid(row["language"]):
         i18n.set_language(row["language"])
     request.state.user = user
+    if demo and request.method not in ("GET", "HEAD") and request.url.path not in DEMO_ALLOWED:
+        audit.record("demo.blocked", result="blocked", user_id=user.id, username=user.username,
+                     ip=ip_of(request), detail=request.url.path)
+        raise DemoBlocked()
     return user
+
+
+# -- Öffentliche Demo ------------------------------------------------------------------
+# Mit HATCHTOWER_DEMO_USER in der Umgebungsdatei bietet die Anmeldeseite „Demo ansehen“ an.
+# Der Demo-Benutzer darf nur lesen: nichts in Hatchtower und nichts im Panel verändern.
+DEMO_ALLOWED = ("/logout",)
+
+
+class DemoBlocked(Exception):
+    pass
+
+
+def is_demo_user(username: str | None) -> bool:
+    return bool(settings.demo_user) and username == settings.demo_user
 
 
 def require_owner(request: Request) -> UserContext:
@@ -348,6 +369,9 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
     context.setdefault("here", request.url.path + (f"?{request.url.query}" if request.url.query else ""))
     context.setdefault("legal_links", legal.links())
     context.setdefault("discord_url", community_discord())
+    context.setdefault("demo_enabled", bool(settings.demo_user))
+    context.setdefault("in_docker", os.environ.get("HATCHTOWER_DOCKER") == "1")
+    context.setdefault("is_demo", is_demo_user(getattr(context.get("user"), "username", None)))
     if template in ("login.html", "setup.html"):
         from . import mailer
         context.setdefault("forgot_enabled", mailer.load_config(vault).ready)
@@ -413,6 +437,21 @@ async def _forbidden(request: Request, exc: Forbidden):
     if request.url.path.startswith("/api/"):
         return JSONResponse({"error": i18n.t(exc.message)}, status_code=403)
     return render(request, "error.html", status=403, title="Kein Zugriff", message=exc.message)
+
+
+@app.exception_handler(RequestValidationError)
+async def _invalid_request(request: Request, exc: RequestValidationError):
+    """Ungültige Anfrage: nur die Namen der Felder melden, nie die gesendeten Werte (könnten API-Keys sein)."""
+    fields = sorted({str(e.get("loc", ["?"])[-1]) for e in exc.errors()})
+    return JSONResponse({"error": i18n.t("Ungültige Anfrage"), "fields": fields}, status_code=422)
+
+
+@app.exception_handler(DemoBlocked)
+async def _demo_blocked(request: Request, exc: DemoBlocked):
+    message = "Das ist eine öffentliche Demo: Hier lässt sich nichts verändern."
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"error": i18n.t(message)}, status_code=403)
+    return render(request, "error.html", status=403, title="Demo", message=message)
 
 
 @app.exception_handler(ReadOnlyViolation)
@@ -515,17 +554,40 @@ async def login(request: Request, username: str = Form(""), password: str = Form
     return response
 
 
+@app.post("/demo/login")
+async def demo_login(request: Request, prelogin: str = Form("")):
+    """Öffentliche Demo: ohne Passwort als Demo-Benutzer anmelden. Owner kommen so nie hinein."""
+    ip = ip_of(request)
+    if not settings.demo_user or not security.prelogin_valid(settings.secret_key, request.cookies.get(security.PRELOGIN_COOKIE), prelogin):
+        return RedirectResponse("/login", status_code=303)
+    if throttle.ip_blocked(ip):
+        return RedirectResponse("/login", status_code=303)
+    with db.connect() as con:
+        row = con.execute("SELECT * FROM users WHERE username = ?", (settings.demo_user,)).fetchone()
+    if row is None or not row["is_active"] or row["role"] == "owner":
+        audit.record("login", result="failed", username=settings.demo_user[:64], ip=ip, detail="Demo nicht verfügbar")
+        return RedirectResponse("/login", status_code=303)
+    audit.record("login", user_id=row["id"], username=row["username"], ip=ip, detail="Demo")
+    response = login_response(request, row["id"], row["username"], "/")
+    response.delete_cookie(security.PRELOGIN_COOKIE)
+    return response
+
+
 # -- Einrichtung (Assistent) und Verbindung ------------------------------------------
 
-SETUP_STEPS = [("owner", "Konto"), ("panel", "Panel"), ("client", "Client-Key"), ("nodes", "Wings"), ("options", "Optionen"),
-               ("legal", "Rechtliches")]
+SETUP_STEPS = [("owner", "Konto"), ("panel", "Panel"), ("client", "Client-Key"), ("nodes", "Wings"),
+               ("review", "Prüfen und speichern"), ("options", "Optionen"), ("legal", "Rechtliches"), ("done", "Bericht")]
+CONNECTION_STEPS = ("panel", "client", "nodes", "review")
 
 
-def setup_steps() -> list[tuple[str, str]]:
-    """Schritte des Assistenten; Panels mit nur einem API-Key (Calagopus) brauchen keinen Client-Key-Schritt."""
-    if settings.panel.single_key:
-        return [s for s in SETUP_STEPS if s[0] != "client"]
-    return SETUP_STEPS
+def setup_steps(panel=None, repair: bool = False) -> list[tuple[str, str]]:
+    """Schritte des Assistenten; Panels mit nur einem API-Key (Calagopus) brauchen keinen Client-Key-Schritt.
+    Beim Reparieren oder Wechseln einer bestehenden Verbindung nur die Verbindungsschritte."""
+    panel = panel or settings.panel
+    steps = [s for s in SETUP_STEPS if not (panel.single_key and s[0] == "client")]
+    if repair:
+        steps = [s for s in steps if s[0] in CONNECTION_STEPS]
+    return steps
 
 
 def login_response(request: Request, user_id: int, username: str, target: str) -> RedirectResponse:
@@ -536,24 +598,57 @@ def login_response(request: Request, user_id: int, username: str, target: str) -
     return response
 
 
-async def connection_context(step: str | None) -> dict:
-    """Daten für die Formulare von Assistent und Verbindungsseite."""
-    ctx = {
-        "panel_type": settings.panel_type, "panel": settings.panel, "panels": list(PANELS.values()),
-        "panel_url": settings.pterodactyl_url,
-        "app_key_masked": setup.mask_key(settings.app_key), "client_key_masked": setup.mask_key(settings.client_key),
-        "manager_ip": setup.manager_ip_towards(settings.pterodactyl_url) if settings.pterodactyl_url else None,
+def connection_context(step: str | None, draft: dict | None = None) -> dict:
+    """Daten für die Formulare von Assistent und Verbindungsseite. Im Assistenten zeigen die Formulare den
+    Entwurf (noch nicht gespeichert), sonst die gespeicherte Verbindung."""
+    if draft is not None:
+        cand = setup.draft_candidate(draft, vault)
+        panel, url, app_key, client_key = cand.panel, cand.url, cand.app_key, cand.client_key
+        report = draft["report"] if draft["checked_version"] == draft["version"] else None
+    else:
+        panel, url, app_key, client_key = settings.panel, settings.pterodactyl_url, settings.app_key, settings.client_key
+        report = None
+    return {
+        "panel_type": panel.key, "panel": panel, "panels": list(PANELS.values()),
+        "panel_url": url,
+        "app_key_masked": setup.mask_key(app_key), "client_key_masked": setup.mask_key(client_key),
+        "manager_ip": setup.manager_ip_towards(url) if url else None,
         "mode": settings.manager_mode, "public_host": db.get_setting("public_host"),
         "trusted_proxies": format_proxies(settings.trusted_proxies), "timezone": settings.timezone,
-        "timezones": setup.timezone_choices(), "nodes": [], "nodes_error": None,
-        "steps": setup_steps()[1:], "step": step,
+        "timezones": setup.timezone_choices(),
+        "nodes": report.nodes if report else [], "report": report, "draft": draft,
+        "steps": setup_steps(panel)[1:], "step": step,
     }
-    if step in (None, "nodes") and settings.pterodactyl_url and settings.app_key:
-        try:
-            ctx["nodes"] = await setup.node_checks(app.state.ptero, settings.node_overrides)
-        except PteroError as exc:
-            ctx["nodes_error"] = setup.explain(exc, "API-Key" if settings.panel.single_key else "Application-Key")
-    return ctx
+
+
+def draft_changes(draft: dict) -> list[dict]:
+    """Was beim Speichern geändert wird (Übersicht vor dem Speichern). Keys nur maskiert."""
+    cand = setup.draft_candidate(draft, vault)
+    single = cand.panel.single_key
+    configured = settings.configured
+
+    def key_state(name: str, value: str, old: str) -> str:
+        if not value:
+            return i18n.t("fehlt")
+        masked = setup.mask_key(value)
+        return i18n.t("{key} (neu)", key=masked) if value != old else i18n.t("{key} (unverändert)", key=masked)
+
+    def overrides_text(values: dict) -> str:
+        return ", ".join(f"{k} → {v}" for k, v in values.items()) or i18n.t("keine")
+
+    rows = [
+        ("Panel", cand.panel.name, settings.panel.name),
+        ("Adresse des Panels", setup.normalize_url(cand.url) or cand.url, settings.pterodactyl_url),
+        ("API-Key" if single else "Application-API-Key", key_state("app_key", cand.app_key, settings.app_key),
+         setup.mask_key(settings.app_key)),
+    ]
+    if not single:
+        rows.append(("Client-API-Key", key_state("client_key", cand.client_key, settings.client_key),
+                     setup.mask_key(settings.client_key)))
+    rows.append(("Andere Wings-Adressen", overrides_text(cand.node_overrides), overrides_text(settings.node_overrides)))
+    return [{"label": label, "new": new, "old": old if configured else "",
+             "changed": configured and old != new and not new.endswith(i18n.t("(unverändert)"))}
+            for label, new, old in rows]
 
 
 @app.get("/setup", response_class=HTMLResponse)
@@ -563,11 +658,50 @@ async def setup_page(request: Request, step: str = ""):
     user = current_user(request)
     if not user.is_owner:
         deny(request, user, "setup")
-    if step not in dict(setup_steps()) or step == "owner":
+    draft = setup.draft_get(user.id)
+    panel = PANELS[draft["panel_type"]] if draft else settings.panel
+    if step not in dict(setup_steps(panel)) or step == "owner":
         step = ("panel" if not (settings.pterodactyl_url and settings.app_key)
                 else "client" if not settings.client_key else "nodes")
-    return render(request, "setup.html", conn=await connection_context(step), step=step, steps=setup_steps()[1:],
-                  error=None)
+    if step in CONNECTION_STEPS:
+        draft = draft or setup.draft_start(user.id, settings, vault)
+        panel = PANELS[draft["panel_type"]]
+        if step == "client" and panel.single_key:
+            step = "nodes"
+    repair = bool(draft and draft["repair"] and step in CONNECTION_STEPS)
+    extra: dict = {}
+    if step == "review" and draft is not None:
+        extra["changes"] = draft_changes(draft)
+    if step == "done":
+        extra["final"] = await final_report()
+    steps = setup_steps(panel, repair)
+    return render(request, "setup.html", conn=connection_context(step, draft if step in CONNECTION_STEPS else None),
+                  step=step, steps=steps if repair else steps[1:], repair=repair, error=None, levels=LEVEL_TEXTS,
+                  areas=diagnose.AREAS, **extra)
+
+
+# Stufen der Prüfergebnisse: Zeichen, Name, Erklärung
+LEVEL_TEXTS = {
+    diagnose.ERROR: ("✕", "Fehler", "Muss behoben werden, sonst funktioniert Hatchtower nicht. Speichern ist gesperrt."),
+    diagnose.WARNING: ("!", "Warnung", "Funktioniert, aber etwas ist eingeschränkt oder riskant. Speichern ist möglich."),
+    diagnose.OPTIONAL: ("○", "Optional", "Nur für eine Zusatzfunktion wichtig oder ein Hinweis. Kann so bleiben."),
+    diagnose.OK: ("✓", "In Ordnung", ""),
+}
+
+
+async def final_report() -> dict:
+    """Ergebnisbericht am Ende des Assistenten: Prüfung der gespeicherten Verbindung und die gewählten Optionen."""
+    report = None
+    if settings.configured:
+        report = await diagnose.run(settings, diagnose.candidate_from_settings(settings))
+        db.set_setting("connection_last_check", json.dumps(diagnose.summary(report)), None)
+    return {
+        "report": report,
+        "mode": settings.manager_mode, "timezone": settings.timezone, "public_host": db.get_setting("public_host"),
+        "trusted_proxies": format_proxies(settings.trusted_proxies),
+        "default_view": db.get_setting("default_view") or "full",
+        "legal": [page for page in legal.PAGES if legal.text(page)],
+    }
 
 
 def owner_step(request: Request, error: str | None, username: str) -> HTMLResponse:
@@ -615,6 +749,122 @@ async def setup_owner(request: Request, token: str = Form(""), username: str = F
     return login_response(request, user_id, username, "/setup?step=panel")
 
 
+def parse_overrides(form) -> tuple[dict, str | None]:
+    """Andere Wings-Adressen aus einem Formular (Felder override__<fqdn>)."""
+    overrides = {}
+    for field, value in form.items():
+        if field.startswith("override__") and isinstance(value, str) and value.strip():
+            value = value.strip().rstrip("/")
+            if not re.fullmatch(r"(https?://)?[A-Za-z0-9.\-]+(:\d{1,5})?", value):
+                return {}, i18n.t("Ungültige Adresse: {value}", value=value)
+            overrides[field[len("override__"):]] = value
+    return overrides, None
+
+
+@app.post("/admin/connection/check")
+async def connection_check(request: Request, step: str = Form("review"), panel_type: str = Form(""),
+                           panel_url: str = Form(""), app_key: str = Form(""), client_key: str = Form("")):
+    """Assistent: Eingaben in den Entwurf übernehmen und alles prüfen (nur lesend). Speichert nichts in der
+    Datenbank und ändert nichts am Panel. Keys stehen nur im Formular, nie in der Weiterleitung."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    draft = setup.draft_for(owner.id, settings, vault)
+    values: dict = {}
+    if step == "panel":
+        panel = PANELS.get(panel_type) or PANELS[draft["panel_type"]]
+        values = {"panel_type": panel.key, "url": panel_url.strip().rstrip("/"), "app_key": app_key.strip()}
+    elif step == "client":
+        values = {"client_key": client_key.strip()}
+    elif step == "nodes":
+        overrides, problem = parse_overrides(await request.form())
+        if problem:
+            return back("/setup?step=nodes", problem)
+        values = {"node_overrides": overrides}
+    else:
+        step = "review"
+    dropped = setup.draft_update(draft, vault, **values)
+    report = await diagnose.run(settings, setup.draft_candidate(draft, vault))
+    if dropped:
+        report.checks.insert(0, diagnose.Check(
+            "app", diagnose.OPTIONAL, i18n.Msg("Gespeicherte Keys wurden nicht übernommen."),
+            i18n.Msg("Die neue Adresse zeigt auf einen anderen Server (oder nicht mehr auf https). Bitte die Keys "
+                     "neu eintragen."),
+            i18n.Msg("Schutz davor, gespeicherte Keys an eine fremde Adresse zu schicken.")))
+    draft["report"], draft["checked_version"] = report, draft["version"]
+    audit.record("connection.check", result="ok" if report.errors == 0 else "error", user_id=owner.id,
+                 username=owner.username, ip=ip_of(request),
+                 detail={"schritt": step, "panel": f"{PANELS[draft['panel_type']].name} {draft['url']}",
+                         "fehler": report.errors, "warnungen": report.warnings,
+                         "keys_verworfen": dropped or None})
+    single = PANELS[draft["panel_type"]].single_key
+    if step == "panel":
+        target = "panel" if report.has_errors("panel", "app") else ("nodes" if single else "client")
+    elif step == "client":
+        target = "panel" if report.has_errors("panel", "app") else "client" if report.has_errors("client") else "nodes"
+    else:
+        target = "review"
+    return RedirectResponse(f"/setup?step={target}", status_code=303)
+
+
+@app.post("/admin/connection/save")
+async def connection_save(request: Request, confirm: str = Form("")):
+    """Assistent: den geprüften Entwurf speichern – nur nach ausdrücklicher Bestätigung und ohne Fehler."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    draft = setup.draft_get(owner.id)
+    if draft is None:
+        return back("/setup?step=panel", "Die Eingaben sind abgelaufen (nach 30 Minuten oder einem Neustart). "
+                                         "Bitte noch einmal eingeben, gespeichert wurde nichts.")
+    report = draft["report"]
+    if report is None or draft["checked_version"] != draft["version"]:
+        return back("/setup?step=review", "Bitte zuerst prüfen. Gespeichert wurde nichts.")
+    if not report.ok_to_save:
+        return back("/setup?step=review", "Es gibt noch Fehler. Gespeichert wurde nichts.")
+    if confirm != "1":
+        return back("/setup?step=review", "Bitte bestätige, dass die Zugangsdaten gespeichert werden sollen. "
+                                          "Gespeichert wurde nichts.")
+    cand = setup.draft_candidate(draft, vault)
+    url = setup.normalize_url(cand.url) or cand.url
+    switched = settings.configured and cand.panel.key != settings.panel_type
+    app_new, client_new = cand.app_key != settings.app_key, cand.effective_client_key != settings.client_key
+    setup.save_values({"panel_type": cand.panel.key, "panel_url": url, "app_key": cand.app_key,
+                       "client_key": cand.effective_client_key, "node_overrides": cand.node_overrides}, vault, owner.id)
+    db.set_setting("connection_last_check", json.dumps(diagnose.summary(report)), owner.id)
+    await apply_connection()
+    audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail={
+        "panel": f"{cand.panel.name} {url}", "panel_gewechselt": switched or None,
+        "app_key": "neu" if app_new else "unverändert",
+        "client_key": None if cand.panel.single_key else ("neu" if client_new else "unverändert"),
+        "wings_adressen": cand.node_overrides or "keine Abweichung", "warnungen": report.warnings,
+        "bestaetigt": True})
+    repair = draft["repair"]
+    setup.draft_clear(owner.id)
+    if repair:
+        return back("/admin/connection", "Verbindung gespeichert.")
+    return back("/setup?step=options", "Verbindung gespeichert.")
+
+
+@app.post("/admin/connection/discard")
+async def connection_discard(request: Request):
+    """Assistent: Entwurf verwerfen. Die gespeicherte Verbindung bleibt, wie sie ist."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    draft = setup.draft_get(owner.id)
+    setup.draft_clear(owner.id)
+    if draft is not None and draft["repair"]:
+        return back("/admin/connection", "Änderungen verworfen. Die bisherige Verbindung bleibt unverändert.")
+    return back("/setup?step=panel", "Eingaben verworfen. Gespeichert wurde nichts.")
+
+
+@app.get("/admin/connection/wizard")
+async def connection_wizard(request: Request):
+    """Verbindung reparieren oder anderes Panel verbinden: Assistent mit frischem Entwurf aus der gespeicherten
+    Verbindung. Bis zur Bestätigung bleibt die bisherige Verbindung aktiv."""
+    owner = require_owner(request)
+    setup.draft_start(owner.id, settings, vault)
+    return RedirectResponse("/setup?step=panel", status_code=303)
+
+
 def connection_back(target: str, message: str) -> RedirectResponse:
     if not target.startswith(("/setup", "/admin/connection")):
         target = "/admin/connection"
@@ -630,8 +880,9 @@ async def connection_panel(request: Request, panel_url: str = Form(""), panel_ty
     url = setup.normalize_url(panel_url)
     if url is None:
         return connection_back(next, "Bitte die Panel-Adresse vollständig angeben, z. B. https://panel.example.de")
-    # Beim Wechsel des Panels passt der gespeicherte Key nicht mehr
-    key = app_key.strip() or (settings.app_key if panel.key == settings.panel_type else "")
+    # Beim Wechsel des Panels passt der gespeicherte Key nicht mehr, und an einen anderen Host geht er nie
+    keep = panel.key == settings.panel_type and setup.same_origin_for_keys(settings.pterodactyl_url, url)
+    key = app_key.strip() or (settings.app_key if keep else "")
     key_label = "API-Key" if panel.single_key else "Application-Key"
     if not key:
         return connection_back(next, "Bitte den API-Key eintragen" if panel.single_key
@@ -647,7 +898,7 @@ async def connection_panel(request: Request, panel_url: str = Form(""), panel_ty
     values = {"panel_type": panel.key, "panel_url": url, "app_key": key}
     if panel.single_key:
         values["client_key"] = key
-    elif panel.key != settings.panel_type:
+    elif not keep:
         values["client_key"] = ""
     setup.save_values(values, vault, owner.id)
     await apply_connection()
@@ -691,14 +942,9 @@ async def connection_client(request: Request, client_key: str = Form(""), next: 
 async def connection_nodes(request: Request, next: str = Form("/admin/connection")):
     owner = require_owner(request)
     await check_csrf(request)
-    form = await request.form()
-    overrides = {}
-    for field, value in form.items():
-        if field.startswith("override__") and isinstance(value, str) and value.strip():
-            value = value.strip().rstrip("/")
-            if not re.fullmatch(r"(https?://)?[A-Za-z0-9.\-]+(:\d{1,5})?", value):
-                return connection_back(next, i18n.t("Ungültige Adresse: {value}", value=value))
-            overrides[field[len("override__"):]] = value
+    overrides, problem = parse_overrides(await request.form())
+    if problem:
+        return connection_back(next, problem)
     setup.save_values({"node_overrides": overrides}, vault, owner.id)
     await apply_connection()
     audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
@@ -709,8 +955,8 @@ async def connection_nodes(request: Request, next: str = Form("/admin/connection
 @app.post("/admin/connection/options")
 async def connection_options(request: Request, mode: str = Form("read-only"), public_host: str | None = Form(None),
                              trusted_proxies: str | None = Form(None), timezone_: str | None = Form(None, alias="timezone"),
-                             next: str = Form("/admin/connection")):
-    """Modus und, im Assistenten, auch öffentliche Adresse, Reverse-Proxy und Zeitzone.
+                             default_view: str | None = Form(None), next: str = Form("/admin/connection")):
+    """Modus und, im Assistenten, auch öffentliche Adresse, Reverse-Proxy, Zeitzone und Standardansicht.
     Auf der Panel-Seite kommt nur der Modus; fehlende Felder bleiben unverändert."""
     owner = require_owner(request)
     await check_csrf(request)
@@ -734,6 +980,9 @@ async def connection_options(request: Request, mode: str = Form("read-only"), pu
     setup.save_values(values, vault, owner.id)
     if host is not None:
         db.set_setting("public_host", host, owner.id)
+    if default_view in VIEW_MODES:
+        db.set_setting("default_view", default_view, owner.id)
+        detail["standard_ansicht"] = default_view
     await apply_connection()
     audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail=detail)
     if next.startswith("/setup"):
@@ -754,10 +1003,11 @@ async def setup_legal(request: Request, sprache: str = Form("")):
         if not legal.text(page):                 # vorhandene Texte nie überschreiben
             db.set_setting(legal.PAGES[page] + "_text", legal.template(page, lang), owner.id)
     if not chosen:
-        return back("/", "Einrichtung abgeschlossen. Willkommen bei Hatchtower!")
+        return back("/setup?step=done", "Einrichtung abgeschlossen. Willkommen bei Hatchtower!")
     audit.record("settings.legal", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"vorlage": chosen, "sprache": lang})
-    return back("/admin/legal", "Einrichtung abgeschlossen. Ergänze jetzt die Angaben in eckigen Klammern und schalte die Seiten ein.")
+    return back("/setup?step=done", "Einrichtung abgeschlossen. Ergänze die Vorlagen unter Auftritt → Rechtliches "
+                                    "und schalte sie ein.")
 
 
 def proxies_problem(value: str) -> str | None:
@@ -776,9 +1026,21 @@ def clean_public_host(value: str) -> tuple[str, str | None]:
 
 
 @app.get("/admin/connection", response_class=HTMLResponse)
-async def connection_page(request: Request):
-    require_owner(request)
-    return render(request, "connection.html", conn=await connection_context(None))
+async def connection_page(request: Request, check: str = ""):
+    """Panel-Seite: gespeicherte Verbindung, Prüfung auf Knopfdruck, Einstieg zum Reparieren oder Wechseln."""
+    owner = require_owner(request)
+    report = None
+    if check and settings.configured:
+        report = await diagnose.run(settings, diagnose.candidate_from_settings(settings))
+        db.set_setting("connection_last_check", json.dumps(diagnose.summary(report)), owner.id)
+    try:
+        last = json.loads(db.get_setting("connection_last_check") or "null")
+    except ValueError:
+        last = None
+    last_at = fmt_dt(last.get("at"), settings.timezone) if isinstance(last, dict) else ""
+    return render(request, "connection.html", conn=connection_context(None), report=report, last_check=last,
+                  last_check_at=last_at,
+                  draft=setup.draft_get(owner.id), levels=LEVEL_TEXTS, areas=diagnose.AREAS)
 
 
 @app.get("/theme/{key}")
@@ -1020,6 +1282,7 @@ async def files_page(request: Request, ident: str, dir: str = "/"):
         f["path"] = posixpath.join(directory, f["name"])
         f["size_text"] = fmt_size(f["size"]) if f["is_file"] else ""
         f["modified_text"] = fmt_dt(f["modified_at"], settings.timezone)
+        f["editable"] = f["is_file"] and f["size"] <= MAX_EDIT_BYTES and looks_editable(f["name"], f.get("mimetype", ""))
     return render(request, "files.html", server=server, files=files, directory=directory, crumbs=crumbs,
                   parent=posixpath.dirname(directory) if directory != "/" else None, error=error,
                   can_download=user.can(ident, "sftp.download"), can_upload=user.can(ident, "sftp.upload"),
@@ -1133,6 +1396,22 @@ async def api_command(request: Request, ident: str):
 
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 MAX_EDIT_BYTES = 1024 * 1024
+# Endungen, die immer als Text gelten, auch wenn das Panel sie anders erkennt (z. B. steam_appid.txt mit Null-Byte)
+TEXT_SUFFIXES = (".txt", ".cfg", ".conf", ".ini", ".json", ".json5", ".properties", ".yml", ".yaml", ".toml", ".xml",
+                 ".log", ".sh", ".bat", ".lua", ".js", ".csv", ".md", ".env", ".vdf", ".lst", ".list", ".acf")
+BINARY_MIME_HINTS = ("executable", "sharedlib", "octet-stream", "zip", "gzip", "x-tar", "compressed", "x-7z", "x-rar",
+                     "x-bzip", "x-xz", "zstd", "sqlite", "java-archive", "x-object", "x-mach", "msdownload", "pdf",
+                     "x-dosexec", "wasm")
+
+
+def looks_editable(name: str, mimetype: str) -> bool:
+    """Ob sich eine Datei im Editor öffnen lässt: Text laut Endung oder kein Hinweis auf eine Binärdatei."""
+    if name.lower().endswith(TEXT_SUFFIXES):
+        return True
+    mime = (mimetype or "").lower()
+    if mime.startswith(("image/", "audio/", "video/", "font/")):
+        return False
+    return not any(hint in mime for hint in BINARY_MIME_HINTS)
 BACKUP_SUFFIX = ".bak"
 
 
@@ -1247,6 +1526,9 @@ async def files_edit(request: Request, ident: str, file: str):
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         text = None
+    if text is not None:
+        # manche Spiele hängen Null-Bytes an (z. B. steam_appid.txt); am Ende sind sie harmlos
+        text = text.rstrip("\x00")
     if text is None or "\x00" in text:
         return files_back(ident, directory, "Das ist keine Textdatei und kann hier nicht bearbeitet werden")
     eol = "crlf" if "\r\n" in text else "lf"
@@ -1864,6 +2146,11 @@ def require_automation(request: Request) -> tuple[UserContext, dict[str, str]]:
     return user, {i: n for i, n in names.items() if i in allowed}
 
 
+def crash_allowed(user: UserContext, ident: str) -> bool:
+    """Neustart nach Absturz umschalten: Automationen verwalten und den Server selbst starten dürfen."""
+    return user.is_owner or (user.can(ident, "automation.manage") and user.can(ident, "power.start"))
+
+
 def own_schedule(request: Request, user: UserContext, sched_id: int):
     """Zeitplan laden; Benutzer dürfen nur Zeitpläne ändern, die sie auch selbst anlegen dürften."""
     with db.connect() as con:
@@ -1904,6 +2191,7 @@ async def admin_automation(request: Request):
     return render(request, "admin_automation.html", servers=servers, crash=settings_rows, schedules=sched_view,
                   crashes=crash_view, weekdays=[i18n.t(d) for d in automation.WEEKDAYS],
                   actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()}, allowed_actions=allowed_actions,
+                  crash_allowed={s["identifier"] for s in servers if crash_allowed(user, s["identifier"])},
                   durations={m: automation.duration_text(m) for m in automation.DURATIONS},
                   tz_offset=setup.utc_offset_label(settings.timezone))
 
@@ -1914,6 +2202,9 @@ async def admin_automation_crash(request: Request):
     await check_csrf(request)
     form = await request.form()
     enabled = {k.split("__", 1)[1] for k in form.keys() if k.startswith("crash__")}
+    # Der Neustart nach Absturz startet den Server: wie bei Zeitplänen nur mit dem eigenen Startrecht
+    known = {i: n for i, n in known.items() if crash_allowed(owner, i)}
+    enabled &= set(known)
     now = db.utcnow()
     with db.connect() as con:
         # Nur Server, die dieser Benutzer verwalten darf – alle anderen bleiben unverändert

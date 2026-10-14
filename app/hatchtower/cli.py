@@ -13,13 +13,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import getpass
+import json
 import sys
 
 from . import APP_NAME, __version__, audit, db, i18n, security, setup
 from .i18n import t
 from .config import ConfigError, apply_db_values, load_settings
 from .panels import make_client
-from .ptero import PteroError, ReadOnlyViolation
+from .ptero import ReadOnlyViolation
 
 
 def _ask_password(username: str) -> str | None:
@@ -85,52 +86,44 @@ def reset_password() -> int:
 
 
 async def selftest(settings) -> int:
+    """Gleiche Prüfung wie im Browser (diagnose.py), nur lesend. Rückgabe 1 nur bei echten Fehlern."""
+    from . import diagnose
     if not settings.configured:
         print(t("Noch nicht eingerichtet: Panel-Adresse oder API-Keys fehlen. Bitte im Browser einrichten."))
         return 1
-    client = make_client(settings)
-    failed = 0
     print(t("{app} {version} – Selbsttest (nur lesend) gegen {url}", app=APP_NAME, version=__version__,
             url=f"{settings.panel.name} {settings.pterodactyl_url}"))
-    try:
+    report = await diagnose.run(settings, diagnose.candidate_from_settings(settings))
+    db.set_setting("connection_last_check", json.dumps(diagnose.summary(report)), None)
+    marks = {diagnose.ERROR: "✕", diagnose.WARNING: "!", diagnose.OPTIONAL: "○", diagnose.OK: "✓"}
+    for key, label in diagnose.AREAS:
+        checks = report.area(key)
+        if key in report.skipped:
+            print(f"\n{t(label)}\n  · " + t("Nicht geprüft – erst den Fehler oben beheben."))
+            continue
+        if not checks:
+            continue
+        print(f"\n{t(label)}")
+        for c in checks:
+            print(f"  {marks[c.level]} {t(c.title)}")
+            if c.level in (diagnose.ERROR, diagnose.WARNING):
+                if c.detail:
+                    print(f"      {t(c.detail)}")
+                for step in c.fix:
+                    print(f"      → {t(step)}")
+    print("\n  · " + t("Modus: {mode}", mode=t("nur lesen") if settings.read_only else t("lesen und steuern")))
+    if settings.read_only:
+        client = make_client(settings)
         try:
-            nodes = await client.list_nodes()
-            print("  ✓ " + t("Application-API: {n} Node(s)", n=len(nodes)))
-        except PteroError as exc:
-            failed += 1
-            nodes = []
-            print(t("  ✕ Application-API: ") + str(exc))
-        try:
-            servers = await client.list_servers()
-            print("  ✓ " + t("Serverliste: {n} Server", n=len(servers)))
-        except PteroError as exc:
-            servers = []
-            failed += 1
-            print("  ✕ " + t("Serverliste: {grund}", grund=exc))
-        if servers:
-            try:
-                res = await client.resources(servers[0].identifier)
-                print("  ✓ " + t("Client-API: Status von „{name}“ = {state}", name=servers[0].name, state=res["state"]))
-            except PteroError as exc:
-                failed += 1
-                print(t("  ✕ Client-API: ") + str(exc))
-        for check in await setup.node_checks(client, settings.node_overrides) if nodes else []:
-            ok = check["daemon_ok"] and check["sftp_ok"]
-            failed += 0 if ok else 1
-            reach = {True: t("erreichbar"), False: t("NICHT erreichbar")}
-            print(f"  {'✓' if ok else '✕'} Wings {check['name']}: Daemon {check['host']}:{check['daemon_port']} "
-                  f"{reach[check['daemon_ok']]}, SFTP {check['sftp_port']} {reach[check['sftp_ok']]}")
-        print("  · " + t("Modus: {mode}", mode=t("nur lesen") if settings.read_only else t("lesen und steuern")))
-        if settings.read_only:
-            try:
-                client._guard("POST")
-                failed += 1
-                print("  ✕ " + t("Read-Only-Sperre: POST wurde NICHT blockiert"))
-            except ReadOnlyViolation:
-                print("  ✓ " + t("Read-Only-Sperre greift"))
-    finally:
-        await client.close()
-    return 1 if failed else 0
+            client._guard("POST")
+            print("  ✕ " + t("Read-Only-Sperre: POST wurde NICHT blockiert"))
+            return 1
+        except ReadOnlyViolation:
+            print("  ✓ " + t("Read-Only-Sperre greift"))
+        finally:
+            await client.close()
+    print("\n" + t("Ergebnis: {e} Fehler, {w} Warnung(en)", e=report.errors, w=report.warnings))
+    return 1 if report.errors else 0
 
 
 def main() -> None:

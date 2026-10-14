@@ -637,7 +637,7 @@ def test_automationen_absturz_neustart_laesst_fremde_server_unveraendert(world):
     with db.connect() as con:
         con.execute("INSERT INTO automation_settings (identifier, crash_restart, updated_at) VALUES ('srv-b', 1, ?)",
                     (db.utcnow(),))
-    uid = world.user("planer", grants={"srv-a": {"automation.manage"}})
+    uid = world.user("planer", grants={"srv-a": {"automation.manage", "power.start"}})
     c = world.client(uid)
     assert_ok(c.post("/admin/automation/crash", data={"csrf": c.csrf, "crash__srv-a": "1"}))
     with db.connect() as con:

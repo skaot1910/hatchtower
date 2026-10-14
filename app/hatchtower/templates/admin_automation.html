@@ -14,7 +14,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="toggle-list">
         {% for s in servers %}
-        <label class="check"><input type="checkbox" name="crash__{{ s.identifier }}" value="1" {% if crash.get(s.identifier) %}checked{% endif %}> {{ s.name }} <span class="faint small">{{ s.egg }}</span></label>
+        <label class="check"><input type="checkbox" name="crash__{{ s.identifier }}" value="1" {% if crash.get(s.identifier) %}checked{% endif %}{% if s.identifier not in crash_allowed %} disabled title="{{ _('Dafür brauchst du auch das Recht „Start“') }}"{% endif %}> {{ s.name }} <span class="faint small">{{ s.egg }}</span></label>
         {% endfor %}
       </div>
       <p class="faint small">{{ _("Hinweis: Wer einen Server per Ingame-Befehl beendet, sollte ihn lieber über den Manager oder das Panel stoppen. Stopp-Befehle wie {beispiele} über die Konsole werden erkannt.", beispiele="stop, quit, shutdown") }}</p>

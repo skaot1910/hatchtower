@@ -12,6 +12,8 @@ from .i18n import t
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 MAX_SIDE = 256
 ALLOWED_FORMATS = {"PNG", "JPEG", "WEBP"}
+# Wenige MB können ein riesiges Bild beschreiben; entpackt (RGBA) bräuchte es Hunderte MB Arbeitsspeicher
+MAX_PIXELS_SIDE = 4096
 
 
 class LogoError(ValueError):
@@ -26,6 +28,8 @@ def store_logo(data: bytes, logo_dir: Path, box: tuple[int, int] = (MAX_SIDE, MA
         with Image.open(io.BytesIO(data)) as probe:
             if probe.format not in ALLOWED_FORMATS:
                 raise LogoError(t("Erlaubt sind PNG, JPG und WebP."))
+            if max(probe.size) > MAX_PIXELS_SIDE:
+                raise LogoError(t("Das Bild ist zu groß (höchstens {n} × {n} Pixel).", n=MAX_PIXELS_SIDE))
             probe.verify()
         with Image.open(io.BytesIO(data)) as img:
             img = img.convert("RGBA")

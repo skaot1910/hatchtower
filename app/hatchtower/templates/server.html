@@ -25,7 +25,14 @@
   <div class="facts">{{ c.join_facts(server) }}</div>
 </section>
 {% else %}
-<div class="two-col">
+{# Reiter: ohne JavaScript bleiben alle Bereiche untereinander sichtbar #}
+<nav class="subnav server-tabs" id="server-tabs" aria-label="{{ _("Bereiche des Servers") }}" hidden>
+  <a href="#uebersicht" data-tab-link="uebersicht">{{ _("Übersicht") }}</a>
+  {% if server.can_console %}<a href="#konsole" data-tab-link="konsole">{{ _("Konsole") }}</a>{% endif %}
+  {% if server.can_archive %}<a href="#log-archiv" data-tab-link="log-archiv">{{ _("Log-Archiv") }}</a>{% endif %}
+  {% if server.can_log %}<a href="#protokoll" data-tab-link="protokoll">{{ _("Protokoll") }}</a>{% endif %}
+</nav>
+<div class="two-col" id="uebersicht" data-tab="uebersicht">
   <section class="card">
     <h2 class="card-h">{{ _("Server") }}</h2>
     <div class="facts">{{ c.facts(server) }}
@@ -50,7 +57,7 @@
 </div>
 
 {% if not simple_view %}
-<section class="card" id="verlauf" data-metrics="/api/servers/{{ server.identifier }}/metrics">
+<section class="card" id="verlauf" data-tab="uebersicht" data-metrics="/api/servers/{{ server.identifier }}/metrics">
   <div class="chart-head">
     <h2 class="card-h">{{ _("Verlauf") }}</h2>
     <div class="view-toggle" role="group" aria-label="{{ _("Zeitraum") }}">
@@ -72,7 +79,7 @@
 {% endif %}
 
 {% if server.can_console %}
-<section class="card console-card" id="konsole">
+<section class="card console-card" id="konsole" data-tab="konsole">
   <div class="console-toolbar">
     <h2 class="card-h">{{ _("Konsole") }}</h2>
     <span class="console-state faint small" id="console-state">{{ _("verbinde …") }}</span>
@@ -91,7 +98,7 @@
 </section>
 {% endif %}
 {% if server.can_archive and not simple_view %}
-<section class="card" id="log-archiv" data-logs="/api/servers/{{ server.identifier }}/logs" data-download="/servers/{{ server.identifier }}/logs.txt">
+<section class="card" id="log-archiv" data-tab="log-archiv" data-logs="/api/servers/{{ server.identifier }}/logs" data-download="/servers/{{ server.identifier }}/logs.txt">
   <div class="console-toolbar">
     <h2 class="card-h">{{ _("Log-Archiv") }}</h2>
     {% if archive_days %}<span class="faint small">{{ _("Hatchtower schreibt die Konsole mit und behält sie {n} Tage.", n=archive_days) }}</span>{% endif %}
@@ -121,7 +128,7 @@
 </section>
 {% endif %}
 {% if server.can_log and not simple_view %}
-<section class="card" id="protokoll">
+<section class="card" id="protokoll" data-tab="protokoll">
   <div class="console-toolbar">
     <h2 class="card-h">{{ _("Protokoll") }}</h2>
     <span class="faint small">{{ _("Aus dem Audit-Log ({n} Tage) und den Statuswechseln (90 Tage)", n=audit_days) }}</span>

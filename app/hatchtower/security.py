@@ -142,12 +142,22 @@ def delete_session(token: str | None) -> None:
 
 
 def delete_user_sessions(user_id: int) -> None:
+    """Meldet den Benutzer überall ab (Passwort geändert, Konto gesperrt). Offene Links zum Zurücksetzen des
+    Passworts gelten dann ebenfalls nicht mehr, sonst ließe sich das neue Passwort damit gleich wieder ersetzen."""
     with db.connect() as con:
         con.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        con.execute("DELETE FROM tokens WHERE purpose = 'reset' AND user_id = ?", (user_id,))
 
 
 def csrf_ok(expected: str | None, given: str | None) -> bool:
     return bool(expected and given and hmac.compare_digest(expected, given))
+
+
+def same_host(old: str | None, new: str | None) -> bool:
+    """Gleiches Ziel? Gespeicherte Passwörter und Keys dürfen nur an den Host gehen, für den sie eingegeben wurden."""
+    def norm(host: str | None) -> str:
+        return (host or "").strip().lower().rstrip(".")
+    return bool(norm(old)) and norm(old) == norm(new)
 
 
 # -- Prelogin-CSRF (signiert, ohne Sitzung) ------------------------------
@@ -175,6 +185,9 @@ class LoginThrottle:
     Benutzernamen kennt, das Konto nicht für alle anderen sperren. Gegen verteiltes Raten schützen die
     langen Passwörter (mindestens 15 Zeichen, Argon2id). Jede Sperre hängt am Passwort-Hash: Wird das Passwort
     geändert (auch über die Konsole), ist sie aufgehoben.
+
+    IPs werden als Netz gezählt: IPv6 als /64, weil jeder Anschluss mindestens so ein Netz hat und sonst
+    pro Versuch eine neue Adresse nehmen könnte. IPv4 bleibt einzeln.
     """
 
     MAX_ENTRIES = 10000        # danach werden alte Einträge verworfen
@@ -187,7 +200,21 @@ class LoginThrottle:
         # (Benutzer-ID, IP) -> (Fehlversuche, gesperrt bis, letzter Versuch, Passwort-Hash), Zeiten aus time.monotonic()
         self._accounts: dict[tuple[int, str], tuple[int, float, float, str]] = {}
 
+    @staticmethod
+    def net(ip: str) -> str:
+        """Schlüssel für die Zählung: IPv4 einzeln, IPv6 als /64-Netz."""
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return ip
+        if addr.version == 4:
+            return str(addr)
+        if addr.ipv4_mapped is not None:
+            return str(addr.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+
     def ip_blocked(self, ip: str) -> bool:
+        ip = self.net(ip)
         hits = self._hits.get(ip)
         if not hits:
             return False
@@ -203,14 +230,15 @@ class LoginThrottle:
             cutoff = time.monotonic() - self.window
             for key in [k for k, v in self._hits.items() if not v or v[-1] < cutoff]:
                 del self._hits[key]
-        self._hits[ip].append(time.monotonic())
+        self._hits[self.net(ip)].append(time.monotonic())
 
     def account_locked(self, user_id: int, ip: str, password_hash: str) -> bool:
-        entry = self._accounts.get((user_id, ip))
+        entry = self._accounts.get((user_id, self.net(ip)))
         return entry is not None and entry[3] == password_hash and entry[1] > time.monotonic()
 
     def account_failure(self, user_id: int, ip: str, password_hash: str) -> int:
         """Zählt einen Fehlversuch für Konto und IP; gibt die Sperrdauer in Minuten zurück (0 = keine)."""
+        ip = self.net(ip)
         now = time.monotonic()
         if len(self._accounts) >= self.MAX_ENTRIES:
             for key in [k for k, v in self._accounts.items() if v[2] < now - self.ACCOUNT_FORGET]:
@@ -224,7 +252,7 @@ class LoginThrottle:
         return minutes
 
     def account_success(self, user_id: int, ip: str) -> None:
-        self._accounts.pop((user_id, ip), None)
+        self._accounts.pop((user_id, self.net(ip)), None)
 
     @staticmethod
     def lock_minutes(failed_logins: int) -> int:

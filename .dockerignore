@@ -1,0 +1,8 @@
+.git
+dist
+docs
+tests
+tools/dev
+tools/demo
+**/__pycache__
+CLAUDE*.md

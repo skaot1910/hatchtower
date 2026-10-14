@@ -2,6 +2,7 @@
 {% import "_connection.html" as cf with context %}
 {% import "_mark.html" as hm %}
 {% import "_lang.html" as lng with context %}
+{% import "_checks.html" as ck with context %}
 {% block title %}{{ _("Einrichtung") }} · {{ brand.name }}{% endblock %}
 {% block body_class %}setup-page{% endblock %}
 {% block content %}
@@ -16,7 +17,7 @@
   </div>
 
   <ol class="setup-steps">
-    <li class="{{ 'is-active' if step == 'owner' else 'is-done' }}">{{ _("Konto") }}</li>
+    {% if not repair %}<li class="{{ 'is-active' if step == 'owner' else 'is-done' }}">{{ _("Konto") }}</li>{% endif %}
     {% set ns = namespace(passed=(step == 'owner')) %}
     {% for key, label in steps %}
       {% set state = 'is-active' if key == step else ('' if ns.passed else 'is-done') %}
@@ -25,9 +26,14 @@
     {% endfor %}
   </ol>
 
+  {% if repair %}
+  <div class="hint">{{ _("Du reparierst die Verbindung oder verbindest ein anderes Panel. Die bisherige Verbindung bleibt aktiv, bis du im Schritt „Prüfen und speichern“ ausdrücklich speicherst.") }}</div>
+  {% endif %}
+
   <section class="card setup-card">
     {% if step == 'owner' %}
       <h2 class="card-h">{{ _("1. Dein Owner-Konto") }}</h2>
+      <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Das Owner-Konto verwaltet Hatchtower und darf alles. Der Einrichtungscode beweist, dass du Zugriff auf den Server hast, auf dem Hatchtower installiert ist – so kann niemand Fremdes die Einrichtung übernehmen.") }}</p>
       <p class="muted">{{ _("Gib den") }} <strong>{{ _("Einrichtungscode") }}</strong> {{ _("ein, den das Installationsskript angezeigt hat. Verloren? Auf dem Server neu erzeugen mit") }} <span class="mono">hatchtower setup-token</span>.</p>
       {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
       <form method="post" action="/setup/owner" class="form">
@@ -54,21 +60,78 @@
       </details>
     {% else %}
       {% set keys = steps | map(attribute=0) | list %}
-      {% set number = keys.index(step) + 2 %}
+      {% set number = keys.index(step) + (1 if repair else 2) %}
+      {% set report = conn.report %}
       {% if step == 'panel' %}
       <h2 class="card-h">{{ number }}. {{ _("Panel verbinden") }}</h2>
+      <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Hatchtower zeigt die Gameserver aus deinem Panel. Dafür braucht es die Adresse des Panels und einen Schlüssel (API-Key), mit dem es die Liste der Server und Nodes lesen darf.") }}</p>
+      {% if report %}{{ ck.checks(report, levels, areas, only=('panel', 'app')) }}{% endif %}
       {{ cf.panel_form(conn, '/setup?step=panel') }}
       {% elif step == 'client' %}
       <h2 class="card-h">{{ number }}. {{ _("Client-API-Key") }}</h2>
+      <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Der erste Key darf nur Listen lesen. Status, Konsole und Dateien – und auf Wunsch Starten und Stoppen – laufen bei {panel} über einen zweiten Key, den Client-Key.", panel=conn.panel.name) }}</p>
+      {% if report %}
+        {% if report.has_errors('panel', 'app') %}{{ ck.checks(report, levels, areas, only=('panel', 'app'), show_ok=False, links=True) }}{% endif %}
+        {% if 'client' not in report.skipped %}{{ ck.checks(report, levels, areas, only=('client',)) }}{% endif %}
+      {% endif %}
       {{ cf.client_form(conn, '/setup?step=client') }}
       {% elif step == 'nodes' %}
       <h2 class="card-h">{{ number }}. {{ _("Wings-Server prüfen") }}</h2>
+      <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Wings ist der Dienst auf jedem Node, der die Gameserver ausführt. Konsole, Downloads und Uploads gehen direkt zu Wings. Ist ein Wings nicht erreichbar, funktionieren Übersicht, Starten und Stoppen trotzdem – das ist dann eine Warnung, kein Fehler.") }}</p>
+      {% if report %}{{ ck.checks(report, levels, areas, only=('wings',)) }}{% endif %}
       {{ cf.nodes_form(conn, '/setup?step=nodes') }}
+      {% elif step == 'review' %}
+      <h2 class="card-h">{{ number }}. {{ _("Prüfen und speichern") }}</h2>
+      <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Bis hierhin ist nichts gespeichert. Hier siehst du, was gespeichert würde und was die Prüfung ergeben hat. Erst wenn du ausdrücklich bestätigst, werden die Zugangsdaten verschlüsselt auf diesem Server abgelegt. An deinem Panel und den Servern ändert Hatchtower dabei nichts.") }}</p>
+      {% if not report %}
+        <p>{{ _("Die aktuellen Angaben sind noch nicht geprüft.") }}</p>
+        <form method="post" action="/admin/connection/check" class="form" data-busy="{{ _("Prüfe …") }}">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="step" value="review">
+          <button class="btn btn-primary" type="submit">{{ _("Jetzt prüfen") }}</button>
+        </form>
+      {% else %}
+        {{ ck.summary(report) }}
+        <h3 class="check-area">{{ _("Das wird gespeichert") }}</h3>
+        <table class="change-table">
+          <thead><tr><th></th><th>{{ _("Neu") }}</th>{% if repair %}<th>{{ _("Bisher") }}</th>{% endif %}</tr></thead>
+          <tbody>
+          {% for row in changes %}
+          <tr class="{{ 'is-changed' if row.changed }}"><th scope="row">{{ _(row.label) }}</th><td class="mono">{{ row.new }}</td>{% if repair %}<td class="mono faint">{{ row.old }}</td>{% endif %}</tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <p class="faint small">{{ _("Keys werden nie vollständig angezeigt, auch hier nicht.") }}</p>
+        {{ ck.legend(levels) }}
+        {{ ck.checks(report, levels, areas, links=True) }}
+        <h3 class="check-area">{{ _("Was damit funktioniert") }}</h3>
+        {{ ck.features(report, levels) }}
+        {% if report.ok_to_save %}
+        <form method="post" action="/admin/connection/save" class="form confirm-box">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ _("Ich habe die Angaben geprüft. Die Zugangsdaten sollen verschlüsselt auf diesem Hatchtower-Server gespeichert werden.") }}</label>
+          {% if report.warnings %}<p class="faint small">{{ _("Die Warnungen oben kannst du auch nach dem Speichern beheben; über System → Panel lässt sich die Verbindung jederzeit erneut prüfen.") }}</p>{% endif %}
+          <button class="btn btn-primary" type="submit">{{ _("Zugangsdaten speichern") }}</button>
+        </form>
+        {% else %}
+        <div class="alert">{{ _("Speichern ist gesperrt, bis die Fehler behoben sind. Geh dafür zum passenden Schritt (Links bei den Fehlern).") }}</div>
+        {% endif %}
+        <form method="post" action="/admin/connection/check" class="inline-form" data-busy="{{ _("Prüfe …") }}">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="step" value="review">
+          <button class="btn btn-ghost" type="submit">{{ _("Erneut prüfen") }}</button>
+        </form>
+      {% endif %}
+      <form method="post" action="/admin/connection/discard" class="inline-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost" type="submit">{{ _("Verwerfen") }}</button>
+        <span class="faint small">{{ _("Verwirft alle Eingaben. Die bisherige Verbindung bleibt unverändert.") if repair else _("Verwirft alle Eingaben dieses Assistenten.") }}</span>
+      </form>
       {% elif step == 'options' %}
       <h2 class="card-h">{{ number }}. {{ _("Optionen") }}</h2>
+      <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Hier legst du fest, ob Hatchtower nur zuschauen oder auch steuern darf, und wie es Adressen und Uhrzeiten anzeigt. Alles ist später änderbar.") }}</p>
       {{ cf.options_form(conn, '/setup?step=options') }}
       {% elif step == 'legal' %}
       <h2 class="card-h">{{ number }}. {{ _("Impressum und Datenschutzerklärung (optional)") }}</h2>
+      <p><span class="check-level level-optional">{{ _("Optional") }}</span></p>
       <form method="post" action="/setup/legal" class="form">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <p class="muted small">{{ _("Ist Hatchtower öffentlich im Internet erreichbar, brauchst du je nach Land und Nutzung ein Impressum und eine Datenschutzerklärung. Für den Betrieb nur im Heimnetz ist das meist nicht nötig.") }}</p>
@@ -85,10 +148,41 @@
         <button class="btn btn-primary" type="submit">{{ _("Einrichtung abschließen") }}</button>
         <p class="faint small">{{ _("Nichts angekreuzt? Dann wird nichts angelegt. Du kannst das später jederzeit unter Auftritt → Rechtliches nachholen.") }}</p>
       </form>
+      {% elif step == 'done' %}
+      <h2 class="card-h">{{ _("Ergebnisbericht") }}</h2>
+      {% set report = final.report %}
+      {% if report %}
+        {{ ck.summary(report) }}
+        {{ ck.checks(report, levels, areas, show_ok=False) }}
+        <h3 class="check-area">{{ _("Was funktioniert") }}</h3>
+        {{ ck.features(report, levels) }}
+      {% else %}
+        <div class="alert">{{ _("Es ist noch keine Verbindung zu einem Panel gespeichert.") }} <a href="/setup?step=panel">{{ _("Jetzt verbinden") }}</a></div>
+      {% endif %}
+      <h3 class="check-area">{{ _("Deine Einstellungen") }}</h3>
+      <table class="change-table">
+        <tbody>
+          <tr><th scope="row">{{ _("Panel") }}</th><td>{{ conn.panel.name }} · <span class="mono">{{ conn.panel_url or '–' }}</span></td></tr>
+          <tr><th scope="row">{{ _("Modus") }}</th><td>{{ _("Lesen und steuern") if final.mode == 'read-write' else _("Nur lesen") }}</td></tr>
+          <tr><th scope="row">{{ _("Zeitzone") }}</th><td>{{ final.timezone }}</td></tr>
+          <tr><th scope="row">{{ _("Öffentliche Adresse für Spieler") }}</th><td>{{ final.public_host or _("nicht gesetzt (optional)") }}</td></tr>
+          <tr><th scope="row">{{ _("Reverse-Proxy-IPs") }}</th><td>{{ final.trusted_proxies or _("keine") }}</td></tr>
+          <tr><th scope="row">{{ _("Ansicht für Benutzer") }}</th><td>{{ _("Einfach") if final.default_view == 'simple' else _("Alles") }}</td></tr>
+          <tr><th scope="row">{{ _("Rechtliches") }}</th><td>{{ _("Vorlagen angelegt (noch ausgeschaltet)") if final.legal else _("keine Vorlagen (optional)") }}</td></tr>
+        </tbody>
+      </table>
+      <h3 class="check-area">{{ _("Wie geht es weiter?") }}</h3>
+      <ul class="next-steps small">
+        <li><a href="/admin/users">{{ _("Benutzer anlegen oder einladen") }}</a> {{ _("und ihnen Rechte an einzelnen Servern geben.") }}</li>
+        {% if final.legal %}<li><a href="/admin/legal">{{ _("Impressum und Datenschutzerklärung ergänzen und einschalten") }}</a></li>{% endif %}
+        <li><a href="/admin/network">{{ _("Netzwerk:") }}</a> {{ _("eigene Domain und Reverse-Proxy, falls Hatchtower aus dem Internet erreichbar sein soll.") }}</li>
+        <li><a href="/admin/connection">{{ _("System → Panel:") }}</a> {{ _("Verbindung später erneut prüfen, reparieren oder ein anderes Panel verbinden.") }}</li>
+      </ul>
+      <a class="btn btn-primary" href="/">{{ _("Zur Übersicht") }}</a>
       {% endif %}
     {% endif %}
   </section>
-  {% if step not in ('owner', 'panel') %}
+  {% if step not in ('owner', 'panel', 'done') and keys.index(step) > 0 %}
   <p class="setup-skip faint small"><a href="/setup?step={{ keys[keys.index(step) - 1] }}">{{ _("← zurück") }}</a></p>
   {% endif %}
 </div>

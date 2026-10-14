@@ -33,6 +33,8 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <button class="btn btn-primary btn-sm" type="submit">{{ _("Update auf {v} installieren", v=upd.latest) }}</button>
       </form>
+      {% elif in_docker %}
+      <p class="faint small">{{ _("Hatchtower läuft in Docker. Neue Version holen und im Ordner mit der compose.yaml ausführen:") }} <span class="mono">docker compose up -d --build</span></p>
       {% else %}
       <p class="faint small">{{ _("Das Update über die Oberfläche steht ab der nächsten Version bereit. Dieses Mal bitte auf dem Server als root ausführen:") }} <span class="mono">hatchtower update</span></p>
       {% endif %}

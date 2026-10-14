@@ -489,7 +489,7 @@
     var nowEls = {};
     sec.querySelectorAll("[data-now]").forEach(function (e) { nowEls[e.dataset.now] = e; });
     var colors = {
-      cpu: cssVar("--violet-2", "#a78bfa"), mem: "#38bdf8", rx: cssVar("--green", "#34d399"), tx: cssVar("--amber", "#fbbf24"),
+      cpu: cssVar("--violet-2", "#a78bfa"), mem: cssVar("--blue", "#38bdf8"), rx: cssVar("--green", "#34d399"), tx: cssVar("--amber", "#fbbf24"),
     };
 
     function cpuFmt(v) { return Math.round(v) + " %"; }
@@ -740,6 +740,59 @@
     document.addEventListener("click", function (ev) {
       if (menu.classList.contains("open") && !menu.contains(ev.target) && !btn.contains(ev.target)) set(false);
     });
+  }
+
+  // ---- Serverseite: Reiter statt einer langen Seite ----------------------------------
+  function startServerTabs() {
+    var nav = document.getElementById("server-tabs");
+    if (!nav) return;
+    var links = nav.querySelectorAll("[data-tab-link]");
+    var panels = document.querySelectorAll("[data-tab]");
+    var keys = [];
+    links.forEach(function (a) { keys.push(a.dataset.tabLink); });
+    function keyFor(hash) {
+      var id = (hash || "").replace(/^#/, "");
+      if (keys.indexOf(id) >= 0) return id;
+      var el = id && document.getElementById(id);
+      var panel = el && el.closest("[data-tab]");
+      return panel ? panel.dataset.tab : keys[0];
+    }
+    function show(key) {
+      links.forEach(function (a) {
+        var on = a.dataset.tabLink === key;
+        a.classList.toggle("active", on);
+        if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+      });
+      panels.forEach(function (p) { p.hidden = p.dataset.tab !== key; });
+      // Diagramme und Konsole brauchen nach dem Einblenden ihre echte Größe
+      window.dispatchEvent(new Event("resize"));
+      var con = document.getElementById("console");
+      if (key === "konsole" && con) con.scrollTop = con.scrollHeight;
+    }
+    links.forEach(function (a) {
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        history.replaceState(null, "", "#" + a.dataset.tabLink);
+        show(a.dataset.tabLink);
+      });
+    });
+    window.addEventListener("hashchange", function () { show(keyFor(location.hash)); });
+    nav.hidden = false;
+    show(keyFor(location.hash));
+  }
+
+  // ---- Kontomenü in der Kopfzeile (Desktop) ------------------------------------------
+  function startAccountMenu() {
+    var btn = document.getElementById("account-toggle");
+    if (!btn) return;
+    var box = btn.parentNode;
+    function set(open) {
+      box.classList.toggle("open", open);
+      btn.setAttribute("aria-expanded", String(open));
+    }
+    btn.addEventListener("click", function () { set(!box.classList.contains("open")); });
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") set(false); });
+    document.addEventListener("click", function (ev) { if (!box.contains(ev.target)) set(false); });
   }
 
   // ---- Dateien: Mehrfachauswahl für ZIP-Download -----------------------------------
@@ -1345,6 +1398,8 @@
     paintBars(document);
     document.querySelectorAll("[data-c]").forEach(function (el) { el.style.background = el.dataset.c; });
     startMenu();
+    startAccountMenu();
+    startServerTabs();
     checkDesktopMode();
     startViewToggle();
     startStatusFilter();

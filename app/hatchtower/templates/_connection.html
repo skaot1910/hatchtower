@@ -1,7 +1,7 @@
 {% macro panel_form(c, next) %}
-<form method="post" action="/admin/connection/panel" class="form" data-panel-form>
+<form method="post" action="/admin/connection/check" class="form" data-panel-form data-busy="{{ _("Prüfe …") }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <input type="hidden" name="next" value="{{ next }}">
+  <input type="hidden" name="step" value="panel">
   <fieldset class="mode-choice panel-choice">
     <legend>{{ _("Welches Panel nutzt du?") }}</legend>
     {% for p in c.panels %}
@@ -45,15 +45,16 @@
     <input name="app_key" type="password" autocomplete="off" spellcheck="false"
            placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.app_key_masked) if c.app_key_masked else _('API-Key einfügen') }}">
   </label>
-  <p class="faint small">{{ _("Die Adresse, unter der der Hatchtower-Server das Panel erreicht. Im Heimnetz kann das auch eine IP sein, z. B. http://192.168.1.10. Beim Speichern wird die Verbindung sofort getestet.") }} {{ _("Wechselst du das Panel, musst du den Key neu eintragen.") }}</p>
-  <button class="btn btn-primary" type="submit">{{ _("Testen und speichern") }}</button>
+  <p class="faint small">{{ _("Die Adresse, unter der der Hatchtower-Server das Panel erreicht. Im Heimnetz kann das auch eine IP sein, z. B. http://192.168.1.10.") }} {{ _("Wechselst du das Panel oder zeigt die Adresse auf einen anderen Server, musst du die Keys neu eintragen.") }}</p>
+  <button class="btn btn-primary" type="submit">{{ _("Prüfen und weiter") }}</button>
+  <p class="faint small">{{ _("Es wird noch nichts gespeichert. Die Prüfung liest nur und ändert nichts an deinem Panel.") }}</p>
 </form>
 {% endmacro %}
 
 {% macro client_form(c, next) %}
-<form method="post" action="/admin/connection/client" class="form">
+<form method="post" action="/admin/connection/check" class="form" data-busy="{{ _("Prüfe …") }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <input type="hidden" name="next" value="{{ next }}">
+  <input type="hidden" name="step" value="client">
   <div class="howto">
     <strong>{{ _("So bekommst du den Client-API-Key") }}</strong>
     <ol>
@@ -76,16 +77,16 @@
     <input name="client_key" type="password" autocomplete="off" spellcheck="false"
            placeholder="{{ _('gespeichert: {key} – leer lassen, um ihn zu behalten', key=c.client_key_masked) if c.client_key_masked else c.panel.client_prefix ~ '…' }}">
   </label>
-  <button class="btn btn-primary" type="submit">{{ _("Testen und speichern") }}</button>
+  <button class="btn btn-primary" type="submit">{{ _("Prüfen und weiter") }}</button>
+  <p class="faint small">{{ _("Es wird noch nichts gespeichert. Geprüft wird an einem Beispielserver, welche Rechte der Key hat – nur lesend.") }}</p>
 </form>
 {% endmacro %}
 
 {% macro nodes_form(c, next) %}
-<form method="post" action="/admin/connection/nodes" class="form">
+<form method="post" action="/admin/connection/check" class="form" data-busy="{{ _("Prüfe …") }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <input type="hidden" name="next" value="{{ next }}">
+  <input type="hidden" name="step" value="nodes">
   <p class="muted small">{{ _("Die Wings-Server liest Hatchtower automatisch aus dem Panel, mehrere Nodes sind kein Problem. Für Konsole, Datei-Downloads und Uploads muss Hatchtower jeden Wings direkt erreichen.") }}</p>
-  {% if c.nodes_error %}<div class="alert">{{ _(c.nodes_error) }}</div>{% endif %}
   {% for n in c.nodes %}
   <div class="node-row">
     <div class="node-main">
@@ -93,18 +94,20 @@
       <span class="faint small mono">{{ _("im Panel:") }} {{ n.scheme }}://{{ n.fqdn }}</span>
     </div>
     <div class="node-checks">
-      <span class="check-pill {{ 'ok' if n.daemon_ok else 'bad' }}">{{ '✓' if n.daemon_ok else '✕' }} {{ _("Daemon") }} {{ n.host }}:{{ n.daemon_port }}</span>
-      <span class="check-pill {{ 'ok' if n.sftp_ok else 'bad' }}">{{ '✓' if n.sftp_ok else '✕' }} {{ _("SFTP") }} {{ n.host }}:{{ n.sftp_port }}</span>
+      {% if n.daemon_ok is defined %}
+      <span class="check-pill {{ 'ok' if n.daemon_ok else 'warn' }}">{{ '✓' if n.daemon_ok else '!' }} {{ _("Daemon") }} {{ n.host }}:{{ n.daemon_port }}</span>
+      <span class="check-pill {{ 'ok' if n.sftp_ok else 'opt' }}" title="{{ _("Hatchtower braucht SFTP nicht") }}">{{ '✓' if n.sftp_ok else '○' }} {{ _("SFTP") }} {{ n.host }}:{{ n.sftp_port }}</span>
+      {% endif %}
     </div>
     <label class="node-override">{{ _("Andere Adresse für diesen Node (optional)") }}
       <input name="override__{{ n.fqdn }}" value="{{ n.override }}" spellcheck="false" placeholder="{{ _("z. B. 192.168.1.20 oder http://192.168.1.20:8080") }}">
     </label>
   </div>
   {% else %}
-  {% if not c.nodes_error %}<p class="faint">{{ _("Noch keine Nodes gefunden. Speichere zuerst Panel und Application-Key.") }}</p>{% endif %}
+  <p class="faint">{{ _("Noch keine Nodes geprüft. Klick auf „Prüfen und weiter“.") }}</p>
   {% endfor %}
   <p class="faint small">{{ _("Eine andere Adresse brauchst du nur, wenn der Node im Panel unter einer Adresse eingetragen ist, die dieser Server nicht erreicht, z. B. eine öffentliche Domain hinter der eigenen Firewall. Leer lassen = Adresse aus dem Panel.") }}</p>
-  <button class="btn btn-primary" type="submit">{{ _("Speichern und erneut prüfen") }}</button>
+  <button class="btn btn-primary" type="submit">{{ _("Prüfen und weiter") }}</button>
 </form>
 {% endmacro %}
 
@@ -147,6 +150,20 @@
       <input name="trusted_proxies" value="{{ c.trusted_proxies }}" placeholder="{{ _("z. B. 127.0.0.1 oder 172.16.0.0/12") }}" spellcheck="false">
     </label>
   </div>
+  {% if next.startswith('/setup') %}
+  <fieldset class="mode-choice">
+    <legend>{{ _("Ansicht für Benutzer") }}</legend>
+    <label class="mode-option">
+      <input type="radio" name="default_view" value="simple" checked>
+      <span><strong>{{ _("Einfach") }}</strong><span class="faint small">{{ _("Pro Server nur Status, Adresse, Passwort, Start und Stopp. Gut für Freunde, die einfach spielen wollen.") }}</span></span>
+    </label>
+    <label class="mode-option">
+      <input type="radio" name="default_view" value="full">
+      <span><strong>{{ _("Alles") }}</strong><span class="faint small">{{ _("Zusätzlich Auslastung, Diagramme, Log-Archiv und Protokoll.") }}</span></span>
+    </label>
+    <p class="faint small">{{ _("Owner sehen alles, solange sie nichts anderes wählen. Jeder Benutzer kann oben in der Kopfzeile umschalten; später änderbar unter Auftritt → Erscheinungsbild.") }}</p>
+  </fieldset>
+  {% endif %}
   <p class="faint small"><strong>{{ _("Öffentliche Adresse:") }}</strong> {{ _("wird in der Übersicht mit dem Port jedes Servers angezeigt, damit Spieler wissen, wohin sie sich verbinden.") }} <strong>{{ _("Zeitzone:") }}</strong> {{ _("gilt für Zeitpläne und alle angezeigten Uhrzeiten.") }} <strong>{{ _("Reverse-Proxy:") }}</strong> {{ _("Läuft Hatchtower hinter einem Reverse-Proxy (z. B. Caddy, Nginx, Traefik, Pangolin), trag dessen IP oder Netz ein. Erst dann erkennt Hatchtower HTTPS (geschützte Cookies) und die echten IPs der Besucher für Audit-Log und Anmeldesperre. Im Internet ist das Pflicht.") }}</p>
   {% endif %}
   <button class="btn btn-primary" type="submit">{{ _('Weiter') if next.startswith('/setup') else _('Speichern') }}</button>

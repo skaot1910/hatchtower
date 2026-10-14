@@ -14,6 +14,14 @@
       {% else %}<h1>{{ brand.product }}</h1><p class="login-product">{{ _("Game-Server-Management für {panel}") }}</p>{% endif %}
     </div>
     {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}
+    {% if demo_enabled %}
+    <form method="post" action="/demo/login" class="demo-login">
+      <input type="hidden" name="prelogin" value="{{ prelogin }}">
+      <p><strong>{{ _("Öffentliche Demo") }}</strong><br><span class="muted small">{{ _("Sieh dir Hatchtower so an, wie es deine Freunde sehen. Die Server sind erfunden, und nichts lässt sich verändern.") }}</span></p>
+      <button class="btn btn-primary btn-block" type="submit">{{ _("Demo ansehen") }}</button>
+    </form>
+    <p class="demo-or faint small">{{ _("oder mit eigenem Konto anmelden") }}</p>
+    {% endif %}
     <form method="post" action="/login" class="form">
       <input type="hidden" name="prelogin" value="{{ prelogin }}">
       <label>{{ _("Benutzername") }}

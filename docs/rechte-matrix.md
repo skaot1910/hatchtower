@@ -42,6 +42,7 @@ Grundregeln:
 |---|---|---|---|
 | GET | `/login` | – | Anmeldeseite |
 | POST | `/login` | Vorab-Token | Anmelden |
+| POST | `/demo/login` | Vorab-Token | Öffentliche Demo: als Demo-Benutzer anmelden (nur mit HATCHTOWER_DEMO_USER) |
 | GET | `/lang/{code}` | – | Sprache umschalten (angemeldet: im Konto gespeichert) |
 | GET | `/status` | – | Öffentliche Statusseite (abschaltbar) |
 | GET | `/status.json` | – | Statusseite als JSON, nur freigegebene Angaben |
@@ -161,7 +162,11 @@ Grundregeln:
 | GET | `/setup` | – | Einrichtungsassistent (vor dem ersten Konto öffentlich) |
 | POST | `/setup/legal` | Formular | Assistent: Vorlagen für Impressum/Datenschutz anlegen (bleiben aus) |
 | GET | `/admin/connection` | – | System → Panel: Verbindung zum Panel (Pterodactyl, Pelican, Calagopus) |
-| POST | `/admin/connection/panel` | Formular | Panel-Art, Panel-Adresse und Application-Key |
+| GET | `/admin/connection/wizard` | – | Verbindung reparieren / anderes Panel: Assistent mit frischem Entwurf |
+| POST | `/admin/connection/check` | Formular | Assistent: Eingaben in den Entwurf und prüfen (nur lesend, speichert nichts) |
+| POST | `/admin/connection/save` | Formular | Assistent: geprüften Entwurf speichern (nur mit Bestätigung) |
+| POST | `/admin/connection/discard` | Formular | Assistent: Entwurf verwerfen |
+| POST | `/admin/connection/panel` | Formular | Panel-Art, Panel-Adresse und Application-Key (älteres Formular) |
 | POST | `/admin/connection/client` | Formular | Client-Key |
 | POST | `/admin/connection/nodes` | Formular | Abweichende Wings-Adressen |
 | POST | `/admin/connection/options` | Formular | Modus (im Assistenten auch öffentliche Adresse, Proxy, Zeitzone) |

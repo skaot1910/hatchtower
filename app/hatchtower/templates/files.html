@@ -72,13 +72,14 @@
       <tr class="{{ 'is-file' if f.is_file else 'is-dir' }}">
         {% if can_select %}<td class="sel"><input type="checkbox" name="names" value="{{ f.name }}" form="zip-form" aria-label="{{ _("{name} auswählen", name=f.name) }}"></td>{% endif %}
         <td>
-          {% if f.is_file %}<span class="file-link">{{ icon_file() }} <span>{{ f.name }}</span></span>
+          {% if f.editable and can_edit %}<a href="/servers/{{ server.identifier }}/files/edit?file={{ f.path|urlencode }}" class="file-link">{{ icon_file() }} <span>{{ f.name }}</span></a>
+          {% elif f.is_file %}<span class="file-link">{{ icon_file() }} <span>{{ f.name }}</span></span>
           {% else %}<a href="?dir={{ f.path|urlencode }}" class="file-link folder-link">{{ icon_folder() }} <span>{{ f.name }}</span></a>{% endif %}
         </td>
         <td class="num faint col-size" data-label="{{ _("Größe") }}">{{ f.size_text if f.is_file else _('Ordner') }}</td>
         <td class="faint" data-label="{{ _("Geändert") }}">{{ f.modified_text }}</td>
         <td class="num row-actions">
-          {% if f.is_file and can_edit and f.size <= 1048576 %}<a class="chip chip-sm" href="/servers/{{ server.identifier }}/files/edit?file={{ f.path|urlencode }}">{{ _("Bearbeiten") }}</a>{% endif %}
+          {% if f.editable and can_edit %}<a class="chip chip-sm" href="/servers/{{ server.identifier }}/files/edit?file={{ f.path|urlencode }}">{{ _("Bearbeiten") }}</a>{% endif %}
           {% if f.is_file and can_download %}<a class="chip chip-sm" href="/servers/{{ server.identifier }}/files/download?file={{ f.path|urlencode }}">{{ _("Herunterladen") }}</a>{% endif %}
           {% if can_rename %}
           <form method="post" action="/servers/{{ server.identifier }}/files/rename" data-rename="{{ f.name }}">

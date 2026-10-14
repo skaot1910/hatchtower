@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_connection.html" as cf with context %}
+{% import "_checks.html" as ck with context %}
 {% block title %}{{ _("Panel") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -7,13 +8,47 @@
     <h1>{{ _("Verbindung zu {panel}") }}</h1>
     <p class="muted">{{ _("Panel, API-Keys, Wings-Server und Modus. Gespeicherte Keys werden nie wieder angezeigt, nur ersetzt.") }} {{ _("Öffentliche Adresse und Reverse-Proxy stehen unter Netzwerk, die Zeitzone unter Auftritt → Erscheinungsbild.") }}</p>
   </div>
-  <a class="btn btn-ghost" href="/admin/connection">{{ _("Erneut prüfen") }}</a>
+  <a class="btn btn-ghost" href="/admin/connection?check=1">{{ _("Verbindung prüfen") }}</a>
 </div>
 
-<section class="card"><h2 class="card-h">{{ _("Panel und API-Key") if conn.panel.single_key else _("Panel und Application-API-Key") }}</h2>{{ cf.panel_form(conn, '/admin/connection') }}</section>
-{% if not conn.panel.single_key %}
-<section class="card"><h2 class="card-h">{{ _("Client-API-Key") }}</h2>{{ cf.client_form(conn, '/admin/connection') }}</section>
+<section class="card">
+  <h2 class="card-h">{{ _("Gespeicherte Verbindung") }}</h2>
+  {% if conn.panel_url and conn.app_key_masked %}
+  <table class="change-table">
+    <tbody>
+      <tr><th scope="row">{{ _("Panel") }}</th><td>{{ conn.panel.name }}</td></tr>
+      <tr><th scope="row">{{ _("Adresse des Panels") }}</th><td class="mono">{{ conn.panel_url }}</td></tr>
+      <tr><th scope="row">{{ _("API-Key") if conn.panel.single_key else _("Application-API-Key") }}</th><td class="mono">{{ conn.app_key_masked }}</td></tr>
+      {% if not conn.panel.single_key %}<tr><th scope="row">{{ _("Client-API-Key") }}</th><td class="mono">{{ conn.client_key_masked or _("fehlt") }}</td></tr>{% endif %}
+      <tr><th scope="row">{{ _("Andere Wings-Adressen") }}</th><td class="mono">{% for k, v in settings.node_overrides.items() %}{{ k }} → {{ v }}{% if not loop.last %}, {% endif %}{% else %}{{ _("keine") }}{% endfor %}</td></tr>
+      <tr><th scope="row">{{ _("Zuletzt geprüft") }}</th><td>{% if last_check %}{{ last_check_at }} · {{ _("{e} Fehler, {w} Warnung(en)", e=last_check.errors, w=last_check.warnings) }}{% else %}{{ _("noch nie") }}{% endif %}</td></tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="alert">{{ _("Es ist noch keine Verbindung zu einem Panel gespeichert.") }}</div>
+  {% endif %}
+</section>
+
+{% if report %}
+<section class="card">
+  <h2 class="card-h">{{ _("Ergebnis der Prüfung") }}</h2>
+  {{ ck.summary(report) }}
+  {{ ck.legend(levels) }}
+  {{ ck.checks(report, levels, areas) }}
+  <h3 class="check-area">{{ _("Was funktioniert") }}</h3>
+  {{ ck.features(report, levels) }}
+  <p class="faint small">{{ _("Die Prüfung liest nur. An Panel, Wings und Servern wurde nichts geändert.") }}</p>
+</section>
 {% endif %}
-<section class="card"><h2 class="card-h">{{ _("Wings-Server") }}</h2>{{ cf.nodes_form(conn, '/admin/connection') }}</section>
+
+<section class="card">
+  <h2 class="card-h">{{ _("Reparieren oder anderes Panel verbinden") }}</h2>
+  <p class="muted small">{{ _("Der Assistent führt durch Panel, Keys und Wings, prüft alles und zeigt vor dem Speichern, was sich ändert. Bis du dort ausdrücklich speicherst, bleibt die bisherige Verbindung aktiv. Damit kannst du einen abgelaufenen Key ersetzen, eine neue Adresse eintragen oder zu Pterodactyl, Pelican oder Calagopus wechseln.") }}</p>
+  {% if draft %}
+  <p class="faint small">{{ _("Es gibt noch nicht gespeicherte Eingaben aus dem Assistenten.") }} <a href="/setup?step=review">{{ _("Weitermachen") }}</a></p>
+  {% endif %}
+  <a class="btn btn-primary" href="/admin/connection/wizard">{{ _("Assistent öffnen") }}</a>
+</section>
+
 <section class="card"><h2 class="card-h">{{ _("Modus") }}</h2>{{ cf.options_form(conn, '/admin/connection', full=False) }}</section>
 {% endblock %}

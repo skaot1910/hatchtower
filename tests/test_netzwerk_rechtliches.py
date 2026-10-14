@@ -10,7 +10,7 @@ def test_vorlagen_im_assistenten_bleiben_aus(world):
     owner = world.client(world.ids["olga"])
     r = owner.post("/setup/legal", data={"csrf": owner.csrf, "page__impressum": "1", "sprache": "de"},
                    follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"].startswith("/admin/legal")
+    assert r.status_code == 303 and r.headers["location"].startswith("/setup?step=done")
     assert legal.text("impressum") == legal.template("impressum", "de")
     assert not legal.enabled("impressum")
     assert legal.text("datenschutz") == ""
@@ -26,7 +26,7 @@ def test_vorhandener_text_wird_nicht_ueberschrieben(world):
 def test_nichts_gewaehlt_schliesst_ab(world):
     owner = world.client(world.ids["olga"])
     r = owner.post("/setup/legal", data={"csrf": owner.csrf}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"].split("?")[0] == "/"
+    assert r.status_code == 303 and r.headers["location"].startswith("/setup?step=done")
 
 
 def test_dns_pruefung(monkeypatch):

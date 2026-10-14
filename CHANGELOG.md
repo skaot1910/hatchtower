@@ -3,6 +3,56 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.27.0 – 2026-10-14
+
+- **Neuer Einrichtungsassistent für die Verbindung:** Panel, Keys und Wings werden erst geprüft und dann gespeichert –
+  und zwar nur nach ausdrücklicher Bestätigung. Bis dahin liegen die Eingaben verschlüsselt in einem Entwurf im
+  Arbeitsspeicher (30 Minuten); an Panel, Wings und Servern ändert die Prüfung nichts (nur lesende Anfragen)
+  - Jeder Schritt erklärt, warum er nötig ist; neuer Schritt „Prüfen und speichern“ zeigt, was gespeichert wird
+    (Keys nur maskiert, beim Reparieren mit „vorher/nachher“), alle Prüfergebnisse und was damit funktioniert
+  - Ergebnisse in drei Stufen: **Fehler** (Speichern gesperrt), **Warnung** (funktioniert eingeschränkt),
+    **Optional** (nur Zusatzfunktion oder Hinweis) – jeweils mit konkreten Lösungsschritten
+  - Automatisch geprüft: Erreichbarkeit des Panels (DNS, Firewall, Zertifikat, http/https, Weiterleitung, Login vor
+    dem Panel), ob wirklich das gewählte Panel antwortet, vertauschte oder fremde Keys, Rechte des Application-Keys
+    (Nodes, Servers, Eggs, Allocations), sichtbare Server und Teilrechte des Client-Keys (Status, Konsole, Dateien,
+    Startvariablen, Aktivität), fehlende Schnittstellen älterer Panels, unverschlüsseltes http im Internet
+  - Wings: Daemon-Port und ob dort wirklich Wings antwortet; nicht erreichbar ist eine Warnung, kein Fehler.
+    SFTP wird nur noch als optionaler Hinweis gezeigt – Hatchtower braucht es nicht
+  - Am Ende ein **Ergebnisbericht** mit Prüfung, gewählten Einstellungen und nächsten Schritten
+- **System → Panel:** zeigt die gespeicherte Verbindung und „Zuletzt geprüft“, prüft auf Knopfdruck und öffnet den
+  Assistenten zum Reparieren oder zum Wechsel auf ein anderes Panel; die alte Verbindung bleibt bis zum Speichern aktiv
+- **Sicherheit:** Gespeicherte Keys werden nie an eine Panel-Adresse auf einem anderen Host (oder von https auf http)
+  geschickt, auch nicht im älteren Panel-Formular. Ungültige Anfragen melden nur Feldnamen, nie die gesendeten Werte
+- `hatchtower selftest` nutzt dieselbe Prüfung, zeigt Lösungsschritte und schlägt nur bei echten Fehlern fehl
+- Bestehende Installationen: keine Änderung an Datenbank oder gespeicherter Verbindung nötig
+- **Sicherheit:** Auch SMTP- und SMB-Passwörter gehen nur an den Server, für den sie eingegeben wurden. Bei neuem Host
+  (SMTP auch beim Wechsel auf „ohne Verschlüsselung“) muss das Passwort neu eingegeben werden
+- **Sicherheit:** Der Anmeldeschutz zählt IPv6-Adressen als /64-Netz. Links zum Zurücksetzen des Passworts verfallen
+  bei Passwortwechsel, Sperre und neuer E-Mail-Adresse. Der CSV-Export des Audit-Logs entschärft Formeln (=, +, -, @)
+- **Rechte:** Den Neustart nach Absturz schalten Benutzer nur noch für Server, die sie selbst starten dürfen. Die
+  Datenauskunft enthält keine Einträge früherer Konten mit gleichem Namen oder gleicher ID. Logos sind auf
+  4096 × 4096 Pixel begrenzt
+
+- **Docker Compose:** Hatchtower lässt sich jetzt auch als Container betreiben (`docker compose up -d --build`).
+  Schlüssel werden beim ersten Start im Volume angelegt, der Einrichtungscode steht im Log, Befehle gehen mit
+  `docker compose exec hatchtower hatchtower …`. Die Update-Seite zeigt im Container den passenden Befehl
+- **Öffentlicher Demo-Modus:** Mit `HATCHTOWER_DEMO_USER` in der Umgebungsdatei zeigt die Anmeldeseite „Demo ansehen“.
+  Besucher sind dann als dieser Benutzer angemeldet und können weder in Hatchtower noch im Panel etwas verändern;
+  Owner arbeiten normal weiter. Anleitung in `docs/public-demo.md`
+- **Serverseite mit Reitern:** Übersicht, Konsole, Log-Archiv und Protokoll stehen in Reitern statt untereinander auf
+  einer langen Seite; Links wie `#protokoll` öffnen den passenden Reiter
+- **Ruhigere Kopfzeile:** Sprache und Abmelden liegen im Kontomenü am eigenen Namen, die Kopfzeile ist auf dem
+  Desktop einzeilig. Der Theme-Umschalter bleibt direkt sichtbar
+- **Übersicht:** Statusfilter ohne Treffer werden ausgeblendet
+- **Dateien:**
+  - Ein Klick auf eine bearbeitbare Datei öffnet den Editor; Umbenennen und Löschen erscheinen am Desktop erst beim
+    Überfahren der Zeile
+  - Programme und andere Binärdateien bieten kein „Bearbeiten“ mehr an; Textdateien mit Null-Bytes am Ende
+    (z. B. `steam_appid.txt`) lassen sich wieder bearbeiten
+- **Einrichtung:** Im Schritt „Optionen“ wählt man die Ansicht für Benutzer, voreingestellt ist „Einfach“
+- README neu: einfache Ansicht zuerst, Vergleich mit Subusern, Anleitung für Reverse-Proxy und Pangolin
+  (`docs/reverse-proxy.md`)
+
 ## 0.26.0 – 2026-10-14
 
 - **Einfache Ansicht:** Für alle, denen die volle Oberfläche zu viel ist. Pro Server stehen nur Status, Adresse,

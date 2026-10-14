@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from fastapi import Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 
-from . import audit, backups, db, i18n
+from . import audit, backups, db, i18n, security
 from .backups import BackupError, has, user_may
 from .main import (app, back, check_csrf, check_csrf_header, clean_path, current_user, deny, files_back,
                    get_server_or_deny, ip_of, render, require, require_owner, server_names, settings, valid_name,
@@ -550,6 +550,9 @@ def smb_fields(form, old=None) -> tuple[dict | None, str | None]:
     if len(user) > 120 or len(password) > 256:
         return None, "Benutzer oder Passwort zu lang"
     if old is not None and not password and not form.get("smb_password_clear"):
+        # Das gespeicherte Passwort meldet sich nur am Server an, für den es eingegeben wurde
+        if old["smb_password_enc"] and not security.same_host(old["smb_host"], host):
+            return None, "Neuer Server: Bitte das Passwort noch einmal eingeben. Das gespeicherte geht nur an den bisherigen."
         password_enc = old["smb_password_enc"]
     else:
         password_enc = vault.encrypt(password) if password else None

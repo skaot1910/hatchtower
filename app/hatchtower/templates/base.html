@@ -49,22 +49,37 @@
       {% if discord_url %}<a class="discord-link" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Community-Discord") }}">{{ hm.discord_icon() }} <span>{{ _("Discord") }}</span></a>{% endif %}
       {% if not view_locked %}<span class="view-switch" role="group" aria-label="{{ _("Ansicht") }}"><a href="/view/simple?next={{ here|urlencode }}" title="{{ _("Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp") }}"{% if simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Einfach") }}</a><a href="/view/full?next={{ here|urlencode }}" title="{{ _("Alle Angaben, Diagramme und Werkzeuge") }}"{% if not simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Alles") }}</a></span>{% endif %}
       {{ thm.switch(all_themes) }}
-      {{ lng.switch() }}
     </div>
-    <a href="/account" class="account-link{% if request.url.path.startswith('/account') %} active{% endif %}" title="{{ _("Mein Konto: Passwort, E-Mail, Benachrichtigungen und Darstellung") }}">
-      <span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
-      <span class="account-text"><span class="account-name">{{ user.username }}</span><span class="account-hint">{{ _("Mein Konto und Einstellungen") }}</span></span>
-      {{ hm.gear_icon() }}
-    </a>
-    <form method="post" action="/logout" class="logout-form">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="btn btn-ghost btn-sm" type="submit">{{ _("Abmelden") }}</button>
-    </form>
+    {# Kontomenü: auf dem Desktop aufklappbar, im Handy-Menü immer offen #}
+    <div class="account-menu">
+      <button type="button" class="account-toggle{% if request.url.path.startswith('/account') %} active{% endif %}" id="account-toggle" aria-expanded="false" aria-controls="account-pop">
+        <span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
+        <span class="account-name">{{ user.username }}</span>
+        <span class="caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="account-pop" id="account-pop">
+        <a href="/account" class="account-link{% if request.url.path.startswith('/account') %} active{% endif %}" title="{{ _("Mein Konto: Passwort, E-Mail, Benachrichtigungen und Darstellung") }}">
+          <span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
+          <span class="account-text"><span class="account-name">{{ user.username }}</span><span class="account-hint">{{ _("Mein Konto und Einstellungen") }}</span></span>
+          {{ hm.gear_icon() }}
+        </a>
+        <div class="pop-row"><span>{{ _("Sprache") }}</span>{{ lng.switch() }}</div>
+        <form method="post" action="/logout" class="logout-form">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="btn btn-ghost btn-sm" type="submit">{{ _("Abmelden") }}</button>
+        </form>
+      </div>
+    </div>
   </div>
   </div>
 </header>
 {% endif %}
 <main class="container">
+  {% if is_demo %}
+  <div class="announcement announcement-info demo-banner" role="note">
+    <span class="announcement-text">{{ _("Öffentliche Demo: Du siehst Hatchtower mit erfundenen Servern. Starten, Stoppen und alle Änderungen sind gesperrt.") }}</span>
+  </div>
+  {% endif %}
   {% for a in announcements or [] %}
   <div class="announcement announcement-{{ a.level }}" data-ann="{{ a.id }}" role="note">
     <span class="announcement-text">{{ a.text }}</span>

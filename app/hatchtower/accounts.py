@@ -57,6 +57,13 @@ def get(raw: str, purpose: str):
     return row
 
 
+def revoke_resets(user_id: int) -> None:
+    """Offene Links zum Zurücksetzen des Passworts entwerten (z. B. nach einem Wechsel der E-Mail-Adresse:
+    ein Link ans alte Postfach soll dann nicht mehr gelten)."""
+    with db.connect() as con:
+        con.execute("DELETE FROM tokens WHERE purpose = 'reset' AND user_id = ?", (user_id,))
+
+
 def consume(raw: str) -> None:
     with db.connect() as con:
         con.execute("DELETE FROM tokens WHERE token_hash = ?", (_hash(raw),))

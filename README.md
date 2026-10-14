@@ -6,36 +6,68 @@
 
 **English** · [Deutsch](README.de.md)
 
-**A clean, secure web interface for your game servers on Pterodactyl, Pelican or Calagopus.**
+**Give your friends a simple, safe page for their game servers –
+without putting your panel on the internet.**
 
-Start servers, follow the console, edit files, hand out permissions –
-all in one place, for you and your team.
+Hatchtower sits on top of Pterodactyl, Pelican or Calagopus. Your friends see whether their
+server is up, start it, restart it or change a config file. Your panel stays in your home network.
 
 ![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
 ![Pelican](https://img.shields.io/badge/Pelican-1.0-2563eb)
 ![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
-![Debian](https://img.shields.io/badge/Debian-12%20%7C%2013-a80030)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
 ![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE-22c55e)
 ![License](https://img.shields.io/badge/License-AGPL--3.0-8b5cf6)
 ![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-d97757)
 
-<sub>🤖 Hatchtower was built together with <a href="https://claude.ai">Claude</a> (Anthropic) –
-without it, this project would not have been possible in this form.</sub>
-
-<img src="docs/screenshots/dashboard.png" alt="Overview of all servers in Hatchtower" width="100%">
+<table>
+  <tr>
+    <td width="32%"><img src="docs/screenshots/simple-mobile.gif" alt="A friend restarts a server on the phone"></td>
+    <td width="68%"><img src="docs/screenshots/simple.png" alt="Simple view: status, address, password, start and stop"><br>
+      <sub>This is what your friends see: the <b>simple view</b>. Status, address, password and big
+      buttons – nothing else. You (the owner) get everything else: charts, console, files, backups,
+      automations, permissions.</sub></td>
+  </tr>
+</table>
 
 </div>
 
 ---
 
-## What is Hatchtower?
+## Why not just use subusers?
 
-You want to give friends, moderators or your community access to your game servers –
-but not to everything? That's what Hatchtower is for.
+If your friends are happy with the panel and can reach it, **subusers are enough** – you don't
+need Hatchtower. It was made for the cases where that doesn't work:
+
+| | Panel with subusers | Hatchtower |
+|---|---|---|
+| **Panel stays private** – only Hatchtower is reachable from outside | ✗ friends need access to the panel | ✓ |
+| **Works behind Pangolin / a reverse proxy** without fiddling with websockets, uploads and Wings ports | often painful | ✓ one plain HTTPS app, console and files are proxied through it |
+| **Simple view** for friends who just want to play | ✗ full panel interface | ✓ |
+| **Groups across many servers** ("Player", "Moderator", "all servers, including future ones") | per server and user | ✓ |
+| **Invite links** you can drop into Discord – no mail server, no passwords sent around | ✗ | ✓ |
+| **Discord**: live server status in your channels, crash and disk alerts | ✗ | ✓ |
+| **Restart after a crash** even when Wings gives up, scheduled restarts with in-game warning | partly | ✓ |
+| **Switch panels** (Pterodactyl → Pelican or Calagopus) and keep users, permissions and schedules | ✗ start over | ✓ |
+
+**How it started:** I host game servers for my friends at home. Putting the panel behind
+Pangolin never worked properly – the page loaded, but buttons did nothing and file transfers
+failed. Hatchtower talks to the panel from inside the network and is the only thing friends
+reach from outside. See [Reverse proxy and Pangolin](docs/reverse-proxy.md).
+
+<sub>🤖 Hatchtower was built together with <a href="https://claude.ai">Claude</a> (Anthropic) –
+without it, this project would not have been possible in this form. The code is open
+(AGPL-3.0), every route is covered by an automated permission test (`tests/`, 800+ tests) and
+read-only mode is enforced in code, not just in the interface.</sub>
+
+---
+
+## What is Hatchtower?
 
 Hatchtower **complements** your panel, it doesn't replace it. Your servers keep running in the
 panel; Hatchtower sits on top and adds:
 
+- 🙂 a **simple view** for friends and an **everything view** for you
 - 👥 **its own users** with exactly the permissions you give them – per server
 - 📈 **live monitoring** with CPU, RAM and network history
 - ⏰ **automations** such as restart after a crash or nightly restarts
@@ -71,7 +103,7 @@ several servers at once.
 ### Every server in detail
 
 Status, address, uptime over the last 30 days, history of up to 72 hours and the
-**live console** with search and download.
+**live console** with search and download – in tabs, so nothing is buried at the bottom of a long page.
 
 <img src="docs/screenshots/server.png" alt="Server detail page with history and live console" width="100%">
 
@@ -143,6 +175,7 @@ automatically.
 <summary><b>Show the full list</b></summary>
 
 **Servers**
+- Simple view (status, address, password, start/stop) or everything – per user, default per instance, can be locked by the owner
 - Overview as list or tiles, status filter, sorting, live values (CPU relative to the limit, RAM, storage)
 - Start, stop, restart, kill (owner only), console commands
 - Start, stop or restart several servers at once
@@ -161,6 +194,7 @@ automatically.
 - Optional email: own address per user with confirmation, "forgot password", invites by email
 - Audit log that cannot be altered
 - Read-only mode: Hatchtower can run entirely read-only
+- Public demo mode: visitors look around as a read-only user without a password ([guide](docs/public-demo.md))
 
 **Automations and notifications**
 - Restart after a crash
@@ -202,7 +236,7 @@ automatically.
 
 | | |
 |---|---|
-| **System** | Debian 12 or 13 (tested, ideally as a Proxmox LXC); Ubuntu should work too |
+| **System** | Debian 12 or 13 (tested, ideally as a Proxmox LXC); Ubuntu should work too – **or Docker** with Compose |
 | **Resources** | 1 CPU core, 512 MB RAM, 2 GB storage |
 | **Network** | Access to the panel **and** the Wings nodes (usually ports `8080` and `2022`; with the Calagopus Wings proxy the panel is enough) |
 | **Panel** | Admin access to create the API keys (see [Supported panels](#supported-panels)) |
@@ -211,7 +245,7 @@ automatically.
 
 ## Installation
 
-Pick **one** of the three ways. Run all commands as **root**.
+Pick **one** of the four ways. Run all commands as **root** (🅳: a user allowed to run Docker).
 
 > 🔒 **While the repository is private**, the commands for 🅰 and 🅱 won't work directly.
 > Use the [installation with access token](#installation-with-access-token) further down instead.
@@ -266,6 +300,30 @@ bash installer/install.sh
 
 For 🅱 append them like this: `bash -c "$(curl …)" _ --allow "192.168.1.5"`
 </details>
+
+### 🅳 Docker Compose
+
+In the folder with the source (Git checkout or unpacked release package):
+
+```bash
+docker compose up -d --build
+```
+
+```bash
+docker compose logs hatchtower
+```
+
+The log shows the **setup code**. Then open `http://<server>:8000/setup`.
+
+- Data (database, logos, keys) lives in the volume `hatchtower-data`. **Back up the whole volume** –
+  the file `keys.env` in it is needed to decrypt the stored API keys.
+- Behind a reverse proxy on the same host, publish the port only locally: `"127.0.0.1:8000:8000"`.
+  Under **System → Network** enter the proxy IP; with Docker that's usually the bridge gateway
+  (e.g. `172.17.0.1`) or the network `172.16.0.0/12`.
+- Backup targets: mount a folder into the container under `/mnt/…` (see the comment in `compose.yaml`).
+- Commands: `docker compose exec hatchtower hatchtower reset-password` (also `selftest`, `version`, …).
+- **Update:** get the new version, then `docker compose up -d --build`. The update button in the
+  interface is only available for the classic installation.
 
 ### Installation with access token
 
@@ -330,6 +388,8 @@ Each user picks theme and language at the top right.
 hatchtower update
 ```
 
+(Docker: `docker compose up -d --build` after getting the new version.)
+
 That's it. Hatchtower downloads the latest version, verifies the checksum, **backs up the
 database first** and automatically rolls back if the new version doesn't start. Users,
 permissions, logos, schedules and history are kept.
@@ -375,7 +435,7 @@ automatically – only when you want it.
 - 🛡️ CSRF protection, strict Content Security Policy, no embedding in other sites
 - 🚫 "Everything not allowed is forbidden" – permissions per user and server
 - 👀 Read-only mode is enforced technically: write requests never reach the panel
-- 🌐 For access from outside, please use a reverse proxy with HTTPS (e.g. Pangolin, Nginx, Traefik)
+- 🌐 For access from outside, please use a reverse proxy with HTTPS (e.g. Pangolin, Nginx, Traefik) – see [Reverse proxy and Pangolin](docs/reverse-proxy.md)
 
 > ⚠️ The client key of a panel **admin** can technically do everything. Protect it with
 > *Allowed IP*, read-only mode and the audit log. Even safer: create a dedicated panel user and
