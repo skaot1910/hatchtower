@@ -60,6 +60,9 @@ def cleanup() -> dict[str, int]:
         removed["backup_runs"] = con.execute(
             "DELETE FROM backup_runs WHERE file IS NULL AND status NOT IN ('queued', 'running') AND queued_at < ?",
             (_iso_before(FIXED_DAYS),)).rowcount
+        removed["backup_restores"] = con.execute(
+            "DELETE FROM backup_restores WHERE status != 'running' AND started_at < ?",
+            (_iso_before(audit_days()),)).rowcount
         removed["notify"] = con.execute("DELETE FROM notify_log WHERE sent_at < ?", (now - 7 * 86400,)).rowcount
         # Sitzungen: höchstens so alt wie die längste erlaubte Sitzung
         removed["sessions"] = con.execute("DELETE FROM sessions WHERE created_at < ?", (_iso_before(2),)).rowcount

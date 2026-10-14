@@ -36,7 +36,7 @@
   <section class="card">
     <h2 class="card-h">{{ _("Datenumzug: Exportieren") }}</h2>
     <p class="muted small">{{ _("Alles aus dieser Instanz in eine Datei exportieren und in einer anderen Hatchtower-Installation einspielen, z. B. beim Umzug auf einen anderen Server.") }}</p>
-    <p class="muted small">{{ _("Enthalten: Benutzer (mit Passwort-Hashes), Rechte und Gruppen, Serverangaben mit Logos und Passwörtern, Tags, Favoriten, Zeitpläne, Ankündigungen und alle Einstellungen samt API-Keys, E-Mail-Zugang und Webhook.") }}</p>
+    <p class="muted small">{{ _("Enthalten: Benutzer (mit Passwort-Hashes), Rechte und Gruppen, Serverangaben mit Logos und Passwörtern, Tags, Favoriten, Zeitpläne, Ankündigungen, Backup-Jobs und -Ziele (ohne die Backup-Dateien selbst), Webhooks und alle Einstellungen samt API-Keys und E-Mail-Zugang.") }}</p>
     <p class="faint small">{{ _("Nicht enthalten: Audit-Log, Sitzungen, Verlauf und Konsolen-Archiv. Die Serverliste liest die neue Instanz selbst aus {panel}.") }}</p>
     <form method="post" action="/admin/data/export" class="form">
       <input type="hidden" name="csrf" value="{{ csrf }}">

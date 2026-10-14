@@ -1,5 +1,5 @@
 [Unit]
-Description=Hatchtower – Port nur für freigegebene IPs (eigene nftables-Tabelle)
+Description=Hatchtower – allow the port only for listed IPs (own nftables table)
 After=network-pre.target
 Before=hatchtower.service
 

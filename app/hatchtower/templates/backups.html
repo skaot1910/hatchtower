@@ -4,13 +4,23 @@
 <div class="page-head">
   <div><h1>{{ _("Backups") }}</h1><p class="muted">{{ _("Hatchtower liest die Dateien über {panel} und legt sie als ZIP ab – eine Datei pro Server und Lauf. Mehrere Backups laufen nacheinander.") }}</p></div>
 </div>
+<details class="legend backup-help">
+  <summary>{{ _("So funktionieren Backups") }}</summary>
+  <ol class="small muted">
+    <li>{{ _("Ein Backup-Job legt fest, was gesichert wird (ganzer Server oder einzelne Ordner), wohin (Backup-Ziel) und wann (von Hand oder nach Zeitplan).") }}</li>
+    <li>{{ _("Jeder Lauf erzeugt pro Server eine ZIP-Datei auf dem Ziel. Danach liest Hatchtower die Datei noch einmal komplett und prüft jede enthaltene Datei („geprüft“). Erst dann gilt das Backup als fertig.") }}</li>
+    <li>{{ _("„Mit Fehlern“ heißt: Einzelne Dateien fehlen oder sind unvollständig – welche, steht in der Zeile und in FEHLER.txt im ZIP.") }}</li>
+    <li>{{ _("Zurückholen: „Wiederherstellen“ spielt die Dateien wieder auf den Server – wahlweise in einen eigenen Ordner (nichts wird überschrieben) oder an den ursprünglichen Ort.") }}</li>
+    <li>{{ _("Die Aufbewahrung löscht alte Backups automatisch. Das neueste vollständige Backup bleibt dabei immer erhalten.") }}</li>
+  </ol>
+</details>
 {% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Backups laufen trotzdem, nur Jobs, die den Server vorher stoppen, schlagen fehl.") }}</div>{% endif %}
 
 <section class="card" id="backup-active" data-status="/api/backups/status">
-  <h2 class="card-h">{{ _("Laufende Backups") }}</h2>
+  <h2 class="card-h">{{ _("Laufende Vorgänge") }}</h2>
   <script type="application/json" id="backup-active-data">{{ active|tojson }}</script>
   <div id="backup-active-list" class="backup-active-list"></div>
-  <p class="faint" id="backup-active-empty" {% if active %}hidden{% endif %}>{{ _("Gerade läuft kein Backup.") }}</p>
+  <p class="faint" id="backup-active-empty" {% if active %}hidden{% endif %}>{{ _("Gerade läuft kein Backup, keine Prüfung und keine Wiederherstellung.") }}</p>
 </section>
 
 <section class="card">
@@ -24,7 +34,7 @@
       <tr class="{% if not x.j.enabled and x.j.weekdays %}row-off{% endif %}">
         <td><strong>{{ x.j.name }}</strong>{% if x.active %} <span class="badge badge-ok">{{ _("läuft") }}</span>{% endif %}
           {% if x.j.stop_mode != 'none' %}<div class="faint small">{{ x.stop }}</div>{% endif %}</td>
-        <td data-label="{{ _("Server") }}">{{ x.servers|join(", ") if x.servers else "–" }}{% if x.paths and not x.j.all_servers %}<div class="faint small">{{ _("{n} Eintrag/Einträge", n=x.paths) }}</div>{% endif %}</td>
+        <td data-label="{{ _("Server") }}">{{ x.servers|join(", ") if x.servers else "–" }}{% if x.paths and not x.j.all_servers %}<div class="faint small">{{ _("1 Eintrag") if x.paths == 1 else _("{n} Einträge", n=x.paths) }}</div>{% endif %}</td>
         <td data-label="{{ _("Ziel") }}">{{ x.target }}</td>
         <td class="nowrap" data-label="{{ _("Wann") }}">{{ x.when }}{% if x.j.weekdays and x.j.target_id and not x.j.enabled %} <span class="badge">{{ _("pausiert") }}</span>{% endif %}</td>
         <td class="faint small" data-label="{{ _("Zuletzt") }}">{{ x.j.last_result or '–' }}</td>
@@ -77,10 +87,20 @@
         <td class="nowrap faint small">{{ x.at }}</td>
         <td data-label="{{ _("Job") }}">{{ x.r.job_name }}{% if x.r.kind == 'download' %}<div class="faint small">{{ _("Direktdownload") }}{% if x.r.started_name %} · {{ x.r.started_name }}{% endif %}</div>{% elif x.r.trigger == 'schedule' %}<div class="faint small">{{ _("Zeitplan") }}</div>{% elif x.r.started_name %}<div class="faint small">{{ x.r.started_name }}</div>{% endif %}</td>
         <td data-label="{{ _("Server") }}">{{ x.r.server_name or x.r.identifier }}</td>
-        <td data-label="{{ _("Ergebnis") }}"><span class="backup-status backup-status-{{ x.r.status }}">{{ x.status }}</span>{% if x.r.detail %}<div class="faint small backup-detail">{{ x.r.detail }}</div>{% endif %}</td>
+        <td data-label="{{ _("Ergebnis") }}"><span class="backup-status backup-status-{{ x.r.status }}">{{ x.status }}</span>
+          {% if x.r.file and x.verified %}
+            {% if x.r.verify_ok %}<span class="badge badge-ok" title="{{ _("Die ganze Datei wurde gelesen, alle Prüfsummen stimmen.") }}">{{ _("geprüft") }}</span>
+            {% else %}<span class="badge badge-bad">{{ _("Prüfung fehlgeschlagen") }}</span>{% endif %}
+          {% elif x.r.file and x.r.kind == 'target' %}<span class="badge" title="{{ _("Backups aus älteren Versionen wurden nach dem Schreiben nicht geprüft. „Prüfen“ holt das nach.") }}">{{ _("ungeprüft") }}</span>{% endif %}
+          {% if x.restored %}<span class="badge badge-ok" title="{{ _("Zuletzt erfolgreich zurückgespielt: {zeit}", zeit=x.restored) }}">{{ _("wiederhergestellt") }}</span>{% endif %}
+          {% if x.r.detail %}<div class="faint small backup-detail">{{ x.r.detail }}</div>{% endif %}
+          {% if x.verified and not x.r.verify_ok and x.r.verify_detail %}<div class="small bad">{{ x.r.verify_detail }}</div>{% endif %}
+          {% if x.verified %}<div class="faint small">{{ _("Geprüft: {zeit}", zeit=x.verified) }}</div>{% endif %}</td>
         <td class="num nowrap" data-label="{{ _("Größe") }}">{{ x.size or x.data or "–" }}{% if x.r.files %}<div class="faint small">{{ _("{n} Dateien", n=x.r.files) }}</div>{% endif %}</td>
         <td class="num row-actions">
-          {% if x.can_download %}<a class="chip chip-sm" href="/admin/backups/runs/{{ x.r.id }}/download">{{ _("Herunterladen") }}</a>{% endif %}
+          {% if x.can_restore %}<a class="chip chip-sm" href="/admin/backups/runs/{{ x.r.id }}/restore">{{ _("Wiederherstellen") }}</a>{% endif %}
+          {% if x.can_download %}<a class="chip chip-sm chip-ghost" href="/admin/backups/runs/{{ x.r.id }}/download">{{ _("Herunterladen") }}</a>{% endif %}
+          {% if x.can_verify %}<form method="post" action="/admin/backups/runs/{{ x.r.id }}/verify"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-ghost" type="submit" title="{{ _("Liest die ganze Datei und prüft, ob sie unbeschädigt ist. Ändert nichts.") }}">{{ _("Prüfen") }}</button></form>{% endif %}
           {% if x.can_delete %}<form method="post" action="/admin/backups/runs/{{ x.r.id }}/delete" data-confirm="{{ _("Dieses Backup wirklich löschen? Die Datei wird vom Ziel entfernt.") }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button></form>{% endif %}
         </td>
       </tr>
@@ -90,6 +110,28 @@
   </div>
   {% else %}<p class="faint">{{ _("Noch keine Backups gelaufen.") }}</p>{% endif %}
 </section>
+
+{% if restores %}
+<section class="card">
+  <h2 class="card-h">{{ _("Wiederherstellungen") }}</h2>
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Wann") }}</th><th>{{ _("Server") }}</th><th>{{ _("Backup") }}</th><th>{{ _("Wohin") }}</th><th>{{ _("Ergebnis") }}</th></tr></thead>
+    <tbody>
+    {% for x in restores %}
+      <tr>
+        <td class="nowrap faint small">{{ x.at }}{% if x.x.started_name %}<div>{{ x.x.started_name }}</div>{% endif %}</td>
+        <td data-label="{{ _("Server") }}">{{ x.x.server_name or x.x.identifier }}</td>
+        <td data-label="{{ _("Backup") }}">{{ x.x.job_name }}{% if x.backup_at %}<div class="faint small">{{ _("vom {zeit}", zeit=x.backup_at) }}</div>{% endif %}</td>
+        <td data-label="{{ _("Wohin") }}">{% if x.x.mode == 'overwrite' %}{{ _("Ursprünglicher Ort") }}{% else %}<span class="mono">{{ x.x.dest }}</span>{% endif %}</td>
+        <td data-label="{{ _("Ergebnis") }}"><span class="backup-status backup-status-{{ x.x.status }}">{{ x.status }}</span>{% if x.x.files %}<div class="faint small">{{ _("{n} Dateien", n=x.x.files) }}</div>{% endif %}{% if x.x.detail %}<div class="faint small backup-detail">{{ x.x.detail }}</div>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
 
 {% if user.is_owner %}
 <section class="card" id="ziele">

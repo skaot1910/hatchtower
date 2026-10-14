@@ -99,6 +99,7 @@ async def backups_page(request: Request):
         jobs = con.execute("SELECT * FROM backup_jobs ORDER BY name COLLATE NOCASE").fetchall()
         runs = con.execute("SELECT * FROM backup_runs WHERE status NOT IN ('queued', 'running')"
                            " ORDER BY id DESC LIMIT 300").fetchall()
+        restores = con.execute("SELECT * FROM backup_restores ORDER BY id DESC LIMIT 100").fetchall()
     job_list = []
     for job in jobs:
         if not user_may(user, job, "backups.view"):
@@ -117,14 +118,27 @@ async def backups_page(request: Request):
             "can_run": user_may(user, job, "backups.run") and not run_problems(user, job),
             "active": manager().job_active(job["id"]),
         })
+    restored = {}                      # zuletzt erfolgreich zurückgespielt, pro Backup
+    for x in restores:
+        if x["status"] == "ok" and x["run_id"] and x["run_id"] not in restored:
+            restored[x["run_id"]] = fmt_dt(x["finished_at"], settings.timezone)
     run_list = [{
         "r": r, "at": fmt_dt(r["finished_at"] or r["queued_at"], settings.timezone),
         "status": i18n.t(backups.STATUS_LABELS.get(r["status"], r["status"])),
         "size": fmt_size(r["size"]) if r["size"] else "",
         "data": fmt_size(r["data_bytes"]) if r["data_bytes"] else "",
+        "verified": fmt_dt(r["verified_at"], settings.timezone) if r["verified_at"] else None,
+        "restored": restored.get(r["id"]),
         "can_download": bool(r["file"]) and has(user, r["identifier"], "backups.run"),
+        "can_verify": bool(r["file"]) and r["kind"] == "target" and has(user, r["identifier"], "backups.run"),
+        "can_restore": bool(r["file"]) and r["kind"] == "target" and user.can(r["identifier"], "backups.restore"),
         "can_delete": bool(r["file"]) and has(user, r["identifier"], "backups.manage"),
     } for r in runs if has(user, r["identifier"], "backups.view")][:100]
+    restore_list = [{
+        "x": x, "at": fmt_dt(x["finished_at"] or x["started_at"], settings.timezone),
+        "backup_at": fmt_dt(x["backup_at"], settings.timezone) if x["backup_at"] else "",
+        "status": i18n.t(backups.STATUS_LABELS.get(x["status"], x["status"])),
+    } for x in restores if x["status"] != "running" and has(user, x["identifier"], "backups.view")][:20]
     owner_data = {}
     if user.is_owner:
         uid, gid = backups.service_ids()
@@ -134,18 +148,28 @@ async def backups_page(request: Request):
         owner_data = {"targets_view": [target_view(t) for t in targets], "mounts": mounts,
                       "data_dir": str(settings.data_dir / "backups"), "host_uid": 100000 + (uid or 0),
                       "host_gid": 100000 + (gid or 0)}
-    return render(request, "backups.html", jobs=job_list, runs=run_list, targets=targets,
-                  active=manager().active_views(lambda i: has(user, i, "backups.view")),
+    return render(request, "backups.html", jobs=job_list, runs=run_list, targets=targets, restores=restore_list,
+                  active=active_for(user),
                   can_create=user.can_any("backups.manage"), **owner_data)
 
 
 @app.get("/api/backups/status")
 async def backups_status(request: Request):
     user = require_backups(request)
+    return {"active": active_for(user)}
+
+
+def active_for(user) -> list[dict]:
+    """Laufende Backups, Prüfungen und Wiederherstellungen, die dieser Benutzer sehen darf."""
     active = manager().active_views(lambda i: has(user, i, "backups.view"))
     for a in active:
-        a["can_cancel"] = has(user, a["ident"], "backups.run")
-    return {"active": active}
+        if a["kind"] == "verify":
+            a["can_cancel"] = False
+        elif a["kind"] == "restore":
+            a["can_cancel"] = user.can(a["ident"], "backups.restore")
+        else:
+            a["can_cancel"] = has(user, a["ident"], "backups.run")
+    return active
 
 
 # -- Jobs ------------------------------------------------------------------------------------
@@ -459,6 +483,101 @@ async def backup_run_cancel(request: Request, run_id: int):
     return {"ok": True, "message": i18n.t("Wird abgebrochen …")}
 
 
+@app.post("/admin/backups/runs/{run_id}/verify")
+async def backup_run_verify(request: Request, run_id: int):
+    user = require_backups(request, "backups.run")
+    await check_csrf(request)
+    run = load_run(run_id)
+    if run is None:
+        return back("/admin/backups")
+    if not has(user, run["identifier"], "backups.run"):
+        deny(request, user, "backups.run", run["identifier"])
+    try:
+        manager().start_verify(run, user.id, user.username)
+    except BackupError as exc:
+        return back("/admin/backups", str(exc))
+    return back("/admin/backups", "Prüfung gestartet. Hatchtower liest die ganze Datei und prüft jede Datei darin;"
+                                  " das Ergebnis steht danach in der Liste.")
+
+
+# -- Wiederherstellen ------------------------------------------------------------------------------
+
+RESTORE_STOP_NEEDS = ("power.stop", "power.start")
+
+
+def restorable(request: Request, user, run_id: int):
+    """Das gespeicherte Backup, wenn der Benutzer es auf seinen Server zurückspielen darf."""
+    run = load_run(run_id)
+    if run is None:
+        return None
+    if not user.can(run["identifier"], "backups.restore"):
+        deny(request, user, "backups.restore", run["identifier"])
+    return run
+
+
+@app.get("/admin/backups/runs/{run_id}/restore", response_class=HTMLResponse)
+async def backup_restore_page(request: Request, run_id: int):
+    user = require_backups(request, "backups.restore")
+    run = restorable(request, user, run_id)
+    if run is None or not run["file"] or run["kind"] != "target":
+        return back("/admin/backups", "Diese Backup-Datei gibt es nicht mehr.")
+    ident = run["identifier"]
+    names = server_names()
+    with db.connect() as con:
+        state = con.execute("SELECT state FROM server_state WHERE identifier = ?", (ident,)).fetchone()
+    return render(request, "restore.html", run=run, server=names.get(ident, run["server_name"] or ident),
+                  present=ident in names, at=fmt_dt(run["finished_at"], settings.timezone),
+                  size=fmt_size(run["size"]) if run["size"] else "",
+                  verified=fmt_dt(run["verified_at"], settings.timezone) if run["verified_at"] else None,
+                  running=(state["state"] if state else "") not in ("offline", ""),
+                  can_stop=all(user.can(ident, k) for k in RESTORE_STOP_NEEDS), busy=manager().restore_busy(ident),
+                  folder=backups.RESTORE_FOLDER)
+
+
+@app.post("/admin/backups/runs/{run_id}/restore")
+async def backup_restore_start(request: Request, run_id: int, mode: str = Form(""), stop: str = Form(""),
+                               confirm: str = Form("")):
+    user = require_backups(request, "backups.restore")
+    await check_csrf(request)
+    run = restorable(request, user, run_id)
+    if run is None or not run["file"] or run["kind"] != "target":
+        return back("/admin/backups", "Diese Backup-Datei gibt es nicht mehr.")
+    page = f"/admin/backups/runs/{run_id}/restore"
+    ident = run["identifier"]
+    if ident not in server_names():
+        return back(page, "Den Server gibt es im Panel nicht mehr. Zurückspielen geht nur auf einen vorhandenen Server.")
+    if mode not in ("folder", "overwrite"):
+        return back(page, "Bitte wählen, wohin das Backup zurückgespielt wird.")
+    if mode == "overwrite" and not confirm:
+        return back(page, "Bitte bestätigen, dass gleichnamige Dateien auf dem Server ersetzt werden.")
+    if stop:
+        for key in RESTORE_STOP_NEEDS:
+            require(request, user, ident, key)
+    try:
+        manager().start_restore(run, mode, bool(stop), user.id, user.username)
+    except BackupError as exc:
+        return back(page, str(exc))
+    audit_user(request, user, "backup.restore", server=ident,
+               detail={"job": run["job_name"], "datei": run["file"],
+                       "wohin": "Originalort" if mode == "overwrite" else "eigener Ordner", "stoppen": bool(stop),
+                       "status": "gestartet"})
+    return back("/admin/backups", "Wiederherstellung gestartet. Den Fortschritt siehst du oben unter „Laufende Vorgänge“.")
+
+
+@app.post("/api/backups/restores/{restore_id}/cancel")
+async def backup_restore_cancel(request: Request, restore_id: int):
+    user = require_backups(request, "backups.restore")
+    check_csrf_header(request)
+    rs = manager().restores.get(restore_id)
+    if rs is None:
+        return {"ok": False, "message": i18n.t("Die Wiederherstellung ist schon beendet.")}
+    if not user.can(rs.ident, "backups.restore"):
+        deny(request, user, "backups.restore", rs.ident)
+    manager().cancel_restore(restore_id)
+    audit_user(request, user, "backup.cancel", server=rs.ident, detail={"job": rs.job_name, "art": "Wiederherstellung"})
+    return {"ok": True, "message": i18n.t("Wird abgebrochen …")}
+
+
 @app.post("/admin/backups/runs/{run_id}/delete")
 async def backup_run_delete(request: Request, run_id: int):
     user = require_backups(request, "backups.manage")
@@ -470,6 +589,8 @@ async def backup_run_delete(request: Request, run_id: int):
         deny(request, user, "backups.manage", run["identifier"])
     if run["status"] in ("queued", "running"):
         return back("/admin/backups", "Läuft noch")
+    if manager().file_in_use(run_id):
+        return back("/admin/backups", "Dieses Backup wird gerade geprüft oder zurückgespielt. Bitte warten, bis das fertig ist.")
     await manager().delete_file(run)
     with db.connect() as con:
         con.execute("DELETE FROM backup_runs WHERE id = ?", (run_id,))
@@ -507,9 +628,9 @@ async def files_backup_add(request: Request, ident: str, dir: str = Form("/"), j
     # Im Ordner bleiben, damit sich gleich weitere Dateien hinzufügen lassen
     if job_id == "new":
         return files_back(ident, directory, i18n.t(
-            "Neuer Backup-Job „{job}“ mit {n} Eintrag/Einträgen angelegt. Ziel und Zeitplan stellst du unter Backups ein.",
+            "Neuer Backup-Job „{job}“ angelegt ({n} ausgewählt). Ziel und Zeitplan stellst du unter Backups ein.",
             n=len(paths), job=job["name"]))
-    return files_back(ident, directory, i18n.t("{n} Eintrag/Einträge zu „{job}“ hinzugefügt", n=len(paths),
+    return files_back(ident, directory, i18n.t("{n} ausgewählt und zu „{job}“ hinzugefügt", n=len(paths),
                                                job=job["name"]))
 
 

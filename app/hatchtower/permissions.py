@@ -65,6 +65,10 @@ PERMISSIONS: tuple[Permission, ...] = (
                "Backup-Jobs von Hand starten, laufende abbrechen und gespeicherte Backups herunterladen. Ein"
                " Backup enthält die Dateien des Servers. Jobs, die den Server stoppen, nur mit den Steuerrechten dazu.",
                requires=("server.view", "backups.view")),
+    Permission("backups.restore", "Backups wiederherstellen", "Backups",
+               "Ein gespeichertes Backup auf den Server zurückspielen – in einen eigenen Ordner oder an den"
+               " ursprünglichen Ort, wobei gleichnamige Dateien ersetzt werden. Server vorher stoppen nur mit den"
+               " Steuerrechten dazu.", write=True, requires=("server.view", "backups.view", "backups.run")),
     Permission("backups.manage", "Backup-Jobs verwalten", "Backups",
                "Backup-Jobs anlegen, ändern und löschen und im Datei-Explorer Dateien und Ordner hinzufügen."
                " Jobs mit mehreren Servern nur, wenn das Recht für alle gilt; Stoppen vor dem Backup nur mit"

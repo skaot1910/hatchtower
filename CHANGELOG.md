@@ -3,6 +3,43 @@
 Neue Einträge oben. Die Abschnitte „## <version>“ werden beim Veröffentlichen
 automatisch als Beschreibung des GitHub-Releases übernommen (`tools/release.sh`).
 
+## 0.28.0 – 2026-10-14
+
+- **Backups wiederherstellen:** Gespeicherte Backups lassen sich direkt in Hatchtower auf den Server zurückspielen –
+  wahlweise in einen eigenen Ordner (`/hatchtower-restore/<Datum>`, nichts wird überschrieben) oder an den
+  ursprünglichen Ort (ersetzt gleichnamige Dateien, nur mit Bestätigung). Vorher wird die Backup-Datei geprüft; ist
+  sie beschädigt, passiert am Server nichts. Auf Wunsch wird der Server vorher gestoppt und danach wieder gestartet.
+  Fortschritt und Abbrechen auf der Backup-Seite, eigene Liste „Wiederherstellungen“
+  - Neues Recht **„Backups wiederherstellen“**. Bestehende Rechtegruppen bekommen es nicht automatisch
+- **Jedes Backup wird geprüft:** Nach dem Schreiben liest Hatchtower die ZIP-Datei komplett und prüft jede Datei gegen
+  ihre Prüfsumme, erst dann gilt das Backup als fertig. „Prüfen“ holt das für ältere Backups nach. Die Liste zeigt
+  „geprüft“, „ungeprüft“ und „wiederhergestellt“
+- **Zuverlässigere Backups:**
+  - Ist Wings nicht erreichbar, wird ein vor dem Backup gestoppter Server jetzt immer wieder gestartet (bisher konnte
+    er aus bleiben)
+  - Lässt sich keine einzige Datei sichern, ist das ein Fehler und es bleibt kein leeres ZIP liegen
+  - Bricht ein Download ab, gibt es einen zweiten Versuch; mittendrin abgebrochene Dateien werden als
+    „unvollständig“ gemeldet
+  - Die Aufbewahrung löscht nie das neueste vollständige Backup – ein Backup mit Fehlern verdrängt das letzte gute nicht
+  - Verpasste Zeitpläne (Hatchtower war aus) werden bis zu 6 Stunden später nachgeholt; kann ein geplantes Backup
+    nicht starten, kommt eine Meldung
+  - Während einer Wiederherstellung laufen auf demselben Server keine Backups, und die Datei lässt sich nicht löschen
+- **Update:** Startet eine neue Version nicht, werden beim automatischen Rückfall jetzt auch Versionsnummer und
+  Datenbank zurückgesetzt. Bisher hielt `hatchtower update` die fehlgeschlagene Version danach für installiert
+- **Installationsskripte auf Englisch:** Proxmox-Installer, `get.sh`, `install.sh` und der Befehl `hatchtower update`
+  sprechen jetzt immer Englisch, ebenso die Beschreibungen der systemd-Dienste und der Docker-Start
+- **Oberfläche:**
+  - „Benutzer löschen“ steht in einem eigenen, abgesetzten Bereich und nennt die Alternative „Konto deaktivieren“
+  - Rechte eines Benutzers erscheinen in der Reihenfolge der Rechteliste statt alphabetisch nach internem Namen
+  - Fehlende englische Texte ergänzt („Always“, „Never“, „Waiting“ u. a.), „1 day“ statt „1 days“, keine
+    „Eintrag/Einträge“ mehr
+  - Die Export-Seite nennt, dass Backup-Jobs, Backup-Ziele und Webhooks mitexportiert werden
+- **README neu** (Englisch und Deutsch): für Einsteiger, mit Installation Schritt für Schritt, API-Keys, Rechten,
+  Backups und Wiederherstellen, Fehlerbehebung und aktuellen Screenshots
+- Netzwerkfehler beim Herunterladen einzelner Dateien führen zu einer verständlichen Meldung statt zu einem
+  internen Fehler
+- Hatchtower warnt im Log, wenn die Datenbank von einer neueren Version stammt
+
 ## 0.27.2 – 2026-10-14
 
 - **Statusseite:** Die „Störungs- und Wartungshistorie“ ist von der öffentlichen Statusseite entfernt. Sie zeigte

@@ -26,7 +26,7 @@ TOKEN_STORE=/etc/hatchtower/github-token
 API="https://api.github.com/repos/$REPO"
 
 say()  { printf '\033[1;35m==>\033[0m %s\n' "$*"; }
-fail() { printf '\033[1;31mFehler:\033[0m %s\n' "$*" >&2; exit 1; }
+fail() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
 MODE=install
 case "${1:-}" in
@@ -34,7 +34,7 @@ case "${1:-}" in
   --check)  MODE=check; shift;;
 esac
 
-[ "$(id -u)" -eq 0 ] || fail "Bitte als root ausführen."
+[ "$(id -u)" -eq 0 ] || fail "Please run as root."
 
 # Token: Umgebung, Datei oder (für Updates) der gespeicherte Token des Servers
 TOKEN="${GITHUB_TOKEN:-}"
@@ -53,8 +53,8 @@ command -v curl >/dev/null || need="$need curl ca-certificates"
 command -v python3 >/dev/null || need="$need python3"
 command -v sha256sum >/dev/null || need="$need coreutils"
 if [ -n "$need" ]; then
-  [ "$MODE" = check ] && fail "Es fehlen Programme:$need"
-  say "Benötigte Programme installieren:$need"
+  [ "$MODE" = check ] && fail "Missing programs:$need"
+  say "Installing required programs:$need"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq >/dev/null
   # shellcheck disable=SC2086
@@ -69,14 +69,14 @@ if [ -n "$WANT" ]; then URL="$API/releases/tags/v${WANT#v}"; else URL="$API/rele
 code=$(curl -sS -o "$WORK/release.json" -w '%{http_code}' -H "Accept: application/vnd.github+json" "${AUTH[@]}" "$URL" || echo 000)
 case "$code" in
   200) ;;
-  401) fail "Der GitHub-Token wird abgelehnt (abgelaufen oder falsch). Neu setzen mit: hatchtower github-token";;
+  401) fail "The GitHub token was rejected (expired or wrong). Set a new one with: hatchtower github-token";;
   404) if [ -z "$TOKEN" ]; then
-         fail "Kein Release gefunden. Ist das Repository privat? Dann GITHUB_TOKEN setzen (siehe README)."
+         fail "No release found. Is the repository private? Then set GITHUB_TOKEN (see README)."
        else
-         fail "Kein Release gefunden${WANT:+ für Version $WANT} oder der Token hat keinen Lesezugriff auf $REPO."
+         fail "No release found${WANT:+ for version $WANT}, or the token has no read access to $REPO."
        fi;;
-  000) fail "GitHub ist nicht erreichbar. Internetverbindung und DNS prüfen.";;
-  *)   fail "GitHub antwortet mit HTTP $code.";;
+  000) fail "GitHub cannot be reached. Check the internet connection and DNS.";;
+  *)   fail "GitHub answered with HTTP $code.";;
 esac
 
 eval "$(python3 - "$WORK/release.json" <<'PY'
@@ -99,36 +99,36 @@ newer() {  # ist $1 neuer als $2?
 }
 
 if [ "$MODE" = check ]; then
-  echo "Installiert: ${INSTALLED:-–}   Neueste auf GitHub: $VERSION"
-  if newer "$VERSION" "$INSTALLED"; then echo "Update verfügbar:  hatchtower update"; else echo "Hatchtower ist aktuell."; fi
+  echo "Installed: ${INSTALLED:-–}   Newest on GitHub: $VERSION"
+  if newer "$VERSION" "$INSTALLED"; then echo "Update available:  hatchtower update"; else echo "Hatchtower is up to date."; fi
   exit 0
 fi
 
 if [ "$MODE" = update ]; then
-  [ -n "$INSTALLED" ] || fail "Hatchtower ist hier nicht installiert."
+  [ -n "$INSTALLED" ] || fail "Hatchtower is not installed here."
   if [ -z "$WANT" ] && ! newer "$VERSION" "$INSTALLED"; then
-    say "Hatchtower $INSTALLED ist aktuell."
+    say "Hatchtower $INSTALLED is up to date."
     exit 0
   fi
 fi
 
-[ -n "$PKG_URL" ] && [ -n "$SUM_URL" ] || fail "Im Release $VERSION fehlen Paket oder Prüfsumme."
+[ -n "$PKG_URL" ] && [ -n "$SUM_URL" ] || fail "Release $VERSION is missing the package or the checksum."
 
 # --- Herunterladen und prüfen ------------------------------------------------------
-say "Hatchtower $VERSION herunterladen"
+say "Downloading Hatchtower $VERSION"
 curl -fsSL -H "Accept: application/octet-stream" "${AUTH[@]}" "$PKG_URL" -o "$WORK/$PKG" \
-  || fail "Download des Pakets fehlgeschlagen."
+  || fail "Downloading the package failed."
 curl -fsSL -H "Accept: application/octet-stream" "${AUTH[@]}" "$SUM_URL" -o "$WORK/$PKG.sha256" \
-  || fail "Download der Prüfsumme fehlgeschlagen."
-( cd "$WORK" && sha256sum -c --status "$PKG.sha256" ) || fail "Prüfsumme stimmt nicht – Paket wird nicht installiert."
-say "Prüfsumme in Ordnung"
+  || fail "Downloading the checksum failed."
+( cd "$WORK" && sha256sum -c --status "$PKG.sha256" ) || fail "Checksum does not match – the package is not installed."
+say "Checksum OK"
 
 tar -xzf "$WORK/$PKG" -C "$WORK"
 DIR="$WORK/hatchtower-$VERSION"
-[ -f "$DIR/installer/install.sh" ] || fail "Das Paket enthält kein Hatchtower."
+[ -f "$DIR/installer/install.sh" ] || fail "The package does not contain Hatchtower."
 
 if [ "$MODE" = update ]; then
-  echo "Installiert: $INSTALLED  →  neu: $VERSION"
+  echo "Installed: $INSTALLED  →  new: $VERSION"
   bash "$DIR/installer/install.sh" --update "$@"
 else
   bash "$DIR/installer/install.sh" "$@"
@@ -139,5 +139,5 @@ if [ "${HATCHTOWER_SAVE_TOKEN:-0}" = "1" ] && [ -n "$TOKEN" ] && [ -d /etc/hatch
   umask 077
   printf '%s\n' "$TOKEN" > "$TOKEN_STORE"
   chown root:hatchtower "$TOKEN_STORE"; chmod 640 "$TOKEN_STORE"
-  say "GitHub-Token für Updates gespeichert ($TOKEN_STORE)"
+  say "GitHub token stored for updates ($TOKEN_STORE)"
 fi

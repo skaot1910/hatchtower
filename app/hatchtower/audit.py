@@ -92,6 +92,8 @@ ACTION_LABELS = {
     "backup.file_download": "Gespeichertes Backup heruntergeladen",
     "backup.file_delete": "Gespeichertes Backup gelöscht",
     "backup.cancel": "Backup abgebrochen",
+    "backup.verify": "Backup geprüft",
+    "backup.restore": "Backup wiederhergestellt",
     "backup.target.save": "Backup-Ziel angelegt",
     "backup.target.delete": "Backup-Ziel entfernt",
 }

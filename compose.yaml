@@ -14,7 +14,7 @@ services:
       HATCHTOWER_TZ: Europe/Berlin
     volumes:
       - hatchtower-data:/var/lib/hatchtower
-      # Ziel für Backups (erscheint in Hatchtower unter „Datenträger“):
+      # Ziel für Backups (erscheint unter Backups → Backup-Ziele → Neues Ziel → Speicherort):
       # - /srv/backups/hatchtower:/mnt/backups
 
 volumes:

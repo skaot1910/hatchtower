@@ -33,7 +33,8 @@ Grundregeln:
 | `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete` |
 | `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |
 | `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups`<br>`GET /api/backups/status` |
-| `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /api/backups/runs/{run_id}/cancel` |
+| `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` |
+| `backups.restore` | Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.run` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` |
 | `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |
 
 ## Öffentlich
@@ -152,6 +153,10 @@ Grundregeln:
 | POST | `/admin/backups/jobs/{job_id}/download` | `backups.run` | Formular | liest | Backup-Job ausführen und direkt herunterladen |
 | GET | `/admin/backups/runs/{run_id}/download` | `backups.run` | – | liest | Gespeichertes Backup herunterladen |
 | POST | `/api/backups/runs/{run_id}/cancel` | `backups.run` | Header | liest | Laufendes Backup abbrechen |
+| POST | `/admin/backups/runs/{run_id}/verify` | `backups.run` | Formular | liest | Gespeichertes Backup vollständig lesen und alle Prüfsummen prüfen (ändert nichts) |
+| GET | `/admin/backups/runs/{run_id}/restore` | `backups.restore` | – | liest | Wiederherstellen: Erklärung und Auswahl |
+| POST | `/admin/backups/runs/{run_id}/restore` | `backups.restore` | Formular | schreibt | Backup auf den Server zurückspielen (eigener Ordner oder Originalort; Stoppen nur mit den Steuerrechten) |
+| POST | `/api/backups/restores/{restore_id}/cancel` | `backups.restore` | Header | liest | Laufende Wiederherstellung abbrechen |
 | POST | `/admin/backups/runs/{run_id}/delete` | `backups.manage` | Formular | liest | Gespeichertes Backup löschen |
 
 ## Nur Owner

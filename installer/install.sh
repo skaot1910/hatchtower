@@ -21,7 +21,7 @@ BACKUP_DIR=/var/backups/hatchtower
 ENV_FILE=$ETC_DIR/hatchtower.env
 SERVICE=hatchtower
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo unbekannt)"
+VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo unknown)"
 
 PORT=""; BIND=""; ALLOW=""; START=1; UPDATE=0
 while [ $# -gt 0 ]; do
@@ -32,32 +32,32 @@ while [ $# -gt 0 ]; do
     --no-start) START=0; shift;;
     --update) UPDATE=1; shift;;
     -h|--help) sed -n '2,15p' "$0"; exit 0;;
-    *) echo "Unbekannte Option: $1"; exit 1;;
+    *) echo "Unknown option: $1"; exit 1;;
   esac
 done
 
 say()  { printf '\033[1;35m==>\033[0m %s\n' "$*"; }
-fail() { printf '\033[1;31mFehler:\033[0m %s\n' "$*" >&2; exit 1; }
+fail() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] || fail "Bitte als root ausführen (sudo bash install.sh)."
-command -v apt-get >/dev/null || fail "Dieses Skript braucht Debian oder Ubuntu (apt)."
-[ -f "$SRC/app/hatchtower/main.py" ] || fail "Programmdateien nicht gefunden. Bitte das Skript aus dem entpackten Paket starten."
+[ "$(id -u)" -eq 0 ] || fail "Please run as root (sudo bash install.sh)."
+command -v apt-get >/dev/null || fail "This script needs Debian or Ubuntu (apt)."
+[ -f "$SRC/app/hatchtower/main.py" ] || fail "Program files not found. Please run the script from the unpacked package."
 
 FRESH=1
 [ -f "$ENV_FILE" ] && FRESH=0
-[ "$UPDATE" -eq 1 ] && [ "$FRESH" -eq 1 ] && fail "Kein bestehendes Hatchtower gefunden. Für eine Neuinstallation ohne --update starten."
+[ "$UPDATE" -eq 1 ] && [ "$FRESH" -eq 1 ] && fail "No existing Hatchtower found. For a new installation, run without --update."
 
-say "Hatchtower $VERSION – $([ "$FRESH" -eq 1 ] && echo Installation || echo Update)"
+say "Hatchtower $VERSION – $([ "$FRESH" -eq 1 ] && echo installation || echo update)"
 
 # --- Pakete ---------------------------------------------------------------
-say "Systempakete prüfen"
+say "Checking system packages"
 export DEBIAN_FRONTEND=noninteractive
 NEED="python3 python3-venv sqlite3 ca-certificates curl"
 [ -n "$ALLOW" ] && NEED="$NEED nftables"
 MISSING=""
 for p in $NEED; do dpkg -s "$p" >/dev/null 2>&1 || MISSING="$MISSING $p"; done
 if [ -n "$MISSING" ]; then
-  echo "    installiere:$MISSING"
+  echo "    installing:$MISSING"
   apt-get update -qq >/dev/null
   apt-get install -y -qq --no-install-recommends $MISSING >/dev/null 2>&1 || {
     apt-get install -y --no-install-recommends $MISSING   # bei Fehlern noch einmal mit Ausgabe
@@ -77,10 +77,10 @@ SYS_TZ="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
 [ -n "$SYS_TZ" ] || SYS_TZ="Europe/Berlin"
 
 if [ "$FRESH" -eq 1 ]; then
-  say "Schlüssel erzeugen"
+  say "Creating keys"
   umask 027
   {
-    echo "# Hatchtower – von install.sh erzeugt. Nicht weitergeben!"
+    echo "# Hatchtower – created by install.sh. Never share this file!"
     echo "HATCHTOWER_SECRET_KEY=$(head -c48 /dev/urandom | base64 -w0 | tr '+/' '-_')"
     echo "HATCHTOWER_DATA_KEY=$(head -c32 /dev/urandom | base64 -w0 | tr '+/' '-_')"
     echo "HATCHTOWER_DATA_DIR=$DATA_DIR"
@@ -101,15 +101,17 @@ chown root:hatchtower "$ENV_FILE"; chmod 640 "$ENV_FILE"
 . "$ENV_FILE"
 
 # --- Backup vor dem Update -------------------------------------------------
+OLD_VERSION="$(cat "$APP_DIR/VERSION" 2>/dev/null || true)"
+BK=""
 if [ "$FRESH" -eq 0 ] && [ -f "$DATA_DIR/hatchtower.db" ]; then
   BK="$BACKUP_DIR/vor-update-$(date +%F_%H-%M).db"
-  say "Datenbank sichern: $BK"
+  say "Backing up the database: $BK"
   sqlite3 "$DATA_DIR/hatchtower.db" ".backup '$BK'"
   chown hatchtower:hatchtower "$BK"
 fi
 
 # --- Programm einspielen ---------------------------------------------------
-say "Programm installieren"
+say "Installing the program"
 rm -rf "$APP_DIR/app.new" "$APP_DIR/installer.new"
 cp -r "$SRC/app" "$APP_DIR/app.new"
 cp -r "$SRC/installer" "$APP_DIR/installer.new"
@@ -124,7 +126,7 @@ echo "$VERSION" > "$APP_DIR/VERSION"
 # Lizenztext von Hatchtower (AGPL-3.0) mitliefern
 [ -f "$SRC/LICENSE" ] && install -m 644 "$SRC/LICENSE" "$APP_DIR/LICENSE"
 
-say "Python-Umgebung einrichten"
+say "Setting up the Python environment"
 [ -x "$APP_DIR/venv/bin/python" ] || python3 -m venv "$APP_DIR/venv"
 "$APP_DIR/venv/bin/pip" install --quiet --disable-pip-version-check --upgrade pip
 "$APP_DIR/venv/bin/pip" install --quiet --disable-pip-version-check -r "$APP_DIR/app/requirements.txt"
@@ -145,7 +147,7 @@ install -m 644 "$APP_DIR/installer/$SERVICE-update.path" "/etc/systemd/system/$S
 
 # --- Optional: Port auf bestimmte IPs beschränken (eigene Tabelle, bestehende Firewall bleibt unberührt)
 if [ -n "$ALLOW" ]; then
-  say "Port $HATCHTOWER_PORT nur für $ALLOW freigeben"
+  say "Allowing port $HATCHTOWER_PORT only for $ALLOW"
   ALLOW_SET="$(echo "$ALLOW" | tr -d ' ')"
   cat > "$ETC_DIR/firewall.nft" <<EOF
 table inet hatchtower
@@ -170,11 +172,11 @@ systemctl enable "$SERVICE.service" "$SERVICE-backup.timer" "$SERVICE-update.pat
 systemctl start "$SERVICE-backup.timer" "$SERVICE-update.path"
 
 if [ "$START" -eq 0 ]; then
-  say "Fertig (Dienst nicht gestartet, --no-start)."
+  say "Done (service not started, --no-start)."
   exit 0
 fi
 
-say "Dienst starten"
+say "Starting the service"
 systemctl restart "$SERVICE.service"
 ok=0
 for _ in $(seq 1 30); do
@@ -185,12 +187,23 @@ done
 
 if [ "$ok" -ne 1 ]; then
   if [ "$FRESH" -eq 0 ] && [ -d "$APP_DIR/app.old" ]; then
-    say "Neue Version startet nicht – zurück auf die vorherige Version"
+    say "The new version does not start – going back to the previous version"
+    systemctl stop "$SERVICE.service" || true
     rm -rf "$APP_DIR/app.failed"; mv "$APP_DIR/app" "$APP_DIR/app.failed"; mv "$APP_DIR/app.old" "$APP_DIR/app"
+    # Versionsnummer zurück, sonst hält "hatchtower update" die fehlgeschlagene Version für installiert
+    [ -n "$OLD_VERSION" ] && echo "$OLD_VERSION" > "$APP_DIR/VERSION"
+    # Datenbank auf den Stand von vor dem Update (die neue Version könnte sie schon umgebaut haben)
+    if [ -n "$BK" ] && [ -f "$BK" ]; then
+      cp -p "$DATA_DIR/hatchtower.db" "$BACKUP_DIR/nach-fehlgeschlagenem-update-$(date +%F_%H-%M).db" 2>/dev/null || true
+      if sqlite3 "$DATA_DIR/hatchtower.db" ".restore '$BK'"; then
+        chown hatchtower:hatchtower "$DATA_DIR/hatchtower.db"
+        echo "    Database restored to its state before the update ($BK)"
+      fi
+    fi
     systemctl restart "$SERVICE.service"
   fi
   journalctl -u "$SERVICE" -n 30 --no-pager || true
-  fail "Hatchtower startet nicht. Siehe Log oben."
+  fail "Hatchtower does not start. See the log above."
 fi
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
@@ -203,18 +216,18 @@ esac
 echo
 if hatchtower setup-token >/tmp/hatchtower-token 2>/dev/null; then
   TOKEN="$(sed 's/.*: //' /tmp/hatchtower-token)"; rm -f /tmp/hatchtower-token
-  printf '\033[1;32mHatchtower %s ist installiert.\033[0m\n\n' "$VERSION"
-  echo "  1. Im Browser öffnen:   http://${IP:-SERVER-IP}:$HATCHTOWER_PORT/setup"
-  echo "  2. Einrichtungscode:    $TOKEN   (24 Stunden gültig, neu: hatchtower setup-token)"
+  printf '\033[1;32mHatchtower %s is installed.\033[0m\n\n' "$VERSION"
+  echo "  1. Open in your browser:  http://${IP:-SERVER-IP}:$HATCHTOWER_PORT/setup"
+  echo "  2. Setup code:            $TOKEN   (valid for 24 hours, new one: hatchtower setup-token)"
   echo
-  echo "  Der Assistent führt dich durch Panel-Adresse, API-Keys und Wings."
+  echo "  The setup wizard guides you through the panel address, API keys and Wings."
   if [ "$LOCAL_ONLY" -eq 1 ]; then
     echo
-    echo "  Hatchtower lauscht nur auf $HATCHTOWER_BIND. Öffne es über deinen Reverse-Proxy (HTTPS)"
-    echo "  und trag dessen IP danach unter System → Netzwerk ein (bei einem Proxy auf diesem Server: 127.0.0.1)."
+    echo "  Hatchtower only listens on $HATCHTOWER_BIND. Open it through your reverse proxy (HTTPS)"
+    echo "  and then enter the proxy IP under System → Network (for a proxy on this machine: 127.0.0.1)."
   fi
 else
   rm -f /tmp/hatchtower-token
-  printf '\033[1;32mHatchtower %s läuft.\033[0m  http://%s:%s\n' "$VERSION" "${IP:-SERVER-IP}" "$HATCHTOWER_PORT"
+  printf '\033[1;32mHatchtower %s is running.\033[0m  http://%s:%s\n' "$VERSION" "${IP:-SERVER-IP}" "$HATCHTOWER_PORT"
 fi
 echo

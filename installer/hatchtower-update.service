@@ -1,5 +1,5 @@
 [Unit]
-Description=Hatchtower – Update installieren (aus der Weboberfläche angestoßen)
+Description=Hatchtower – install an update (requested from the web interface)
 After=network-online.target
 Wants=network-online.target
 

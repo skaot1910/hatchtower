@@ -306,12 +306,17 @@ class PteroClient:
         """Lädt eine von Pterodactyl signierte Datei von Wings (nur GET)."""
         self._guard("GET")
         url = await self.wings_url(url)
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as http:
-            async with http.stream("GET", url) as response:
-                if response.status_code >= 400:
-                    raise PteroError(t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=response.status_code), response.status_code)
-                async for chunk in response.aiter_bytes(65536):
-                    yield chunk
+        # Netzwerkfehler (auch mitten im Download) als PteroError melden, damit Aufrufer wie Backups sie
+        # als Fehler dieser einen Datei behandeln und nicht als unerwarteten Absturz
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as http:
+                async with http.stream("GET", url) as response:
+                    if response.status_code >= 400:
+                        raise PteroError(t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=response.status_code), response.status_code)
+                    async for chunk in response.aiter_bytes(65536):
+                        yield chunk
+        except httpx.HTTPError as exc:
+            raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
 
 
 def _error_text(response: httpx.Response) -> str:

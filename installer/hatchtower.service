@@ -1,5 +1,5 @@
 [Unit]
-Description=Hatchtower – Management und Monitoring für Pterodactyl
+Description=Hatchtower – web interface for game servers
 After=network-online.target
 Wants=network-online.target
 

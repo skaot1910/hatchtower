@@ -10,7 +10,7 @@ APP_DIR=/opt/hatchtower
 ENV_FILE=/etc/hatchtower/hatchtower.env
 TOKEN_STORE=/etc/hatchtower/github-token
 
-need_root() { [ "$(id -u)" -eq 0 ] || { echo "Bitte als root ausführen."; exit 1; }; }
+need_root() { [ "$(id -u)" -eq 0 ] || { echo "Please run as root."; exit 1; }; }
 repo() { sed -n 's/^HATCHTOWER_REPO=//p' "$ENV_FILE" 2>/dev/null | tail -1; }
 
 if [ "${1:-}" = "update" ]; then
@@ -26,13 +26,13 @@ if [ "${1:-}" = "update" ]; then
   WORK="$(mktemp -d /tmp/hatchtower-update.XXXX)"
   trap 'rm -rf "$WORK"' EXIT
   case "$SRC" in
-    http://*|https://*) echo "Lade $SRC"; curl -fsSL "$SRC" -o "$WORK/paket.tar.gz";;
+    http://*|https://*) echo "Downloading $SRC"; curl -fsSL "$SRC" -o "$WORK/paket.tar.gz";;
     *) cp "$SRC" "$WORK/paket.tar.gz";;
   esac
   tar -xzf "$WORK/paket.tar.gz" -C "$WORK"
   DIR="$(find "$WORK" -mindepth 1 -maxdepth 1 -type d -name 'hatchtower*' | head -1)"
-  [ -n "$DIR" ] && [ -f "$DIR/installer/install.sh" ] || { echo "Das Paket enthält kein Hatchtower."; exit 1; }
-  echo "Installiert: $(cat $APP_DIR/VERSION 2>/dev/null || echo ?)  →  neu: $(cat "$DIR/VERSION")"
+  [ -n "$DIR" ] && [ -f "$DIR/installer/install.sh" ] || { echo "The package does not contain Hatchtower."; exit 1; }
+  echo "Installed: $(cat $APP_DIR/VERSION 2>/dev/null || echo ?)  →  new: $(cat "$DIR/VERSION")"
   exec bash "$DIR/installer/install.sh" --update
 fi
 
@@ -65,20 +65,20 @@ fi
 if [ "${1:-}" = "github-token" ]; then
   need_root
   if [ "${2:-}" = "--remove" ]; then
-    rm -f "$TOKEN_STORE"; echo "GitHub-Token entfernt."; exit 0
+    rm -f "$TOKEN_STORE"; echo "GitHub token removed."; exit 0
   fi
   REPO="$(repo)"; REPO="${REPO:-skaot1910/hatchtower}"
-  echo "Lese-Token für $REPO eingeben (wird nicht angezeigt, Enter zum Abbrechen):"
+  echo "Enter a read token for $REPO (not shown while typing, Enter to cancel):"
   read -rs TOKEN; echo
   TOKEN="$(printf '%s' "$TOKEN" | tr -d ' \r\n')"
-  [ -n "$TOKEN" ] || { echo "Abgebrochen."; exit 1; }
+  [ -n "$TOKEN" ] || { echo "Cancelled."; exit 1; }
   code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
          -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO" || echo 000)
-  [ "$code" = "200" ] || { echo "Token wird nicht akzeptiert (HTTP $code). Nichts gespeichert."; exit 1; }
+  [ "$code" = "200" ] || { echo "The token was not accepted (HTTP $code). Nothing was stored."; exit 1; }
   umask 077
   printf '%s\n' "$TOKEN" > "$TOKEN_STORE"
   chown root:hatchtower "$TOKEN_STORE"; chmod 640 "$TOKEN_STORE"
-  echo "Gespeichert. Ab jetzt holt \"hatchtower update\" neue Versionen direkt von GitHub."
+  echo "Stored. From now on \"hatchtower update\" gets new versions directly from GitHub."
   exit 0
 fi
 

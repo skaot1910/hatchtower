@@ -5,6 +5,7 @@ Wechsel auf PostgreSQL an einer Stelle passieren kann.
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -526,6 +527,32 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE users ADD COLUMN view_locked INTEGER NOT NULL DEFAULT 0;
     """,
+    # Backups: Ergebnis der Prüfung jeder Backup-Datei (alle Prüfsummen gelesen) und Wiederherstellungen
+    """
+    ALTER TABLE backup_runs ADD COLUMN verified_at TEXT;
+    ALTER TABLE backup_runs ADD COLUMN verify_ok INTEGER;
+    ALTER TABLE backup_runs ADD COLUMN verify_detail TEXT;
+    CREATE TABLE backup_restores (
+        id             INTEGER PRIMARY KEY,
+        run_id         INTEGER REFERENCES backup_runs(id) ON DELETE SET NULL,
+        identifier     TEXT NOT NULL,
+        server_name    TEXT,
+        job_name       TEXT,
+        backup_at      TEXT,
+        mode           TEXT NOT NULL CHECK (mode IN ('folder', 'overwrite')),
+        dest           TEXT NOT NULL,
+        status         TEXT NOT NULL,
+        detail         TEXT,
+        files          INTEGER,
+        data_bytes     INTEGER,
+        started_by     INTEGER,
+        started_name   TEXT,
+        power_restore  INTEGER NOT NULL DEFAULT 0,
+        started_at     TEXT NOT NULL,
+        finished_at    TEXT
+    );
+    CREATE INDEX backup_restores_run ON backup_restores(run_id);
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)
@@ -558,6 +585,11 @@ def init(path: Path) -> None:
     with connect() as con:
         con.execute("PRAGMA journal_mode=WAL")
         version = con.execute("PRAGMA user_version").fetchone()[0]
+        if version > len(MIGRATIONS):
+            # Datenbank einer neueren Version (z. B. nach einem Rückfall auf ältere Software): läuft meist,
+            # aber neue Funktionen fehlen. Nicht still übergehen.
+            logging.getLogger("hatchtower.db").warning(
+                "Datenbank-Version %s ist neuer als diese Hatchtower-Version (%s)", version, len(MIGRATIONS))
         for index, sql in enumerate(MIGRATIONS[version:], start=version + 1):
             con.executescript(f"BEGIN; {sql}; PRAGMA user_version = {index}; COMMIT;")
 

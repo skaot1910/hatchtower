@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Backup wiederherstellen") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<a class="backlink" href="/admin/backups">← {{ _("Backups") }}</a>
+<div class="page-head">
+  <div><h1>{{ _("Backup wiederherstellen") }}</h1>
+    <p class="muted">{{ _("{server} · Backup „{job}“ vom {zeit}", server=server, job=run.job_name, zeit=at) }}{% if size %} · {{ size }}{% endif %}{% if run.files %} · {{ _("{n} Dateien", n=run.files) }}{% endif %}</p></div>
+</div>
+
+{% if busy %}<div class="alert">{{ busy }}</div>{% endif %}
+{% if not present %}<div class="alert">{{ _("Den Server gibt es im Panel nicht mehr. Zurückspielen geht nur auf einen vorhandenen Server – du kannst das Backup aber herunterladen.") }}</div>{% endif %}
+{% if run.status == 'partial' %}<div class="alert">{{ _("In diesem Backup fehlen einzelne Dateien oder sind unvollständig: {detail}", detail=run.detail or "?") }}</div>{% endif %}
+{% if run.verified_at and not run.verify_ok %}<div class="alert">{{ _("Die letzte Prüfung dieser Datei ist fehlgeschlagen: {grund}", grund=run.verify_detail or "?") }}</div>{% endif %}
+
+<section class="card">
+  <h2 class="card-h">{{ _("Was passiert") }}</h2>
+  <ol class="small restore-steps">
+    <li>{{ _("Hatchtower liest die Backup-Datei komplett und prüft jede Datei darin. Ist etwas beschädigt, bricht es ab, bevor auf dem Server etwas geändert wird.") }}</li>
+    <li>{{ _("Auf Wunsch wird der Server gestoppt – empfohlen, wenn du an den ursprünglichen Ort zurückspielst. Ein laufendes Spiel würde Dateien sonst gleich wieder überschreiben.") }}</li>
+    <li>{{ _("Die Dateien werden auf den Server hochgeladen. Das dauert etwa so lange wie das Backup selbst.") }}</li>
+    <li>{{ _("Wurde der Server gestoppt, startet Hatchtower ihn danach wieder.") }}</li>
+  </ol>
+  <p class="faint small">{{ _("Dateien, die es im Backup nicht gibt, bleiben auf dem Server unverändert – es wird nichts gelöscht. Den Fortschritt siehst du auf der Backup-Seite; dort lässt sich die Wiederherstellung auch abbrechen.") }}</p>
+</section>
+
+{% if present and not busy %}
+<section class="card">
+  <h2 class="card-h">{{ _("Wohin zurückspielen?") }}</h2>
+  <form method="post" action="/admin/backups/runs/{{ run.id }}/restore" class="form" id="restore-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <fieldset class="perm-group">
+      <legend class="sr-only">{{ _("Wohin zurückspielen?") }}</legend>
+      <label class="check restore-choice"><input type="radio" name="mode" value="folder" checked>
+        <span><strong>{{ _("In einen eigenen Ordner (sicher)") }}</strong><br>
+        <span class="faint small">{{ _("Die Dateien landen in {folder}/<Datum> auf dem Server. Nichts wird überschrieben. Danach kannst du im Datei-Explorer in Ruhe nachsehen und einzelne Dateien an ihren Platz verschieben.", folder=folder) }}</span></span></label>
+      <label class="check restore-choice"><input type="radio" name="mode" value="overwrite">
+        <span><strong>{{ _("An den ursprünglichen Ort (ersetzt Dateien)") }}</strong><br>
+        <span class="faint small">{{ _("Jede Datei aus dem Backup ersetzt die gleichnamige Datei auf dem Server. Änderungen seit dem Backup an diesen Dateien gehen verloren – zum Beispiel Spielfortschritt seit dem Backup.") }}</span></span></label>
+    </fieldset>
+    <label class="check" data-restore-confirm hidden><input type="checkbox" name="confirm" value="1"> {{ _("Ich habe verstanden, dass gleichnamige Dateien auf dem Server ersetzt werden.") }}</label>
+    {% if can_stop %}
+    <label class="check"><input type="checkbox" name="stop" value="1" {% if running %}checked{% endif %}> {{ _("Server vorher stoppen und danach wieder starten") }}{% if not running %} <span class="faint small">({{ _("er ist gerade aus") }})</span>{% endif %}</label>
+    {% elif running %}
+    <p class="faint small">{{ _("Der Server läuft. Zum Stoppen fehlen dir die Rechte – am besten jemanden bitten, ihn vorher zu stoppen.") }}</p>
+    {% endif %}
+    <button class="btn btn-primary" type="submit">{{ _("Wiederherstellung starten") }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

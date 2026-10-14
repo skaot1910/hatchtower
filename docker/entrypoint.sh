@@ -14,7 +14,7 @@ with open(sys.argv[1], "w") as f:
     f.write("HATCHTOWER_SECRET_KEY=%s\n" % base64.urlsafe_b64encode(os.urandom(48)).decode())
     f.write("HATCHTOWER_DATA_KEY=%s\n" % base64.urlsafe_b64encode(os.urandom(32)).decode())
 PY
-    echo "Hatchtower: neue Schlüssel in $KEYS angelegt (mit dem Volume sichern)."
+    echo "Hatchtower: created new keys in $KEYS (back them up together with the volume)."
   fi
   set -a; . "$KEYS"; set +a
 fi
@@ -22,8 +22,8 @@ fi
 # Noch kein Benutzer: Einrichtungscode ins Log schreiben
 if python -m hatchtower.cli setup-token > /tmp/setup-token 2>/dev/null; then
   echo "----------------------------------------------------------------"
-  cat /tmp/setup-token
-  echo "Assistent: http://<server>:${HATCHTOWER_PORT:-8000}/setup"
+  echo "Setup code (valid for 24 hours): $(sed 's/.*: //' /tmp/setup-token)"
+  echo "Setup wizard: http://<server>:${HATCHTOWER_PORT:-8000}/setup"
   echo "----------------------------------------------------------------"
 fi
 rm -f /tmp/setup-token

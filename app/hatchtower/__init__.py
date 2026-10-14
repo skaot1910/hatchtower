@@ -1,4 +1,4 @@
 """Hatchtower - Management und Monitoring für Pterodactyl-Game-Server."""
 
 APP_NAME = "Hatchtower"
-__version__ = "0.27.2"
+__version__ = "0.28.0"

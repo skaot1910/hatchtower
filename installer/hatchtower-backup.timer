@@ -1,5 +1,5 @@
 [Unit]
-Description=Hatchtower – tägliches Datenbank-Backup
+Description=Hatchtower – daily database backup
 
 [Timer]
 OnCalendar=*-*-* 03:30:00

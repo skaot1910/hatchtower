@@ -19,7 +19,7 @@ KINDS = {
     "files": ("files.upload", "files.edit", "files.rename", "files.mkdir", "files.delete", "files.restore",
               "files.download", "files.download_zip"),
     "console": ("console.command", "console.archive_download"),
-    "backups": ("backup.run", "backup.job.update", "backup.file_download"),
+    "backups": ("backup.run", "backup.job.update", "backup.file_download", "backup.restore", "backup.verify"),
     "settings": ("server.new", "server.meta.update", "server.logo.update", "automation.settings",
                  "schedule.create", "schedule.update", "schedule.delete", "schedule.warn"),
 }

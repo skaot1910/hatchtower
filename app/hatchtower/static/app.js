@@ -908,7 +908,8 @@
     var deps = JSON.parse(form.dataset.deps);
     var labels = JSON.parse(form.dataset.labels);
     var groups = JSON.parse(form.dataset.groups);
-    var order = Object.keys(labels);
+    // Reihenfolge wie in der Rechteliste (tojson sortiert die Schlüssel alphabetisch)
+    var order = form.dataset.order ? JSON.parse(form.dataset.order) : Object.keys(labels);
     var user = form.dataset.user;
     var note = document.getElementById("dep-note");
     var summaryBox = document.getElementById("summary-box");
@@ -1280,6 +1281,17 @@
       tform.addEventListener("change", syncKind);
       syncKind();
     }
+    var rform = document.getElementById("restore-form");
+    if (rform) {
+      var confirmBox = rform.querySelector("[data-restore-confirm]");
+      var syncMode = function () {
+        var over = rform.querySelector('input[name="mode"]:checked').value === "overwrite";
+        confirmBox.hidden = !over;
+        confirmBox.querySelector("input").required = over;
+      };
+      rform.addEventListener("change", syncMode);
+      syncMode();
+    }
     var box = document.getElementById("backup-active");
     if (!box) return;
     var list = document.getElementById("backup-active-list");
@@ -1298,12 +1310,14 @@
         var head = el("div", "backup-run-head");
         var title = el("div", "backup-run-title");
         title.appendChild(el("strong", "", a.server));
-        title.appendChild(el("span", "faint small", " · " + a.job + (a.kind === "download" ? " · " + tr("Direktdownload") : "")));
+        var kinds = { download: tr("Direktdownload"), restore: tr("Wiederherstellung"), verify: tr("Prüfung") };
+        title.appendChild(el("span", "faint small", " · " + a.job + (kinds[a.kind] ? " · " + kinds[a.kind] : "")));
         head.appendChild(title);
-        if (a.can_cancel) {
+        if (a.can_cancel && a.cancel_url) {
           var btn = el("button", "chip chip-sm chip-danger", tr("Abbrechen"));
           btn.type = "button";
-          btn.dataset.cancel = a.id;
+          btn.dataset.cancel = a.cancel_url;
+          btn.dataset.kind = a.kind;
           head.appendChild(btn);
         }
         row.appendChild(head);
@@ -1311,10 +1325,11 @@
         var fill = el("div");
         bar.appendChild(fill);
         row.appendChild(bar);
-        paintBar(fill, a.state === "copying" ? a.percent : 0);
+        var withBar = ["copying", "uploading", "verifying"].indexOf(a.state) >= 0;
+        paintBar(fill, withBar ? a.percent : 0);
         fill.classList.remove("warn", "crit");
         var info = a.phase;
-        if (a.state === "copying") {
+        if (a.state === "copying" || a.state === "uploading") {
           info = a.percent + " % · " + fmtBytes(a.done) + " / " + fmtBytes(a.total) + " · " +
             tr("{n} von {m} Dateien", { n: a.files_done, m: a.files_total }) +
             (a.rate ? " · " + fmtBytes(a.rate, true) : "");
@@ -1347,9 +1362,12 @@
     }
     list.addEventListener("click", function (ev) {
       var btn = ev.target.closest("[data-cancel]");
-      if (!btn || !window.confirm(tr("Dieses Backup abbrechen?"))) return;
+      var question = btn && btn.dataset.kind === "restore"
+        ? tr("Wiederherstellung abbrechen? Bis dahin zurückgespielte Dateien bleiben auf dem Server.")
+        : tr("Dieses Backup abbrechen?");
+      if (!btn || !window.confirm(question)) return;
       btn.disabled = true;
-      postJson("/api/backups/runs/" + btn.dataset.cancel + "/cancel", {})
+      postJson(btn.dataset.cancel, {})
         .then(function (d) { toast(d.message || tr("Wird abgebrochen …"), true); })
         .catch(function (e) { toast(e.message, false); btn.disabled = false; });
     });

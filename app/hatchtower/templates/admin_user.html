@@ -27,7 +27,7 @@
   {% endif %}
 
   <form method="post" action="/admin/users/{{ target.id }}/permissions" id="perm-form"
-        data-deps='{{ deps|tojson }}' data-labels='{{ labels|tojson }}' data-groups='{{ group_keys|tojson }}' data-user="{{ target.username }}">
+        data-deps='{{ deps|tojson }}' data-labels='{{ labels|tojson }}' data-order='{{ labels.keys()|list|tojson }}' data-groups='{{ group_keys|tojson }}' data-user="{{ target.username }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="access-all">
       <label><strong>{{ _("Alle Server, auch künftige") }}</strong>
@@ -114,11 +114,7 @@
       <label>{{ _("Neues Passwort") }}<input name="password" type="text" required minlength="15" autocomplete="off" spellcheck="false"></label>
       <button class="btn btn-ghost" type="submit">{{ _("Passwort setzen") }}</button>
     </form>
-    <form method="post" action="/admin/users/{{ target.id }}/delete" data-confirm="{{ _("{name} wirklich löschen?", name=target.username) }}">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="btn btn-danger btn-sm" type="submit">{{ _("Benutzer löschen") }}</button>
-    </form>
-    <p class="faint small">{{ _("Beim Löschen verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Einträge im Audit-Log werden nach Ablauf der Aufbewahrungsfrist gelöscht.") }}</p>
+    <p class="faint small">{{ _("Der Benutzer wird bei allen Geräten abgemeldet und meldet sich danach mit dem neuen Passwort an.") }}</p>
   </section>
 </div>
 <section class="card" id="email">
@@ -163,5 +159,13 @@
   <h2 class="card-h">{{ _("Datenauskunft") }}</h2>
   <p class="muted small">{{ _("Alles, was Hatchtower zu diesem Benutzer gespeichert hat, als Datei – z. B. für eine Auskunft nach Art. 15 DSGVO.") }}</p>
   <a class="btn btn-ghost btn-sm" href="/admin/users/{{ target.id }}/export">{{ _("Daten herunterladen (JSON)") }}</a>
+</section>
+<section class="card card-danger">
+  <h2 class="card-h">{{ _("Benutzer löschen") }}</h2>
+  <p class="muted small">{{ _("Beim Löschen verschwinden Konto, Rechte, Favoriten und Sitzungen sofort. Einträge im Audit-Log werden nach Ablauf der Aufbewahrungsfrist gelöscht. Soll jemand nur vorübergehend nicht hinein, nimm stattdessen oben den Haken bei „Konto aktiv“ heraus.") }}</p>
+  <form method="post" action="/admin/users/{{ target.id }}/delete" data-confirm="{{ _("{name} endgültig löschen? Das lässt sich nicht rückgängig machen.", name=target.username) }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn btn-danger btn-sm" type="submit">{{ _("Benutzer endgültig löschen") }}</button>
+  </form>
 </section>
 {% endblock %}

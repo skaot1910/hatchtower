@@ -105,7 +105,7 @@
         <label>{{ _("Aufbewahren: Tage") }}
           <select name="keep_days">
             <option value="">{{ _("unbegrenzt") }}</option>
-            {% for n in keep_days %}<option value="{{ n }}" {% if job.keep_days == n %}selected{% endif %}>{{ _("{n} Tage", n=n) }}</option>{% endfor %}
+            {% for n in keep_days %}<option value="{{ n }}" {% if job.keep_days == n %}selected{% endif %}>{{ _("1 Tag") if n == 1 else _("{n} Tage", n=n) }}</option>{% endfor %}
           </select>
         </label>
         <label>{{ _("Meldung per Webhook/E-Mail") }}
@@ -114,7 +114,7 @@
           </select>
         </label>
       </div>
-      <p class="faint small">{{ _("Aufbewahrung gilt pro Server für die Backups auf dem Ziel; das neueste bleibt immer. Meldungen gehen an den Webhook (System → Benachrichtigungen) und per E-Mail an Owner.") }}</p>
+      <p class="faint small">{{ _("Aufbewahrung gilt pro Server für die Backups auf dem Ziel. Ältere werden automatisch gelöscht; das neueste und das neueste vollständige Backup bleiben immer. Meldungen gehen an den Webhook (System → Benachrichtigungen) und per E-Mail an Owner.") }}</p>
 
       <label class="check"><input type="checkbox" name="compress" value="1" {% if job.compress %}checked{% endif %}> {{ _("Komprimieren (kleiner, braucht mehr CPU im Hatchtower-Container; Spielstände sind oft schon komprimiert)") }}</label>
 

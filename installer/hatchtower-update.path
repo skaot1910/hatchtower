@@ -1,5 +1,5 @@
 [Unit]
-Description=Hatchtower – Update aus der Weboberfläche anstoßen
+Description=Hatchtower – watch for update requests from the web interface
 
 [Path]
 # Die Weboberfläche (ohne Root-Rechte) legt diese Datei ab, wenn ein Owner „Update installieren“ drückt.

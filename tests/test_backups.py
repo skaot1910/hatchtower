@@ -298,11 +298,12 @@ def _fast_sleep(manager):
 def test_seiten_nach_einem_lauf(env):
     env.manager.enqueue(backups.load_job(env.job_id), 1, "olga")
     run_all(env.manager)
-    assert backups.load_job(env.job_id)["last_result"]
+    last = backups.load_job(env.job_id)["last_result"]
+    assert last.endswith(" gesichert") and "nicht" not in last          # ein Server: ohne „1 von 1“
     c = env.world.client(env.world.ids["olga"])
     assert c.get(f"/admin/backups/jobs/{env.job_id}").status_code == 200
     page = c.get("/admin/backups")
-    assert page.status_code == 200 and "1 von 1 Servern gesichert" in page.text
+    assert page.status_code == 200 and last in page.text
 
 
 # -- SMB-Freigabe (nachgebildet im Testordner) ------------------------------------------------------
