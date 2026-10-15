@@ -94,10 +94,13 @@
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <footer class="footer">
   <span>{% if brand.custom %}{{ brand.custom }} · {% endif %}{{ _("läuft mit") }} <strong>{{ brand.product }}</strong>{% if user %} {{ version }}{% endif %}</span>
+  {% if user and user.is_owner %}<nav class="footer-community" aria-label="{{ _("Hilfe und Community") }}">
+    <a class="footer-chip footer-chip-discord" href="{{ project_discord }}" target="_blank" rel="noopener noreferrer">{{ hm.discord_logo() }}<span>{{ _("Support-Discord") }}</span></a>
+    <a class="footer-chip" href="{{ project_discussions }}" target="_blank" rel="noopener noreferrer">{{ hm.github_logo() }}<span>{{ _("GitHub-Diskussionen") }}</span></a>
+  </nav>{% endif %}
   <nav class="footer-links" aria-label="{{ _("Rechtliches") }}">
     {% for href, label in legal_links %}<a href="{{ href }}">{{ _(label) }}</a>{% endfor %}
     {% if user %}<a href="/about">{{ _("Lizenzen") }}</a>{% endif %}
-    {% if user and user.is_owner %}<a href="{{ project_discord }}" target="_blank" rel="noopener noreferrer">{{ _("Hatchtower-Support (Discord)") }}</a>{% endif %}
   </nav>
 </footer>
 </body>

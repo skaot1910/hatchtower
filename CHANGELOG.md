@@ -3,6 +3,11 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.32.2 – 2026-10-15
+
+- Footer: support links redesigned as buttons with logos; new link to GitHub Discussions next to the support Discord
+  (visible to owners)
+
 ## 0.32.1 – 2026-10-14
 
 - Footer: link to the Hatchtower support Discord (visible to owners)

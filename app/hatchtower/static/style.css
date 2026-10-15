@@ -965,6 +965,14 @@ a.file-link:hover { color: var(--violet-3); }
 .footer-links { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 .footer-links a { color: var(--faint); text-decoration: none; }
 .footer-links a:hover { color: var(--text); text-decoration: underline; }
+.footer-community { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.footer-chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--hair); color: var(--muted); font-weight: 600; text-decoration: none;
+  transition: color .15s, border-color .15s, background .15s; }
+.footer-chip .icon-brand { width: 15px; height: 15px; flex: none; }
+.footer-chip:hover { color: var(--text); border-color: var(--line-2); background: var(--hair-3); }
+.footer-chip-discord:hover { border-color: #5865f2; }
+.footer-chip-discord:hover .icon-brand { color: #8b93f8; }
 .login-extra { text-align: center; margin: 14px 0 0; font-size: 13.5px; }
 .login-extra a { color: var(--muted); }
 
