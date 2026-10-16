@@ -75,6 +75,7 @@ door that keeps the panel inside the home network.
 - **Automations**: restart after a crash, scheduled starts/stops/restarts with in-game warning
 - **Backups** to a drive or SMB share, checked after writing and **restorable** in a few clicks
 - **Notifications** via Discord/webhook and email, **audit log**, optional **public status page**
+- **Server administration** (optional): create servers, change resources, ports and startup parameters
 - **Read-only mode**, own name and logo, dark/medium/light theme, English and German
 
 ## 3. Screenshots
@@ -196,6 +197,10 @@ except `sftp` and `query-raw`; set **Allowed IPs**.
 
 > ⚠️ A client key can do everything its user can. Use a dedicated user, Allowed IPs and two-factor
 > authentication.
+
+**Optional admin key for server administration:** with an additional key that has write access (Pterodactyl/Pelican:
+Servers and Allocations on "Read & Write"), owners can create servers in Hatchtower and change resources, ports and
+startup parameters. Without it these features stay locked; add or remove it any time under **System → Panel**.
 
 Keys are stored encrypted and never shown again. Change them under **System → Panel**.
 

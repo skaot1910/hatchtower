@@ -78,6 +78,7 @@ deshalb Hatchtower: eine kleine, sichere Haustür, hinter der das Panel im Heimn
 - **Automationen**: Neustart nach Absturz, geplantes Starten/Stoppen/Neustarten mit Vorwarnung im Spiel
 - **Backups** auf ein Laufwerk oder eine SMB-Freigabe, nach dem Schreiben geprüft und mit wenigen Klicks **wiederherstellbar**
 - **Meldungen** per Discord/Webhook und E-Mail, **Audit-Log**, optionale **öffentliche Statusseite**
+- **Server-Administration** (optional): Server anlegen, Ressourcen, Ports und Startparameter ändern
 - **Read-Only-Modus**, eigener Name und Logo, dunkles/mittleres/helles Farbschema, Deutsch und Englisch
 
 ## 3. Screenshots
@@ -199,6 +200,11 @@ außer `sftp` und `query-raw`; **Allowed IPs** setzen.
 
 > ⚠️ Ein Client-Key darf alles, was sein Benutzer darf. Deshalb: eigener Benutzer, Allowed IPs und
 > Zwei-Faktor-Anmeldung.
+
+**Optionaler Admin-Key für die Server-Administration:** Mit einem zusätzlichen Key mit Schreibrechten
+(Pterodactyl/Pelican: Servers und Allocations auf „Read & Write“) können Owner in Hatchtower Server anlegen und
+Ressourcen, Ports und Startparameter ändern. Ohne ihn bleiben diese Funktionen gesperrt; hinterlegen oder entfernen
+jederzeit unter **System → Panel**.
 
 Die Keys werden verschlüsselt gespeichert und nie wieder angezeigt. Ändern unter **System → Panel**.
 

@@ -3,6 +3,19 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.33.0 – 2026-10-17
+
+**Server administration (optional admin key)**
+- With an additional key that has write access, owners can create servers in Hatchtower and change name,
+  description, resources (RAM, CPU, disk, limits), ports and startup parameters (startup command, Docker image,
+  variables, egg), reinstall, suspend and delete servers – for Pterodactyl, Pelican and Calagopus
+- New page Server → Ports: create ports (allocations) on the nodes and delete free ones
+- The admin key is optional: add it in the setup wizard (new step) or later under System → Panel. Before saving,
+  Hatchtower checks its permissions without changing anything. Without the key, the new pages are shown but locked
+- New permissions per server: see panel settings, name and description, resources and ports, startup parameters,
+  reinstall. Creating, deleting and suspending servers, changing owner or egg and node ports are owner-only
+- All changes are written to the audit log; values of startup variables are never logged
+
 ## 0.32.2 – 2026-10-15
 
 - Footer: support links redesigned as buttons with logos; new link to GitHub Discussions next to the support Discord
