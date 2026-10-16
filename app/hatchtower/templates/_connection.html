@@ -110,6 +110,61 @@
 </form>
 {% endmacro %}
 
+{# Optional admin key with write access (server administration) – setup wizard and System → Panel #}
+{% macro admin_key_form(c, next, masked, check, check_at) %}
+<div class="key-warning">
+  <p><strong>{{ _("Achtung, Schreibzugriff:") }}</strong> {{ _("Dieser Key darf im Admin-Bereich von {panel} schreiben. Wer ihn hat, kann für alle Server im Panel Server anlegen, ändern und löschen, Ports anlegen und Startparameter ändern.", panel=c.panel.name) }}</p>
+  <p>{{ _("Hatchtower speichert ihn verschlüsselt und nutzt ihn nur für die Server-Administration: nur im Modus „Lesen und steuern“ und nur für Benutzer mit dem passenden Recht. Server anlegen, löschen und sperren sowie Ports auf den Nodes dürfen nur Owner.") }}</p>
+  <p>{{ _("Lege ihn nur an, wenn du diese Funktionen brauchst. Du kannst ihn jederzeit hier entfernen und im Panel löschen.") }}</p>
+</div>
+<div class="howto">
+  <strong>{{ _("So bekommst du den Admin-Key") }}</strong>
+  {% if c.panel_type == 'pterodactyl' %}
+  <ol>
+    <li>{{ _("Im Pterodactyl-Panel oben rechts auf das") }} <strong>{{ _("Zahnrad") }}</strong> {{ _("(Admin-Bereich) klicken.") }}</li>
+    <li>{{ _("Links") }} <strong>{{ _("Application API") }}</strong> {{ _("öffnen, dann") }} <strong>{{ _("Create New") }}</strong>.</li>
+    <li>{{ _("Als Beschreibung z. B. „Hatchtower (Admin)“ eintragen. Rechte:") }} <strong>Servers</strong> {{ _("und") }} <strong>Allocations</strong> {{ _("auf „Read & Write“,") }} <strong>Nodes</strong>, <strong>Users</strong>, <strong>Nests</strong> {{ _("und") }} <strong>Eggs</strong> {{ _("auf „Read“, alles andere auf „None“.") }}</li>
+    <li>{{ _("Speichern und den Key kopieren. Er beginnt mit") }} <span class="mono">ptla_</span> {{ _("und wird nur einmal angezeigt.") }}</li>
+  </ol>
+  {% elif c.panel_type == 'pelican' %}
+  <ol>
+    <li>{{ _("Im Pelican-Panel in den") }} <strong>{{ _("Admin-Bereich") }}</strong> {{ _("wechseln und links") }} <strong>{{ _("API Keys") }}</strong> {{ _("öffnen.") }}</li>
+    <li>{{ _("Einen neuen Key anlegen, als Beschreibung z. B. „Hatchtower (Admin)“. Rechte:") }} <strong>Servers</strong> {{ _("und") }} <strong>Allocations</strong> {{ _("auf „Read & Write“,") }} <strong>Nodes</strong>, <strong>Users</strong> {{ _("und") }} <strong>Eggs</strong> {{ _("auf „Read“, alles andere auf „None“.") }}</li>
+    <li>{{ _("Speichern und den Key kopieren. Er beginnt mit") }} <span class="mono">papp_</span> {{ _("und wird nur einmal angezeigt.") }}</li>
+  </ol>
+  {% else %}
+  <ol>
+    <li>{{ _("Mit dem Benutzer, den Hatchtower schon nutzt, anmelden, im Konto") }} <strong>{{ _("API Keys") }}</strong> {{ _("öffnen und einen zweiten Key erstellen, z. B. „HT Admin“.") }}</li>
+    <li>{{ _("Rechte:") }} <strong>{{ _("Admin") }}</strong> <span class="mono">servers.read</span>, <span class="mono">servers.create</span>, <span class="mono">servers.update</span>, <span class="mono">servers.delete</span>, <span class="mono">servers.allocations</span>, <span class="mono">servers.variables</span>, <span class="mono">nodes.read</span>, <span class="mono">nodes.allocations</span>, <span class="mono">nests.read</span>, <span class="mono">eggs.read</span>, <span class="mono">users.read</span>; <strong>{{ _("Rechte|Benutzer") }}</strong> <span class="mono">servers.read</span>; <strong>{{ _("Server") }}</strong> <span class="mono">settings.install</span>.</li>
+    <li>{{ _("Bei") }} <strong>{{ _("Allowed IPs") }}</strong> {% if c.manager_ip %}<span class="mono">{{ c.manager_ip }}</span> {{ _("eintragen, das ist die Adresse dieses Servers") }}{% else %}{{ _("die IP dieses Servers eintragen") }}{% endif %}{{ _(", dann den Key kopieren. Er wird nur einmal angezeigt.") }}</li>
+  </ol>
+  {% endif %}
+</div>
+<form method="post" action="/admin/connection/admin-key" class="form" data-busy="{{ _("Prüfe …") }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="next" value="{{ next }}">
+  <label>{{ _("Admin-Key (mit Schreibrechten)") }}
+    <input name="admin_key" type="password" autocomplete="off" spellcheck="false" required
+           placeholder="{{ _('gespeichert: {key} – zum Ersetzen neuen Key einfügen', key=masked) if masked else (c.panel.app_prefix ~ '…' if c.panel.app_prefix else _('API-Key einfügen')) }}">
+  </label>
+  <button class="btn btn-primary" type="submit">{{ _("Prüfen und speichern") }}</button>
+  <p class="faint small">{{ _("Vor dem Speichern prüft Hatchtower, welche Rechte der Key hat. Die Prüfung ändert nichts an deinem Panel. Fehlen Rechte, wird der Key nicht gespeichert.") }}</p>
+</form>
+{% if check and check.results %}
+<h3 class="check-area">{{ _("Letzte Prüfung des Admin-Keys") }}{% if check_at %} <span class="faint small">· {{ check_at }}</span>{% endif %}</h3>
+<table class="feature-table">
+  <thead><tr><th>{{ _("Funktion") }}</th><th>{{ _("Ergebnis") }}</th><th>{{ _("Nötiges Recht im Panel") }}</th></tr></thead>
+  <tbody>
+  {% for r in check.results %}
+  <tr><td>{{ _(r.label) }}</td>
+      <td>{% if r.ok %}<span class="good">✓ {{ _("vorhanden") }}</span>{% elif r.ok is none %}<span class="faint">○ {{ _("nicht ohne Änderung prüfbar") }}</span>{% else %}<span class="bad">✕ {{ _("fehlt") }}</span>{% endif %}</td>
+      <td class="mono small">{{ r.need }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endmacro %}
+
 {% macro timezone_select(zones, current) %}
 <label>{{ _("Zeitzone") }}
   <select name="timezone">

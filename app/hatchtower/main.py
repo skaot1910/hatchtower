@@ -58,6 +58,10 @@ NAV_SECTIONS = {
         ("/admin/groups", "Rechtegruppen", ()),
         ("/admin/audit", "Audit-Log", ()),
     ],
+    "servers": [
+        ("/admin/servers/new", "Server anlegen", ()),
+        ("/admin/ports", "Ports", ()),
+    ],
     "appearance": [
         ("/admin/appearance", "Erscheinungsbild", ()),
         ("/admin/statuspage", "Statusseite", ()),
@@ -538,7 +542,8 @@ async def login(request: Request, username: str = Form(""), password: str = Form
 # -- Einrichtung (Assistent) und Verbindung ------------------------------------------
 
 SETUP_STEPS = [("owner", "Konto"), ("panel", "Panel"), ("client", "Client-Key"), ("nodes", "Wings"),
-               ("review", "Prüfen und speichern"), ("options", "Optionen"), ("legal", "Rechtliches"), ("done", "Bericht")]
+               ("review", "Prüfen und speichern"), ("admin", "Server-Administration"), ("options", "Optionen"),
+               ("legal", "Rechtliches"), ("done", "Bericht")]
 CONNECTION_STEPS = ("panel", "client", "nodes", "review")
 
 
@@ -636,6 +641,8 @@ async def setup_page(request: Request, step: str = ""):
         extra["changes"] = draft_changes(draft)
     if step == "done":
         extra["final"] = await final_report()
+    if step == "admin":
+        extra.update(routes_admin.admin_key_context())
     steps = setup_steps(panel, repair)
     return render(request, "setup.html", conn=connection_context(step, draft if step in CONNECTION_STEPS else None),
                   step=step, steps=steps if repair else steps[1:], repair=repair, error=None, levels=LEVEL_TEXTS,
@@ -789,21 +796,28 @@ async def connection_save(request: Request, confirm: str = Form("")):
     url = setup.normalize_url(cand.url) or cand.url
     switched = settings.configured and cand.panel.key != settings.panel_type
     app_new, client_new = cand.app_key != settings.app_key, cand.effective_client_key != settings.client_key
-    setup.save_values({"panel_type": cand.panel.key, "panel_url": url, "app_key": cand.app_key,
-                       "client_key": cand.effective_client_key, "node_overrides": cand.node_overrides}, vault, owner.id)
+    values = {"panel_type": cand.panel.key, "panel_url": url, "app_key": cand.app_key,
+              "client_key": cand.effective_client_key, "node_overrides": cand.node_overrides}
+    # The admin key belongs to the old panel: never send it to another panel or host
+    drop_admin = bool(settings.admin_key) and (cand.panel.key != settings.panel_type
+                                               or not setup.same_origin_for_keys(settings.pterodactyl_url, url))
+    if drop_admin:
+        values["admin_key"] = ""
+    setup.save_values(values, vault, owner.id)
     db.set_setting("connection_last_check", json.dumps(diagnose.summary(report)), owner.id)
     await apply_connection()
     audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request), detail={
         "panel": f"{cand.panel.name} {url}", "panel_gewechselt": switched or None,
         "app_key": "neu" if app_new else "unverändert",
         "client_key": None if cand.panel.single_key else ("neu" if client_new else "unverändert"),
+        "admin_key": "entfernt (anderes Panel)" if drop_admin else None,
         "wings_adressen": cand.node_overrides or "keine Abweichung", "warnungen": report.warnings,
         "bestaetigt": True})
     repair = draft["repair"]
     setup.draft_clear(owner.id)
     if repair:
         return back("/admin/connection", "Verbindung gespeichert.")
-    return back("/setup?step=options", "Verbindung gespeichert.")
+    return back("/setup?step=admin", "Verbindung gespeichert.")
 
 
 @app.post("/admin/connection/discard")
@@ -862,6 +876,8 @@ async def connection_panel(request: Request, panel_url: str = Form(""), panel_ty
         values["client_key"] = key
     elif not keep:
         values["client_key"] = ""
+    if not keep:
+        values["admin_key"] = ""
     setup.save_values(values, vault, owner.id)
     await apply_connection()
     audit.record("connection.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
@@ -1011,7 +1027,8 @@ async def connection_page(request: Request, check: str = ""):
             nodes_error = str(exc)
     return render(request, "connection.html", conn=connection_context(None), report=report, last_check=last,
                   last_check_at=last_at, nodes=nodes, nodes_error=nodes_error,
-                  draft=setup.draft_get(owner.id), levels=LEVEL_TEXTS, areas=diagnose.AREAS)
+                  draft=setup.draft_get(owner.id), levels=LEVEL_TEXTS, areas=diagnose.AREAS,
+                  **routes_admin.admin_key_context())
 
 
 @app.get("/theme/{key}")
@@ -2612,3 +2629,4 @@ async def admin_appearance_locale(request: Request, default_language: str = Form
 # Weitere Seiten (Statusseite, E-Mail, Einladungen, Datenumzug, ...)
 from . import routes_extra  # noqa: E402,F401
 from . import routes_backup  # noqa: E402,F401
+from . import routes_admin  # noqa: E402,F401

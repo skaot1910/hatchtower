@@ -79,6 +79,23 @@ PERMISSIONS: tuple[Permission, ...] = (
                "Backup-Jobs anlegen, ändern und löschen und im Datei-Explorer Dateien und Ordner hinzufügen."
                " Jobs mit mehreren Servern nur, wenn das Recht für alle gilt; Stoppen vor dem Backup nur mit"
                " den Steuerrechten dazu.", requires=("server.view", "backups.view", "sftp.view")),
+    # Server administration in the panel: only with the optional admin key (write access)
+    Permission("admin.view", "Panel-Einstellungen sehen", "Administration",
+               "Name, Ressourcen, Ports und Startparameter des Servers so sehen, wie sie im Panel eingestellt sind.",
+               requires=("server.view",), note="Startvariablen können Passwörter oder Zugangsschlüssel enthalten."),
+    Permission("admin.details", "Name und Beschreibung", "Administration",
+               "Name und Beschreibung des Servers im Panel ändern.", write=True, requires=("server.view", "admin.view")),
+    Permission("admin.build", "Ressourcen und Ports", "Administration",
+               "RAM, CPU, Speicher, die Limits für Datenbanken, Ports und Backups sowie die Ports des Servers im"
+               " Panel ändern.", write=True, requires=("server.view", "admin.view"),
+               note="Kann dem Server mehr Leistung geben, als der Node hat, und freie Ports des Nodes belegen."),
+    Permission("admin.startup", "Startparameter", "Administration",
+               "Startbefehl, Docker-Image und alle Startvariablen im Panel ändern, auch die, die das Panel für"
+               " Benutzer sperrt.", write=True, requires=("server.view", "admin.view"),
+               note="Startvariablen legen je nach Spiel Passwörter, Versionen oder Mods fest."),
+    Permission("admin.reinstall", "Neu installieren", "Administration",
+               "Den Server im Panel neu installieren lassen (Installationsskript des Eggs).", write=True,
+               requires=("server.view", "admin.view"), note="Je nach Egg werden dabei Dateien des Servers überschrieben."),
 )
 
 # Welches Recht ein Zeitplan mit dieser Aktion voraussetzt
@@ -157,7 +174,7 @@ class UserContext:
 # Welche Steuerrechte ein Backup-Job braucht, der den Server vorher stoppt
 BACKUP_STOP_NEEDS = {"none": (), "stop": ("power.stop",), "restart": ("power.stop", "power.start")}
 
-GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien", "Automationen", "Backups")
+GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien", "Automationen", "Backups", "Administration")
 
 
 def grouped_permissions() -> list[tuple[str, list[Permission]]]:

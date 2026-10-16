@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% import "_admin.html" as ad with context %}
+{% block title %}{{ _("Server anlegen") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _("Server anlegen") }}</h1>
+    <p class="muted">{{ _("Legt einen neuen Server direkt in {panel} an. Danach installiert ihn das Panel; er erscheint automatisch in der Übersicht von Hatchtower.") }}</p>
+  </div>
+</div>
+
+{{ ad.unavailable(reason, true) }}
+{% if error %}<div class="alert" role="alert">{{ _("{panel} antwortet nicht wie erwartet: {grund}", grund=error) }}</div>{% endif %}
+
+<section class="card">
+  <h2 class="card-h">{{ _("1. Node und Egg") }}</h2>
+  <form method="get" action="/admin/servers/new" class="form">
+    <fieldset class="plain" {% if not nodes or not eggs %}disabled{% endif %}>
+      <div class="form-grid">
+        <label>{{ _("Node") }}
+          <select name="node" required>
+            {% for n in nodes %}<option value="{{ n.id }}" {% if n.id == node %}selected{% endif %}>{{ n.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ _("Egg (Spiel)") }}
+          <select name="egg" required>
+            {% for e in eggs %}<option value="{{ e.id }}" {% if e.id == egg %}selected{% endif %}>{% if e.group %}{{ e.group }} · {% endif %}{{ e.name }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <button class="btn {{ 'btn-ghost' if egg_info else 'btn-primary' }}" type="submit">{{ _("Übernehmen") if egg_info else _("Weiter zum Formular") }}</button>
+    </fieldset>
+  </form>
+  <p class="faint small">{{ _("Das Egg legt fest, welches Spiel installiert wird, und bringt Startbefehl, Docker-Image und Startvariablen mit.") }}</p>
+</section>
+
+{% if egg_info %}
+<section class="card">
+  <h2 class="card-h">{{ _("2. Server einrichten: {egg}", egg=egg_info.name) }}</h2>
+  <form method="post" action="/admin/servers/new" class="form" data-busy="{{ _("Lege an …") }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="node" value="{{ node }}">
+    <input type="hidden" name="egg" value="{{ egg_info.id }}">
+    <fieldset class="plain" {% if reason %}disabled{% endif %}>
+      <div class="form-grid">
+        <label>{{ _("Name") }}<input name="name" maxlength="191" required placeholder="{{ _("z. B. Survival-Welt") }}"></label>
+        <label>{{ _("Besitzer im Panel") }}
+          <select name="owner" required>
+            {% for u in users %}<option value="{{ u.id }}">{{ u.name }}{% if u.email %} ({{ u.email }}){% endif %}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <label>{{ _("Beschreibung (optional)") }}<textarea name="description" rows="2" maxlength="2000"></textarea></label>
+
+      <h3 class="check-area">{{ _("Ports") }}</h3>
+      {% if free %}
+      <div class="form-grid">
+        <label>{{ _("Hauptport") }}
+          <select name="allocation" required>
+            {% for a in free %}<option value="{{ a.id }}">{{ a.alias or a.ip }}:{{ a.port }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ _("Weitere Ports (optional, Mehrfachauswahl mit Strg/⌘)") }}
+          <select name="additional" multiple size="{{ [[free|length, 3]|max, 6]|min }}">
+            {% for a in free %}<option value="{{ a.id }}">{{ a.alias or a.ip }}:{{ a.port }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      {% else %}
+      <div class="alert">{{ _("Auf diesem Node ist kein Port frei.") }} <a href="/admin/ports?node={{ node }}">{{ _("Neue Ports anlegen") }}</a></div>
+      {% endif %}
+
+      <h3 class="check-area">{{ _("Ressourcen") }}</h3>
+      {{ ad.limit_fields(c, {'memory': 2048, 'swap': 0, 'disk': 10240, 'io': 500, 'cpu': 100, 'threads': ''}, {'databases': 0, 'allocations': 0, 'backups': 1, 'schedules': 0}, true) }}
+
+      <h3 class="check-area">{{ _("Startparameter") }}</h3>
+      <label>{{ _("Startbefehl") }}<textarea name="startup" rows="3" class="mono" spellcheck="false">{{ egg_info.startup }}</textarea></label>
+      {{ ad.image_fields(egg_info.images, egg_info.images.values()|first if egg_info.images else '', true) }}
+      {{ ad.variable_fields(egg_info.variables) }}
+
+      <label class="check"><input type="checkbox" name="start" value="1"> {{ _("Nach der Installation automatisch starten") }}</label>
+      <button class="btn btn-primary" type="submit" {% if not free %}disabled{% endif %}>{{ _("Server anlegen") }}</button>
+      <p class="faint small">{{ _("Neue Server sehen zunächst nur Owner. Anderen Benutzern gibst du unter Benutzer Rechte daran – oder sie haben „Alle Server, auch künftige“.") }}</p>
+    </fieldset>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

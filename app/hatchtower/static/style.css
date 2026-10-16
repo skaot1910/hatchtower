@@ -1324,3 +1324,16 @@ a.file-link:hover { color: var(--violet-3); }
 .move-dest { margin-right: auto; overflow-wrap: anywhere; color: var(--violet-3); }
 .move-dest.faint { color: var(--faint); }
 .move-dialog h2:focus { outline: none; }
+
+/* Server administration (optional admin key) */
+.admin-off a { margin-left: 4px; }
+fieldset.plain:disabled :is(select, textarea) { opacity: .5; cursor: not-allowed; }
+.var-field { padding: 10px 0; border-top: 1px solid var(--line); }
+.var-field > span:first-child { color: var(--text); }
+.egg-switch { margin-bottom: 14px; }
+.egg-switch label { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.admin-actions { display: grid; gap: 18px; }
+.admin-actions > form + form { border-top: 1px solid var(--line); padding-top: 14px; }
+.danger-zone { border: 1px solid var(--red-line); border-radius: var(--radius-sm); padding: 12px 14px; }
+.admin-actions > form.danger-zone { border-top: 1px solid var(--red-line); padding-top: 12px; }
+select[multiple] { min-height: 80px; }

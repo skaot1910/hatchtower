@@ -125,6 +125,13 @@
         <button class="btn btn-ghost" type="submit">{{ _("Verwerfen") }}</button>
         <span class="faint small">{{ _("Verwirft alle Eingaben. Die bisherige Verbindung bleibt unverändert.") if repair else _("Verwirft alle Eingaben dieses Assistenten.") }}</span>
       </form>
+      {% elif step == 'admin' %}
+      <h2 class="card-h">{{ number }}. {{ _("Server-Administration (optional)") }}</h2>
+      <p><span class="check-level level-optional">{{ _("Optional") }}</span></p>
+      <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Mit einem zusätzlichen Admin-Key kann Hatchtower Server im Panel anlegen und ihre Einstellungen ändern: Name, RAM, CPU, Speicher, Ports, Startbefehl und Startvariablen. Ohne diesen Key funktioniert alles andere genauso, die Server-Administration bleibt dann gesperrt.") }}</p>
+      {{ cf.admin_key_form(conn, '/setup?step=admin', admin_key_masked, admin_check, admin_check_at) }}
+      <p class="setup-skip"><a class="btn btn-ghost" href="/setup?step=options">{{ _("Überspringen – nur lesen und steuern wie bisher") }}</a></p>
+      <p class="faint small">{{ _("Du kannst den Admin-Key jederzeit später unter System → Panel hinterlegen oder wieder entfernen.") }}</p>
       {% elif step == 'options' %}
       <h2 class="card-h">{{ number }}. {{ _("Optionen") }}</h2>
       <p class="why-box small"><strong>{{ _("Warum?") }}</strong> {{ _("Hier legst du fest, ob Hatchtower nur zuschauen oder auch steuern darf, und wie es Adressen und Uhrzeiten anzeigt. Alles ist später änderbar.") }}</p>
@@ -164,6 +171,7 @@
         <tbody>
           <tr><th scope="row">{{ _("Panel") }}</th><td>{{ conn.panel.name }} · <span class="mono">{{ conn.panel_url or '–' }}</span></td></tr>
           <tr><th scope="row">{{ _("Modus") }}</th><td>{{ _("Lesen und steuern") if final.mode == 'read-write' else _("Nur lesen") }}</td></tr>
+          <tr><th scope="row">{{ _("Server-Administration") }}</th><td>{{ _("eingeschaltet (Admin-Key mit Schreibrechten)") if settings.admin_key else _("aus (kein Admin-Key, optional)") }}</td></tr>
           <tr><th scope="row">{{ _("Zeitzone") }}</th><td>{{ final.timezone }}</td></tr>
           <tr><th scope="row">{{ _("Öffentliche Adresse für Spieler") }}</th><td>{{ final.public_host or _("nicht gesetzt (optional)") }}</td></tr>
           <tr><th scope="row">{{ _("Reverse-Proxy-IPs") }}</th><td>{{ final.trusted_proxies or _("keine") }}</td></tr>

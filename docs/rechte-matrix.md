@@ -37,6 +37,11 @@ Grundregeln:
 | `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` | Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“. |
 | `backups.restore` | Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.run` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` | Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“. |
 | `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/bulk`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |  |
+| `admin.view` | Panel-Einstellungen sehen |  | `server.view` | `GET /servers/{ident}/admin` | Startvariablen können Passwörter oder Zugangsschlüssel enthalten. |
+| `admin.details` | Name und Beschreibung | ✎ | `server.view`, `admin.view` | `POST /servers/{ident}/admin/details` |  |
+| `admin.build` | Ressourcen und Ports | ✎ | `server.view`, `admin.view` | `POST /servers/{ident}/admin/build`<br>`POST /servers/{ident}/admin/ports` | Kann dem Server mehr Leistung geben, als der Node hat, und freie Ports des Nodes belegen. |
+| `admin.startup` | Startparameter | ✎ | `server.view`, `admin.view` | `POST /servers/{ident}/admin/startup` | Startvariablen legen je nach Spiel Passwörter, Versionen oder Mods fest. |
+| `admin.reinstall` | Neu installieren | ✎ | `server.view`, `admin.view` | `POST /servers/{ident}/admin/reinstall` | Je nach Egg werden dabei Dateien des Servers überschrieben. |
 
 ## Öffentlich
 
@@ -126,6 +131,12 @@ Grundregeln:
 | POST | `/servers/{ident}/settings` | `server.manage` | Formular | liest | Serverangaben speichern |
 | POST | `/servers/{ident}/logo` | `server.manage` | Formular | liest | Serverlogo hochladen |
 | POST | `/servers/{ident}/logo/delete` | `server.manage` | Formular | liest | Serverlogo entfernen |
+| GET | `/servers/{ident}/admin` | `admin.view` | – | liest | Panel-Einstellungen (Ändern nur mit Admin-Key und dem jeweiligen Recht) |
+| POST | `/servers/{ident}/admin/details` | `admin.details` | Formular | schreibt | Name und Beschreibung im Panel ändern |
+| POST | `/servers/{ident}/admin/build` | `admin.build` | Formular | schreibt | RAM, CPU, Speicher und Limits im Panel ändern |
+| POST | `/servers/{ident}/admin/ports` | `admin.build` | Formular | schreibt | Ports des Servers ändern (hinzufügen, entfernen, Hauptport) |
+| POST | `/servers/{ident}/admin/startup` | `admin.startup` | Formular | schreibt | Startbefehl, Docker-Image und Startvariablen im Panel ändern |
+| POST | `/servers/{ident}/admin/reinstall` | `admin.reinstall` | Formular | schreibt | Server im Panel neu installieren |
 
 ## Server – nur Owner
 
@@ -170,6 +181,8 @@ Grundregeln:
 
 | Methode | Pfad | CSRF | Zweck |
 |---|---|---|---|
+| POST | `/servers/{ident}/admin/suspend` | Formular | Server im Panel sperren oder entsperren (nur Owner) |
+| POST | `/servers/{ident}/admin/delete` | Formular | Server im Panel löschen (nur Owner, Name zur Bestätigung) |
 | GET | `/setup` | – | Einrichtungsassistent (vor dem ersten Konto öffentlich) |
 | POST | `/setup/legal` | Formular | Assistent: Vorlagen für Impressum/Datenschutz anlegen (bleiben aus) |
 | GET | `/admin/connection` | – | System → Panel: Verbindung zum Panel (Pterodactyl, Pelican, Calagopus) |
@@ -180,6 +193,13 @@ Grundregeln:
 | POST | `/admin/connection/panel` | Formular | Panel-Art, Panel-Adresse und Application-Key (älteres Formular) |
 | POST | `/admin/connection/client` | Formular | Client-Key |
 | POST | `/admin/connection/nodes` | Formular | Abweichende Wings-Adressen |
+| POST | `/admin/connection/admin-key` | Formular | Optionalen Admin-Key (Schreibrechte) prüfen und speichern; die Prüfung ändert nichts am Panel |
+| POST | `/admin/connection/admin-key/remove` | Formular | Admin-Key entfernen |
+| GET | `/admin/servers/new` | – | Server → Server anlegen (Node und Egg wählen, dann Formular) |
+| POST | `/admin/servers/new` | Formular | Server im Panel anlegen |
+| GET | `/admin/ports` | – | Server → Ports der Nodes |
+| POST | `/admin/ports` | Formular | Ports auf einem Node anlegen |
+| POST | `/admin/ports/delete` | Formular | Freie Ports eines Nodes löschen |
 | POST | `/admin/connection/options` | Formular | Modus (im Assistenten auch öffentliche Adresse, Proxy, Zeitzone) |
 | GET | `/admin/users` | – | Benutzerliste |
 | GET | `/admin/users/new` | – | Neue Benutzer: einladen und direkt anlegen |

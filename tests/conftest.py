@@ -30,7 +30,7 @@ os.environ["HATCHTOWER_DATA_DIR"] = str(_TMP / "unused")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from hatchtower import accounts, backups, db, main, permissions, security, setup  # noqa: E402
-from hatchtower.ptero import READ_METHODS, PteroClient, ReadOnlyViolation  # noqa: E402
+from hatchtower.ptero import READ_METHODS, AdminKeyMissing, PteroClient, ReadOnlyViolation  # noqa: E402
 
 PASSWORD = "Sehr-Langes-Passwort-123"
 FEED_URL = "https://discord.com/api/webhooks/123456789012345678/" + "f" * 68
@@ -38,6 +38,33 @@ _HASH = security.hash_password(PASSWORD)   # einmal berechnen, Argon2 ist absich
 
 
 # -- Nachgebildetes Pterodactyl --------------------------------------------------------------
+
+# Answers of the admin API (admin key) for srv-a (id 1): one egg with one variable, port 11 used, port 12 free
+_VAR = {"env_variable": "GAME", "name": "Spiel", "default_value": "demo", "rules": "required|string|max:20",
+        "user_editable": True}
+ADMIN_API = {
+    "/api/application/servers/1": {"attributes": {
+        "id": 1, "identifier": "srv-a", "name": "Server srv-a", "description": "", "external_id": None, "user": 1,
+        "node": 1, "egg": 5, "nest": 1, "allocation": 11, "suspended": False,
+        "limits": {"memory": 1024, "swap": 0, "disk": 2048, "io": 500, "cpu": 100, "threads": None, "oom_disabled": True},
+        "feature_limits": {"databases": 0, "allocations": 1, "backups": 1},
+        "container": {"startup_command": "./start.sh", "image": "img:1", "environment": {"GAME": "demo"}},
+        "relationships": {
+            "allocations": {"data": [{"attributes": {"id": 11, "ip": "10.0.0.1", "port": 25561, "assigned": True}}]},
+            "variables": {"data": [{"attributes": {**_VAR, "server_value": "demo"}}]},
+            "user": {"attributes": {"id": 1, "username": "admin"}}}}},
+    "/api/application/users": {"data": [{"attributes": {"id": 1, "username": "admin", "email": "a@b.test"}}]},
+    "/api/application/nodes": {"data": [{"attributes": {"id": 1, "name": "Node 1", "fqdn": "wings.test"}}]},
+    "/api/application/nodes/1/allocations": {"data": [
+        {"attributes": {"id": 11, "ip": "10.0.0.1", "port": 25561, "assigned": True}},
+        {"attributes": {"id": 12, "ip": "10.0.0.1", "port": 25570, "assigned": False}}]},
+    "/api/application/nests": {"data": [{"attributes": {"id": 1, "name": "Spiele"}}]},
+    "/api/application/nests/1/eggs": {"data": [{"attributes": {"id": 5, "name": "Demo"}}]},
+    "/api/application/nests/1/eggs/5": {"attributes": {
+        "id": 5, "name": "Demo", "startup": "./start.sh", "docker_images": {"Standard": "img:1"},
+        "relationships": {"variables": {"data": [{"attributes": _VAR}]}}}},
+}
+
 
 class FakePtero(PteroClient):
     def __init__(self, settings):
@@ -56,7 +83,13 @@ class FakePtero(PteroClient):
         self._guard(method)
         if key == "app" and method.upper() not in READ_METHODS:
             raise ReadOnlyViolation("Die Application-API wird nur lesend verwendet")
+        if key == "admin" and not self.settings.admin_key:
+            raise AdminKeyMissing("Kein Admin-Key")
         self.calls.append((method.upper(), path, params, json_body))
+        if key == "admin" and method.upper() == "GET" and path in ADMIN_API:
+            return ADMIN_API[path]
+        if key == "admin" and method.upper() == "POST" and path == "/api/application/servers":
+            return {"attributes": {"identifier": "srv-new"}}
         if path.endswith("/files/list"):
             return {"data": [{"attributes": {"name": n, "is_file": True, "size": 6, "modified_at": None}}
                              for n in ("a.txt", "a.txt.bak")]}
@@ -208,6 +241,7 @@ def world(monkeypatch, tmp_path) -> World:
     monkeypatch.setattr(s, "pterodactyl_url", "https://panel.test")
     monkeypatch.setattr(s, "app_key", "ptla_test")
     monkeypatch.setattr(s, "client_key", "ptlc_test")
+    monkeypatch.setattr(s, "admin_key", "ptla_admin")
     monkeypatch.setattr(s, "manager_mode", "read-write")
     monkeypatch.setattr(s, "node_overrides", {})
     (tmp_path / "logos").mkdir()

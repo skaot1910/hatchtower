@@ -38,6 +38,7 @@ class Settings:
     pterodactyl_url: str = ""           # Adresse des Panels (Name historisch, gilt für alle Panels)
     app_key: str = ""
     client_key: str = ""
+    admin_key: str = ""                 # optional: key with write access for server administration
     manager_mode: str = "read-only"
     trusted_proxies: tuple = ()
     timezone: str = "Europe/Berlin"
@@ -62,6 +63,11 @@ class Settings:
         return bool(self.pterodactyl_url and self.app_key and self.client_key)
 
     @property
+    def admin_ready(self) -> bool:
+        """Server administration (create servers, limits, startup, ports) needs the optional admin key."""
+        return bool(self.configured and self.admin_key)
+
+    @property
     def db_path(self) -> Path:
         return self.data_dir / "hatchtower.db"
 
@@ -77,6 +83,7 @@ DB_KEYS = {
     "panel_url": "conn_panel_url",
     "app_key": "conn_app_key",          # verschlüsselt
     "client_key": "conn_client_key",    # verschlüsselt
+    "admin_key": "conn_admin_key",      # encrypted, optional (write access for server administration)
     "mode": "conn_mode",
     "trusted_proxies": "conn_trusted_proxies",
     "timezone": "conn_timezone",
@@ -137,6 +144,7 @@ def apply_db_values(settings: Settings, values: dict[str, str], decrypt) -> None
     settings.pterodactyl_url = (values.get(DB_KEYS["panel_url"]) or "").rstrip("/")
     settings.app_key = decrypt(values.get(DB_KEYS["app_key"])) or ""
     settings.client_key = decrypt(values.get(DB_KEYS["client_key"])) or ""
+    settings.admin_key = decrypt(values.get(DB_KEYS["admin_key"])) or ""
     settings.manager_mode = "read-write" if values.get(DB_KEYS["mode"]) == "read-write" else "read-only"
     try:
         settings.trusted_proxies = parse_proxies(values.get(DB_KEYS["trusted_proxies"]) or "")

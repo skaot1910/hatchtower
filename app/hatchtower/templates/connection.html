@@ -20,6 +20,7 @@
       <tr><th scope="row">{{ _("Adresse des Panels") }}</th><td class="mono">{{ conn.panel_url }}</td></tr>
       <tr><th scope="row">{{ _("API-Key") if conn.panel.single_key else _("Application-API-Key") }}</th><td class="mono">{{ conn.app_key_masked }}</td></tr>
       {% if not conn.panel.single_key %}<tr><th scope="row">{{ _("Client-API-Key") }}</th><td class="mono">{{ conn.client_key_masked or _("fehlt") }}</td></tr>{% endif %}
+      <tr><th scope="row">{{ _("Admin-Key (Schreibrechte)") }}</th><td>{% if admin_key_masked %}<span class="mono">{{ admin_key_masked }}</span>{% else %}<span class="faint">{{ _("keiner (optional)") }}</span> · <a href="#admin-key">{{ _("hinterlegen") }}</a>{% endif %}</td></tr>
       <tr><th scope="row">{{ _("Andere Wings-Adressen") }}</th><td class="mono">{% for k, v in settings.node_overrides.items() %}{{ k }} → {{ v }}{% if not loop.last %}, {% endif %}{% else %}{{ _("keine") }}{% endfor %}</td></tr>
       <tr><th scope="row">{{ _("Zuletzt geprüft") }}</th><td>{% if last_check %}{{ last_check_at }} · {{ _("{e} Fehler, {w} Warnung(en)", e=last_check.errors, w=last_check.warnings) }}{% else %}{{ _("noch nie") }}{% endif %}</td></tr>
     </tbody>
@@ -78,4 +79,25 @@
 </section>
 
 <section class="card"><h2 class="card-h">{{ _("Modus") }}</h2>{{ cf.options_form(conn, '/admin/connection', full=False) }}</section>
+
+{% if settings.configured %}
+<section class="card" id="admin-key">
+  <h2 class="card-h">{{ _("Server-Administration (optional)") }}</h2>
+  {% if admin_key_masked %}
+  <p><span class="badge badge-ok">{{ _("eingeschaltet") }}</span> {{ _("Admin-Key mit Schreibrechten:") }} <span class="mono">{{ admin_key_masked }}</span></p>
+  <p class="muted small">{{ _("Owner können Server anlegen und unter Server → Ports die Ports der Nodes verwalten. Auf der Seite eines Servers stehen unter „Panel-Einstellungen“ Name, Ressourcen, Ports und Startparameter, jeweils mit dem passenden Recht.") }}{% if settings.read_only %} {{ _("Im Modus „Nur lesen“ ist das alles gesperrt.") }}{% endif %}</p>
+  <form method="post" action="/admin/connection/admin-key/remove" class="inline-form" data-confirm="{{ _("Admin-Key entfernen? Die Server-Administration ist danach gesperrt, alles andere funktioniert weiter.") }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn btn-ghost btn-sm" type="submit">{{ _("Admin-Key entfernen") }}</button>
+  </form>
+  <details class="legend">
+    <summary>{{ _("Admin-Key ersetzen") }}</summary>
+    {{ cf.admin_key_form(conn, '/admin/connection', admin_key_masked, admin_check, admin_check_at) }}
+  </details>
+  {% else %}
+  <p><span class="badge">{{ _("aus") }}</span> {{ _("Ohne Admin-Key liest und steuert Hatchtower die Server wie bisher. Server anlegen und Einstellungen wie RAM, Ports oder Startparameter im Panel ändern geht nur mit einem zusätzlichen Key mit Schreibrechten.") }}</p>
+  {{ cf.admin_key_form(conn, '/admin/connection', admin_key_masked, admin_check, admin_check_at) }}
+  {% endif %}
+</section>
+{% endif %}
 {% endblock %}

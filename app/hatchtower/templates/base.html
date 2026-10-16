@@ -39,6 +39,7 @@
     <a href="/admin/backups" class="{% if request.url.path.startswith('/admin/backups') %}active{% endif %}">{{ _("Backups") }}</a>
     {% endif %}
     {% if user.is_owner %}
+    <a href="/admin/servers/new" class="{% if nav_section == 'servers' %}active{% endif %}">{{ _("Server") }}</a>
     <a href="/admin/users" class="{% if nav_section == 'users' %}active{% endif %}">{{ _("Benutzer") }}</a>
     <a href="/admin/appearance" class="{% if nav_section == 'appearance' %}active{% endif %}">{{ _("Auftritt") }}</a>
     <a href="{{ '/admin/updates' if update_available else '/admin/system' }}" class="{% if nav_section == 'system' %}active{% endif %}">{{ _("System") }}{% if update_available %} <span class="nav-dot" title="{{ _("Neue Version verfügbar") }}"></span>{% endif %}</a>

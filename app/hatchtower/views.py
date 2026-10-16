@@ -180,6 +180,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
         "can_log": user.can(ident, "server.log"),
         "can_files": user.can(ident, "sftp.view"),
         "can_manage": user.can(ident, "server.manage"),
+        "can_admin": user.can(ident, "admin.view"),
         "can_start": user.can(ident, "power.start"),
         "can_stop": user.can(ident, "power.stop"),
         "can_restart": user.can(ident, "power.restart"),

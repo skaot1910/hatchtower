@@ -8,6 +8,7 @@
     <h1>{{ _("{name} verwalten", name=server.name) }}</h1>
     <p class="muted">{{ _("Diese Angaben speichert nur der Manager. {panel} wird dadurch nicht verändert.") }}</p>
   </div>
+  {% if server.can_admin %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/admin">{{ _("Panel-Einstellungen") }}</a>{% endif %}
 </div>
 
 <div class="two-col">

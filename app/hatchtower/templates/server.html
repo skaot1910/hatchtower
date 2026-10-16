@@ -14,6 +14,7 @@
       <button type="button" class="chip chip-fav" data-fav="{{ server.identifier }}" aria-pressed="{{ 'true' if server.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}">{{ '★' if server.favorite else '☆' }}</button>
       {% if server.can_files %}<a class="chip" href="/servers/{{ server.identifier }}/files">{{ _("Dateien") }}</a>{% endif %}
       {% if server.can_manage %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
+      {% if server.can_admin %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/admin">{{ _("Panel-Einstellungen") }}</a>{% endif %}
     </div>
   </div>
   {{ c.power(server, not simple_view) }}

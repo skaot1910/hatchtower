@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% import "_admin.html" as ad with context %}
+{% block title %}{{ _("Ports") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _("Ports") }}</h1>
+    <p class="muted">{{ _("Die Ports (Allocations) der Nodes in {panel}: neue anlegen, belegte sehen und freie löschen. Welche Ports ein Server nutzt, stellst du in seinen Panel-Einstellungen ein.") }}</p>
+  </div>
+  {% if nodes|length > 1 %}
+  <form method="get" action="/admin/ports" class="inline-form">
+    <select name="node" aria-label="{{ _("Node") }}">
+      {% for n in nodes %}<option value="{{ n.id }}" {% if n.id == node %}selected{% endif %}>{{ n.name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-ghost btn-sm" type="submit">{{ _("Anzeigen") }}</button>
+  </form>
+  {% endif %}
+</div>
+
+{{ ad.unavailable(reason, true) }}
+{% if error %}<div class="alert" role="alert">{{ _("{panel} antwortet nicht wie erwartet: {grund}", grund=error) }}</div>{% endif %}
+
+<section class="card">
+  <h2 class="card-h">{{ _("Neue Ports anlegen") }}</h2>
+  <form method="post" action="/admin/ports" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="node" value="{{ node }}">
+    <fieldset class="plain" {% if reason or not node %}disabled{% endif %}>
+      <div class="form-grid">
+        <label>{{ _("IP-Adresse") }}
+          <input name="ip" list="known-ips" required spellcheck="false" value="{{ ips[0] if ips else '' }}" placeholder="{{ _("z. B. 0.0.0.0 oder 192.168.1.20") }}">
+          <datalist id="known-ips">{% for ip in ips %}<option value="{{ ip }}">{% endfor %}</datalist>
+        </label>
+        <label>{{ _("Ports") }}<input name="ports" required spellcheck="false" placeholder="{{ _("z. B. 25565, 27015-27020") }}"></label>
+        <label>{{ _("Alias (optional)") }}<input name="alias" spellcheck="false" placeholder="{{ _("z. B. play.example.de") }}"></label>
+      </div>
+      <button class="btn btn-primary" type="submit">{{ _("Ports anlegen") }}</button>
+    </fieldset>
+  </form>
+  <p class="faint small">{{ _("Ports zwischen 1024 und 65535, höchstens 1000 auf einmal. Der Alias wird Spielern statt der IP angezeigt.") }}</p>
+  <div class="key-warning"><p><strong>{{ _("Wichtig:") }}</strong> {{ _("Das Panel trägt die Ports nur ein. Damit Spieler sie erreichen, müssen sie auf dem Node auch in der Firewall und gegebenenfalls im Router (Portweiterleitung) freigegeben sein – meist für TCP und UDP.") }}</p></div>
+</section>
+
+{% if node %}
+<section class="card">
+  <h2 class="card-h">{{ _("Ports auf {node}", node=(nodes|selectattr('id', 'equalto', node)|map(attribute='name')|first) or node) }}</h2>
+  <p class="muted small">{{ _("{n} Ports, davon {f} frei.", n=allocations|length, f=free_count) }}</p>
+  <form method="post" action="/admin/ports/delete" class="form" data-confirm="{{ _("Ausgewählte Ports im Panel löschen?") }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="node" value="{{ node }}">
+    <fieldset class="plain" {% if reason %}disabled{% endif %}>
+      <div class="matrix-scroll">
+      <table class="feature-table">
+        <thead><tr><th></th><th>{{ _("Adresse") }}</th><th>{{ _("Alias") }}</th><th>{{ _("Verwendet von") }}</th></tr></thead>
+        <tbody>
+        {% for a in allocations %}
+        <tr>
+          <td>{% if not a.assigned %}<input type="checkbox" name="alloc" value="{{ a.id }}" aria-label="{{ _("Auswählen") }} {{ a.port }}">{% endif %}</td>
+          <td class="mono">{{ a.ip }}:{{ a.port }}</td>
+          <td class="mono faint">{{ a.alias }}</td>
+          <td>{% if a.assigned %}{{ names.get(a.id) or _("belegt") }}{% else %}<span class="good">{{ _("frei") }}</span>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="faint">{{ _("Keine Ports auf diesem Node.") }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if free_count %}<button class="btn btn-ghost" type="submit">{{ _("Ausgewählte freie Ports löschen") }}</button>{% endif %}
+    </fieldset>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -233,7 +233,7 @@ def save_values(values: dict[str, str], vault, user_id: int | None) -> None:
     """Speichert Verbindungswerte; API-Keys werden verschlüsselt."""
     for name, value in values.items():
         key = DB_KEYS[name]
-        if name in ("app_key", "client_key"):
+        if name in ("app_key", "client_key", "admin_key"):
             value = vault.encrypt(value) if value else ""
         elif name == "node_overrides":
             value = json.dumps(value)

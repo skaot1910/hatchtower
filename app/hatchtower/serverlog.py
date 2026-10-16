@@ -21,7 +21,9 @@ KINDS = {
     "console": ("console.command", "console.archive_download"),
     "backups": ("backup.run", "backup.job.update", "backup.file_download", "backup.restore", "backup.verify"),
     "settings": ("server.new", "server.meta.update", "server.logo.update", "automation.settings",
-                 "schedule.create", "schedule.update", "schedule.delete", "schedule.warn"),
+                 "schedule.create", "schedule.update", "schedule.delete", "schedule.warn",
+                 "server.admin.details", "server.admin.build", "server.admin.ports", "server.admin.startup",
+                 "server.admin.reinstall", "server.admin.suspend", "server.admin.create"),
 }
 KIND_LABELS = {
     "": "Alles",

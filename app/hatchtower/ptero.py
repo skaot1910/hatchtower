@@ -1,9 +1,12 @@
-"""Adapter fuer die API von Pterodactyl und Pelican (gleiche API; Calagopus: calagopus.py).
+"""Adapter for the Pterodactyl and Pelican API (same API; Calagopus: calagopus.py).
 
-Der gesamte Zugriff auf das Panel laeuft ueber diese Klasse oder eine Unterklasse. Im Read-Only-Modus
-werden nicht-lesende HTTP-Methoden technisch blockiert, bevor eine Anfrage das
-Livesystem erreicht. Unbekannte Felder in Antworten werden ignoriert, damit
-Panel-Updates den Manager nicht brechen.
+All access to the panel goes through this class or a subclass. In read-only mode, non-reading HTTP
+methods are blocked before a request reaches the live system. Unknown fields in responses are ignored so
+panel updates don't break the manager.
+
+Keys: the Application key ("app") is only ever used for reading. The client key ("client") controls the
+servers. The optional admin key ("admin", Application key with "Read & Write") is used only for server
+administration: creating servers, details, limits, startup, ports, reinstall, suspend, delete.
 """
 from __future__ import annotations
 
@@ -32,6 +35,10 @@ class PteroError(RuntimeError):
     def __init__(self, message: str, status: int | None = None):
         super().__init__(message)
         self.status = status
+
+
+class AdminKeyMissing(PteroError):
+    """Server administration was requested, but no admin key (write access) is stored."""
 
 
 @dataclass
@@ -80,8 +87,11 @@ class PteroClient:
         self._guard(method)
         if key == "app" and method.upper() not in READ_METHODS:
             raise ReadOnlyViolation("Die Application-API wird nur lesend verwendet")
-        token = self.settings.app_key if key == "app" else self.settings.client_key
+        token = {"app": self.settings.app_key, "client": self.settings.client_key,
+                 "admin": self.settings.admin_key}.get(key, "")
         if not token:
+            if key == "admin":
+                raise AdminKeyMissing(t("Für diese Funktion braucht Hatchtower einen Admin-Key mit Schreibrechten."))
             raise PteroError("Kein API-Key für diesen Zugriff hinterlegt")
         headers = {"Authorization": f"Bearer {token}"}
         if content is not None:
@@ -281,6 +291,221 @@ class PteroClient:
         data = await self._get(f"/api/client/servers/{identifier}/files/upload", key="client")
         return data.get("attributes", {}).get("url", "")
 
+    # -- Server administration (optional admin key, read & write) --------
+    #
+    # Everything below uses the admin key: a second Application key with "Read & Write". Without it,
+    # AdminKeyMissing is raised and the UI explains which key is needed. The read-only mode still blocks
+    # every write (_guard). Lists for the forms (users, eggs, nodes, ports) are cached briefly because the
+    # panel's rate limit applies per key.
+
+    LIMIT_FIELDS: tuple[str, ...] = ("memory", "swap", "disk", "io", "cpu", "threads")
+    FEATURE_FIELDS: tuple[str, ...] = ("databases", "allocations", "backups")
+    HAS_OOM = True
+    ADMIN_CACHE_SECONDS = 300
+
+    def _admin_cache(self) -> dict:
+        cache = self.__dict__.get("_admin_cache_data")
+        if cache is None:
+            cache = self.__dict__["_admin_cache_data"] = {}
+        return cache
+
+    async def _cached(self, name: str, loader, seconds: float | None = None):
+        cache = self._admin_cache()
+        hit = cache.get(name)
+        if hit and time.monotonic() - hit[0] < (seconds or self.ADMIN_CACHE_SECONDS):
+            return hit[1]
+        value = await loader()
+        cache[name] = (time.monotonic(), value)
+        return value
+
+    def forget_admin_cache(self, *names: str) -> None:
+        """Drop cached lists (all, or the given names and their sub-entries such as "allocs:<node>")."""
+        cache = self._admin_cache()
+        if not names:
+            cache.clear()
+        for name in names:
+            for key in [k for k in cache if k == name or k.startswith(name + ":")]:
+                cache.pop(key, None)
+
+    async def _admin(self, method: str, path: str, body: Any = None, params: dict | None = None) -> Any:
+        return await self._request(method, path, key="admin", json_body=body, params=params)
+
+    async def _admin_pages(self, path: str, params: dict | None = None) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        for page in range(1, 51):
+            data = await self._admin("GET", path, params={**(params or {}), "per_page": 100, "page": page})
+            items += [i.get("attributes", {}) for i in (data or {}).get("data", [])]
+            pagination = ((data or {}).get("meta") or {}).get("pagination") or {}
+            if page >= int(pagination.get("total_pages") or 1):
+                break
+        return items
+
+    def admin_ref(self, row) -> str:
+        """How the admin API addresses a server (Pterodactyl/Pelican: numeric id)."""
+        return str(row["ptero_id"])
+
+    async def admin_server(self, ref: str) -> dict[str, Any]:
+        data = await self._admin("GET", f"/api/application/servers/{ref}",
+                                 params={"include": "allocations,variables,user"})
+        return _admin_server((data or {}).get("attributes") or {})
+
+    async def admin_users(self) -> list[dict[str, str]]:
+        async def load():
+            users = [{"id": str(u.get("id")), "name": u.get("username") or "", "email": u.get("email") or ""}
+                     for u in await self._admin_pages("/api/application/users")]
+            return sorted(users, key=lambda u: u["name"].lower())
+        return await self._cached("users", load)
+
+    async def admin_nodes(self) -> list[dict[str, str]]:
+        async def load():
+            return [{"id": str(n.get("id")), "name": n.get("name") or n.get("fqdn") or ""}
+                    for n in await self._admin_pages("/api/application/nodes")]
+        return await self._cached("nodes", load)
+
+    async def admin_eggs(self) -> list[dict[str, str]]:
+        async def load():
+            eggs = []
+            if self.settings.panel_type == "pelican":     # Pelican has no nests
+                eggs = [{"id": str(e.get("id")), "name": e.get("name") or "", "group": ""}
+                        for e in await self._admin_pages("/api/application/eggs")]
+            else:
+                for nest in await self._admin_pages("/api/application/nests"):
+                    eggs += [{"id": str(e.get("id")), "name": e.get("name") or "", "group": nest.get("name") or "",
+                              "nest": str(nest.get("id"))}
+                             for e in await self._admin_pages(f"/api/application/nests/{nest.get('id')}/eggs")]
+            return sorted(eggs, key=lambda e: (e["group"].lower(), e["name"].lower()))
+        return await self._cached("eggs", load)
+
+    async def admin_egg(self, egg_id: str) -> dict[str, Any]:
+        async def load():
+            if self.settings.panel_type == "pelican":
+                path = f"/api/application/eggs/{egg_id}"
+            else:
+                egg = next((e for e in await self.admin_eggs() if e["id"] == str(egg_id)), None)
+                if egg is None:
+                    raise PteroError(t("Dieses Egg gibt es im Panel nicht."), 404)
+                path = f"/api/application/nests/{egg['nest']}/eggs/{egg_id}"
+            data = await self._admin("GET", path, params={"include": "variables"})
+            return _admin_egg((data or {}).get("attributes") or {})
+        return await self._cached(f"egg:{egg_id}", load)
+
+    async def node_allocations(self, node_id: str) -> list[dict[str, Any]]:
+        async def load():
+            allocs = [{"id": str(a.get("id")), "ip": a.get("ip") or "", "alias": a.get("alias") or "",
+                       "port": int(a.get("port") or 0), "assigned": bool(a.get("assigned")), "notes": a.get("notes") or ""}
+                      for a in await self._admin_pages(f"/api/application/nodes/{node_id}/allocations")]
+            return sorted(allocs, key=lambda a: (a["ip"], a["port"]))
+        return await self._cached(f"allocs:{node_id}", load, 60)
+
+    async def create_allocations(self, node_id: str, ip: str, alias: str, ports: list[str]) -> None:
+        """Create ports on a node; ports are single ports or ranges like "27015-27020"."""
+        await self._admin("POST", f"/api/application/nodes/{node_id}/allocations",
+                          {"ip": ip, "alias": alias or None, "ports": ports})
+        self.forget_admin_cache(f"allocs:{node_id}")
+
+    async def delete_allocation(self, node_id: str, alloc_id: str) -> None:
+        await self._admin("DELETE", f"/api/application/nodes/{node_id}/allocations/{alloc_id}")
+        self.forget_admin_cache(f"allocs:{node_id}")
+
+    async def update_details(self, srv: dict, name: str, description: str, owner: str, external_id: str) -> None:
+        await self._admin("PATCH", f"/api/application/servers/{srv['ref']}/details",
+                          {"name": name, "user": int(owner), "description": description,
+                           "external_id": external_id or None})
+
+    async def update_limits(self, srv: dict, limits: dict, features: dict, oom_disabled: bool) -> None:
+        await self._build(srv, limits=limits, features=features, oom_disabled=oom_disabled)
+
+    async def update_allocations(self, srv: dict, primary: str, add: list[str], remove: list[str]) -> None:
+        await self._build(srv, primary=primary, add=add, remove=remove)
+        self.forget_admin_cache(f"allocs:{srv['node']}")
+
+    async def _build(self, srv: dict, *, limits: dict | None = None, features: dict | None = None,
+                     oom_disabled: bool | None = None, primary: str = "", add=(), remove=()) -> None:
+        """Pterodactyl changes limits and ports in one request, so the current values are always sent along."""
+        lim = {**srv["limits"], **(limits or {})}
+        # Pterodactyl reads the limits at the top level, Pelican only inside "limits": send both
+        values = {"memory": lim["memory"], "swap": lim["swap"], "disk": lim["disk"], "io": lim["io"], "cpu": lim["cpu"],
+                  "threads": lim.get("threads") or None,
+                  "oom_disabled": srv["oom_disabled"] if oom_disabled is None else oom_disabled}
+        await self._admin("PATCH", f"/api/application/servers/{srv['ref']}/build", {
+            "allocation": int(primary or srv["primary"]), **values, "limits": values,
+            "feature_limits": {**srv["feature_limits"], **(features or {})},
+            "add_allocations": [int(a) for a in add], "remove_allocations": [int(a) for a in remove],
+        })
+
+    async def update_startup(self, srv: dict, startup: str, image: str, environment: dict[str, str],
+                             egg: str = "") -> None:
+        await self._admin("PATCH", f"/api/application/servers/{srv['ref']}/startup", {
+            "startup": startup, "image": image, "egg": int(egg or srv["egg"]), "environment": environment,
+            "skip_scripts": srv.get("skip_scripts", False)})
+
+    async def reinstall(self, srv: dict) -> None:
+        await self._admin("POST", f"/api/application/servers/{srv['ref']}/reinstall")
+
+    async def set_suspended(self, srv: dict, suspended: bool) -> None:
+        await self._admin("POST", f"/api/application/servers/{srv['ref']}/{'suspend' if suspended else 'unsuspend'}")
+
+    async def delete_server(self, srv: dict, force: bool = False) -> None:
+        await self._admin("DELETE", f"/api/application/servers/{srv['ref']}" + ("/force" if force else ""))
+        self.forget_admin_cache("allocs")
+
+    async def create_server(self, spec: dict) -> str:
+        """Create a server. spec: name, description, owner, node, egg, image, startup, environment, limits,
+        features, oom_disabled, allocation, additional, start. Returns the new server's identifier."""
+        limits = spec["limits"]
+        data = await self._admin("POST", "/api/application/servers", {
+            "name": spec["name"], "description": spec.get("description") or "", "user": int(spec["owner"]),
+            "egg": int(spec["egg"]), "docker_image": spec["image"], "image": spec["image"], "startup": spec["startup"],
+            "environment": spec["environment"],
+            "limits": {"memory": limits["memory"], "swap": limits["swap"], "disk": limits["disk"], "io": limits["io"],
+                       "cpu": limits["cpu"], "threads": limits.get("threads") or None,
+                       "oom_disabled": spec.get("oom_disabled", True)},
+            "oom_disabled": spec.get("oom_disabled", True),
+            "feature_limits": spec["features"],
+            "allocation": {"default": int(spec["allocation"]), "additional": [int(a) for a in spec.get("additional", [])]},
+            "start_on_completion": bool(spec.get("start")), "skip_scripts": bool(spec.get("skip_install")),
+        })
+        self.forget_admin_cache("allocs")
+        return ((data or {}).get("attributes") or {}).get("identifier", "")
+
+    async def admin_check(self) -> list[dict[str, Any]]:
+        """Which administration rights the admin key has. Changes nothing: write rights are tested with
+        deliberately empty requests (no right: HTTP 403, right present: validation error 422)."""
+        results: list[dict[str, Any]] = []
+
+        async def probe(label: str, need: str, coro, ok_status: tuple[int, ...] = ()) -> Any:
+            try:
+                value = await coro
+            except PteroError as exc:
+                if exc.status in ok_status:
+                    results.append({"label": label, "ok": True, "need": need})
+                    return None
+                if exc.status in (401, 403):
+                    results.append({"label": label, "ok": False, "need": need, "status": exc.status})
+                    return None
+                raise
+            results.append({"label": label, "ok": True, "need": need})
+            return value
+
+        rw = "Read & Write"
+        servers = await probe("Server lesen", "Servers: Read", self._admin("GET", "/api/application/servers",
+                                                                           params={"per_page": 1}))
+        await probe("Benutzer lesen", "Users: Read", self.admin_users())
+        await probe("Eggs lesen", "Eggs: Read" if self.settings.panel_type == "pelican" else "Nests, Eggs: Read",
+                    self.admin_eggs())
+        nodes = await probe("Nodes lesen", "Nodes: Read", self.admin_nodes()) or []
+        if nodes:
+            await probe("Ports lesen", "Allocations: Read", self.node_allocations(nodes[0]["id"]))
+            await probe("Ports anlegen", f"Allocations: {rw}",
+                        self._admin("POST", f"/api/application/nodes/{nodes[0]['id']}/allocations", {}), (422,))
+        first = ((servers or {}).get("data") or [{}])[0].get("attributes", {}).get("id")
+        if first:
+            await probe("Server ändern", f"Servers: {rw}",
+                        self._admin("PATCH", f"/api/application/servers/{first}/details", {}), (422,))
+        else:
+            await probe("Server anlegen", f"Servers: {rw}", self._admin("POST", "/api/application/servers", {}), (422,))
+        return results
+
     # -- Wings (signierte Downloads) -------------------------------------
 
     async def wings_url(self, url: str) -> str:
@@ -347,6 +572,78 @@ def _error_text(response: httpx.Response) -> str:
     if request_id:
         text += f" (Request-ID {request_id})"
     return text
+
+
+def _num(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _rules(value: Any) -> str:
+    """Validation rules of a variable as one string ("required|string|max:20")."""
+    return "|".join(str(r) for r in value) if isinstance(value, list) else str(value or "")
+
+
+def _variable(v: dict[str, Any], value: Any = None) -> dict[str, Any]:
+    default = v.get("default_value")
+    if value is None:
+        value = default
+    return {"env": v.get("env_variable") or "", "name": v.get("name") or v.get("env_variable") or "",
+            "description": v.get("description") or "", "value": "" if value is None else str(value),
+            "default": "" if default is None else str(default), "rules": _rules(v.get("rules")),
+            "editable": bool(v.get("user_editable", v.get("is_editable", True)))}
+
+
+def _admin_server(a: dict[str, Any]) -> dict[str, Any]:
+    """A server from the Application API in Hatchtower's panel-neutral form."""
+    rel = a.get("relationships") or {}
+    container = a.get("container") or {}
+    env = container.get("environment") or {}
+    limits = a.get("limits") or {}
+    feats = a.get("feature_limits") or {}
+    variables = []
+    for item in (rel.get("variables") or {}).get("data") or []:
+        v = item.get("attributes") or {}
+        if v.get("env_variable"):
+            value = v.get("server_value")
+            variables.append(_variable(v, env.get(v["env_variable"]) if value is None else value))
+    allocations = []
+    for item in (rel.get("allocations") or {}).get("data") or []:
+        al = item.get("attributes") or {}
+        allocations.append({"id": str(al.get("id")), "ip": al.get("ip") or "", "alias": al.get("alias") or "",
+                            "port": _num(al.get("port")), "notes": al.get("notes") or "",
+                            "primary": al.get("id") == a.get("allocation")})
+    user = (rel.get("user") or {}).get("attributes") or {}
+    return {
+        "ref": str(a.get("id")), "identifier": a.get("identifier") or "", "name": a.get("name") or "",
+        "description": a.get("description") or "", "external_id": a.get("external_id") or "",
+        "owner": str(a.get("user") or ""), "owner_name": user.get("username") or "",
+        "node": str(a.get("node") or ""), "egg": str(a.get("egg") or ""),
+        "suspended": bool(a.get("suspended")), "status": a.get("status") or "",
+        "limits": {"memory": _num(limits.get("memory")), "swap": _num(limits.get("swap")),
+                   "disk": _num(limits.get("disk")), "io": _num(limits.get("io"), 500), "cpu": _num(limits.get("cpu")),
+                   "threads": str(limits.get("threads") or "")},
+        "oom_disabled": bool(limits.get("oom_disabled", True)),
+        "feature_limits": {k: _num(feats.get(k)) for k in ("databases", "allocations", "backups")},
+        "startup": container.get("startup_command") or "", "image": container.get("image") or "",
+        "skip_scripts": bool(container.get("skip_scripts")),
+        "variables": variables, "allocations": sorted(allocations, key=lambda x: (not x["primary"], x["port"])),
+        "primary": str(a.get("allocation") or ""),
+    }
+
+
+def _admin_egg(a: dict[str, Any]) -> dict[str, Any]:
+    images = a.get("docker_images") or {}
+    if isinstance(images, list):
+        images = {i: i for i in images}
+    if not images and a.get("docker_image"):
+        images = {a["docker_image"]: a["docker_image"]}
+    variables = [_variable(i.get("attributes") or {})
+                 for i in ((a.get("relationships") or {}).get("variables") or {}).get("data") or []]
+    return {"id": str(a.get("id")), "name": a.get("name") or "", "startup": a.get("startup") or "",
+            "images": dict(images), "variables": [v for v in variables if v["env"]]}
 
 
 def _parse_server(attrs: dict[str, Any]) -> ServerInfo:

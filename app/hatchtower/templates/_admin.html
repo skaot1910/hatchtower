@@ -1,0 +1,75 @@
+{# Building blocks for server administration (optional admin key) #}
+
+{# Why the forms are locked: no admin key or read-only mode #}
+{% macro unavailable(reason, owner) %}
+{% if reason == 'key' %}
+<div class="hint admin-off" role="note">
+  <strong>{{ _("Diese Funktion steht nicht zur Verfügung.") }}</strong>
+  {{ _("Für die Server-Administration braucht Hatchtower einen zusätzlichen Admin-Key mit Schreibrechten für {panel}. Ohne ihn funktioniert alles andere wie gewohnt.") }}
+  {% if owner %}<a href="/admin/connection#admin-key">{{ _("Admin-Key hinterlegen") }}</a>{% else %}{{ _("Ein Owner kann ihn unter System → Panel hinterlegen.") }}{% endif %}
+</div>
+{% elif reason == 'read_only' %}
+<div class="hint admin-off" role="note">
+  <strong>{{ _("Nur lesen:") }}</strong> {{ _("Hatchtower ist im Modus „Nur lesen“. Änderungen im Panel sind erst im Modus „Lesen und steuern“ möglich.") }}
+  {% if owner %}<a href="/admin/connection">{{ _("Modus ändern") }}</a>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro missing_right(label) %}
+<p class="faint small">{{ _("Dafür fehlt dir das Recht „{recht}“.", recht=_(label)) }}</p>
+{% endmacro %}
+
+{# Limits and feature limits; field set depends on the panel (c = API client) #}
+{% macro limit_fields(c, limits, features, oom_disabled) %}
+<div class="form-grid">
+  {% for name in c.LIMIT_FIELDS %}
+  <label>
+    {% if name == 'memory' %}{{ _("RAM (MiB)") }}{% elif name == 'swap' %}{{ _("Swap (MiB)") }}{% elif name == 'disk' %}{{ _("Speicher (MiB)") }}{% elif name == 'io' %}{{ _("Block-IO-Gewicht") }}{% elif name == 'cpu' %}{{ _("CPU (%)") }}{% else %}{{ _("CPU-Kerne (optional)") }}{% endif %}
+    <input name="{{ name }}" value="{{ limits[name] if limits and limits[name] is not none else '' }}" {% if name != 'threads' %}inputmode="numeric"{% endif %} spellcheck="false"
+           placeholder="{% if name == 'threads' %}{{ _("z. B. 0-1, leer = alle") }}{% elif name == 'io' %}500{% else %}0{% endif %}">
+    <span class="faint small">{% if name in ('memory', 'disk', 'cpu') %}{{ _("0 = unbegrenzt") }}{% if name == 'cpu' %} · {{ _("100 = ein Kern") }}{% endif %}{% elif name == 'swap' %}{{ _("0 = aus, -1 = unbegrenzt") }}{% elif name == 'io' %}{{ _("10–1000, Standard 500") }}{% endif %}</span>
+  </label>
+  {% endfor %}
+</div>
+<div class="form-grid">
+  {% for name in c.FEATURE_FIELDS %}
+  <label>
+    {% if name == 'databases' %}{{ _("Datenbanken (Höchstzahl)") }}{% elif name == 'allocations' %}{{ _("Ports, die Benutzer selbst hinzufügen dürfen") }}{% elif name == 'backups' %}{{ _("Backups im Panel (Höchstzahl)") }}{% else %}{{ _("Zeitpläne im Panel (Höchstzahl)") }}{% endif %}
+    <input name="{{ name }}" inputmode="numeric" value="{{ features[name] if features else 0 }}">
+  </label>
+  {% endfor %}
+</div>
+{% if c.HAS_OOM %}
+<label class="check"><input type="checkbox" name="oom_disabled" value="1" {% if oom_disabled %}checked{% endif %}> {{ _("OOM-Killer aus (der Server wird bei vollem RAM nicht sofort beendet)") }}</label>
+{% endif %}
+{% endmacro %}
+
+{# Startup variables of an egg #}
+{% macro variable_fields(variables) %}
+{% for v in variables %}
+<label class="var-field">
+  <span><strong>{{ v.name }}</strong> <span class="mono faint small">{{ v.env }}</span>{% if not v.editable %} <span class="badge">{{ _("im Panel für Benutzer gesperrt") }}</span>{% endif %}</span>
+  <input name="var__{{ v.env }}" value="{{ v.value }}" spellcheck="false" autocomplete="off">
+  {% if v.description %}<span class="faint small">{{ v.description }}</span>{% endif %}
+  {% if v.rules %}<span class="faint small mono">{{ _("Regeln:") }} {{ v.rules }}</span>{% endif %}
+</label>
+{% else %}
+<p class="faint small">{{ _("Dieses Egg hat keine Startvariablen.") }}</p>
+{% endfor %}
+{% endmacro %}
+
+{# Docker image: list of the egg, current image; owners may enter another one #}
+{% macro image_fields(images, current, owner) %}
+<label>{{ _("Docker-Image") }}
+  <select name="image">
+    {% for label, image in images.items() %}<option value="{{ image }}" {% if image == current %}selected{% endif %}>{{ label }}{% if label != image %} ({{ image }}){% endif %}</option>{% endfor %}
+    {% if current and current not in images.values() %}<option value="{{ current }}" selected>{{ current }} ({{ _("aktuell") }})</option>{% endif %}
+  </select>
+</label>
+{% if owner %}
+<label>{{ _("Anderes Docker-Image (optional, nur Owner)") }}
+  <input name="image_custom" spellcheck="false" placeholder="{{ _("leer = Auswahl oben") }}">
+</label>
+{% endif %}
+{% endmacro %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% import "_admin.html" as ad with context %}
+{% block title %}{{ _("Panel-Einstellungen") }} · {{ server.name }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<a class="backlink" href="/servers/{{ server.identifier }}">← {{ server.name }}</a>
+<div class="page-head">
+  <div>
+    <h1>{{ _("{name}: Panel-Einstellungen", name=server.name) }}</h1>
+    <p class="muted">{{ _("Diese Einstellungen gelten direkt in {panel}. Ressourcen, Ports und Startparameter wirken nach dem nächsten Neustart des Servers.") }}</p>
+  </div>
+  {% if server.can_manage %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/settings">{{ _("Angaben im Manager") }}</a>{% endif %}
+</div>
+
+{{ ad.unavailable(reason, user.is_owner) }}
+{% if error %}<div class="alert" role="alert">{{ _("{panel} antwortet nicht wie erwartet: {grund}", grund=error) }}</div>{% endif %}
+{% set ready = srv is not none and reason is none %}
+{% set owner = user.is_owner %}
+
+<div class="two-col">
+  <section class="card" id="details">
+    <h2 class="card-h">{{ _("Name und Beschreibung") }}</h2>
+    {% if not rights['admin.details'] %}{{ ad.missing_right("Name und Beschreibung") }}{% endif %}
+    <form method="post" action="/servers/{{ server.identifier }}/admin/details" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <fieldset class="plain" {% if not (ready and rights['admin.details']) %}disabled{% endif %}>
+        <label>{{ _("Name im Panel") }}<input name="name" maxlength="191" required value="{{ srv.name if srv else server.name }}"></label>
+        <label>{{ _("Beschreibung") }}<textarea name="description" rows="3" maxlength="2000">{{ srv.description if srv else '' }}</textarea></label>
+        {% if owner %}
+        <div class="form-grid">
+          <label>{{ _("Besitzer im Panel") }}
+            <select name="owner">
+              {% for u in users %}<option value="{{ u.id }}" {% if srv and u.id == srv.owner %}selected{% endif %}>{{ u.name }}{% if u.email %} ({{ u.email }}){% endif %}</option>{% endfor %}
+              {% if not users %}<option value="">{{ srv.owner_name if srv else '–' }}</option>{% endif %}
+            </select>
+          </label>
+          <label>{{ _("External-ID (optional)") }}<input name="external_id" maxlength="191" value="{{ srv.external_id if srv else '' }}" spellcheck="false"></label>
+        </div>
+        {% endif %}
+        <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+      </fieldset>
+    </form>
+    <p class="faint small">{{ _("Der Name im Panel ist auch der Name in Hatchtower. Den Ingame-Servernamen und das Logo stellst du unter „Angaben im Manager“ ein.") }}</p>
+  </section>
+
+  <section class="card" id="ressourcen">
+    <h2 class="card-h">{{ _("Ressourcen") }}</h2>
+    {% if not rights['admin.build'] %}{{ ad.missing_right("Ressourcen und Ports") }}{% endif %}
+    <form method="post" action="/servers/{{ server.identifier }}/admin/build" class="form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <fieldset class="plain" {% if not (ready and rights['admin.build']) %}disabled{% endif %}>
+        {{ ad.limit_fields(c, srv.limits if srv else none, srv.feature_limits if srv else none, srv.oom_disabled if srv else true) }}
+        <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+      </fieldset>
+    </form>
+  </section>
+</div>
+
+<section class="card" id="ports">
+  <h2 class="card-h">{{ _("Ports") }}</h2>
+  {% if not rights['admin.build'] %}{{ ad.missing_right("Ressourcen und Ports") }}{% endif %}
+  <form method="post" action="/servers/{{ server.identifier }}/admin/ports" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <fieldset class="plain" {% if not (ready and rights['admin.build']) %}disabled{% endif %}>
+      <table class="feature-table">
+        <thead><tr><th>{{ _("Hauptport") }}</th><th>{{ _("Adresse") }}</th><th>{{ _("Notiz") }}</th><th>{{ _("Entfernen") }}</th></tr></thead>
+        <tbody>
+        {% for a in (srv.allocations if srv else []) %}
+        <tr>
+          <td><input type="radio" name="primary" value="{{ a.id }}" {% if a.primary %}checked{% endif %} aria-label="{{ _("Hauptport") }} {{ a.port }}"></td>
+          <td class="mono">{{ a.alias or a.ip }}:{{ a.port }}</td>
+          <td class="faint small">{{ a.notes }}</td>
+          <td>{% if not a.primary %}<input type="checkbox" name="remove" value="{{ a.id }}" aria-label="{{ _("Entfernen") }} {{ a.port }}">{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="faint">{{ _("Ports werden mit Admin-Key aus dem Panel geladen.") }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <label>{{ _("Freie Ports des Nodes hinzufügen (Mehrfachauswahl mit Strg/⌘)") }}
+        <select name="add" multiple size="{{ [[free|length, 3]|max, 8]|min }}">
+          {% for a in free %}<option value="{{ a.id }}">{{ a.alias or a.ip }}:{{ a.port }}</option>{% endfor %}
+        </select>
+      </label>
+      {% if srv and not free %}<p class="faint small">{{ _("Auf diesem Node sind keine Ports frei.") }}</p>{% endif %}
+      <button class="btn btn-primary" type="submit">{{ _("Ports speichern") }}</button>
+    </fieldset>
+  </form>
+  {% if owner %}<p class="faint small"><a href="/admin/ports{% if srv %}?node={{ srv.node }}{% endif %}">{{ _("Neue Ports auf dem Node anlegen") }}</a></p>{% endif %}
+</section>
+
+<section class="card" id="start">
+  <h2 class="card-h">{{ _("Startparameter") }}</h2>
+  {% if not rights['admin.startup'] %}{{ ad.missing_right("Startparameter") }}{% endif %}
+  {% if owner and ready and eggs %}
+  <form method="get" action="/servers/{{ server.identifier }}/admin#start" class="inline-form egg-switch">
+    <label>{{ _("Egg") }}
+      <select name="egg">
+        {% for e in eggs %}<option value="{{ e.id }}" {% if egg_info and e.id == egg_info.id %}selected{% endif %}>{% if e.group %}{{ e.group }} · {% endif %}{{ e.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-ghost btn-sm" type="submit">{{ _("Egg wechseln") }}</button>
+  </form>
+  {% endif %}
+  {% if egg_change %}
+  <div class="key-warning"><p><strong>{{ _("Egg-Wechsel:") }}</strong> {{ _("Startbefehl, Image und Variablen unten sind auf die Vorgaben von „{egg}“ gesetzt. Gespeichert wird erst mit „Startparameter speichern“. Danach den Server meist neu installieren, damit die Dateien zum neuen Egg passen.", egg=egg_info.name) }} <a href="/servers/{{ server.identifier }}/admin#start">{{ _("Abbrechen") }}</a></p></div>
+  {% endif %}
+  <form method="post" action="/servers/{{ server.identifier }}/admin/startup" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if egg_info %}<input type="hidden" name="egg" value="{{ egg_info.id }}">{% endif %}
+    <fieldset class="plain" {% if not (ready and rights['admin.startup'] and egg_info) %}disabled{% endif %}>
+      <label>{{ _("Startbefehl") }}
+        <textarea name="startup" rows="3" class="mono" spellcheck="false">{{ (egg_info.startup if egg_change else srv.startup) if srv and egg_info else '' }}</textarea>
+        <span class="faint small">{{ _("Platzhalter wie {{SERVER_MEMORY}} oder {{SERVER_PORT}} setzt das Panel beim Start ein.") }}</span>
+      </label>
+      {{ ad.image_fields(egg_info.images if egg_info else {}, ('' if egg_change else srv.image) if srv else '', owner) }}
+      <h3 class="check-area">{{ _("Startvariablen") }}</h3>
+      {% if egg_info %}{{ ad.variable_fields(variables) }}{% else %}<p class="faint small">{{ _("Startvariablen werden mit Admin-Key aus dem Panel geladen.") }}</p>{% endif %}
+      <button class="btn btn-primary" type="submit">{{ _("Startparameter speichern") }}</button>
+    </fieldset>
+  </form>
+</section>
+
+<section class="card" id="verwaltung">
+  <h2 class="card-h">{{ _("Verwaltung") }}</h2>
+  <div class="admin-actions">
+    <form method="post" action="/servers/{{ server.identifier }}/admin/reinstall" class="form" data-confirm="{{ _("Server „{name}“ neu installieren? Er ist währenddessen nicht verfügbar, und je nach Egg werden Dateien überschrieben.", name=server.name) }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <fieldset class="plain" {% if not (ready and rights['admin.reinstall']) %}disabled{% endif %}>
+        <p class="muted small">{{ _("Führt das Installationsskript des Eggs erneut aus, z. B. nach einem Egg-Wechsel oder für ein frisches Update.") }}</p>
+        <button class="btn btn-ghost" type="submit">{{ _("Neu installieren") }}</button>
+      </fieldset>
+    </form>
+    {% if not rights['admin.reinstall'] %}{{ ad.missing_right("Neu installieren") }}{% endif %}
+    {% if owner %}
+    <form method="post" action="/servers/{{ server.identifier }}/admin/suspend" class="form" data-confirm="{{ _("Server „{name}“ entsperren?", name=server.name) if srv and srv.suspended else _("Server „{name}“ sperren? Er wird gestoppt und kann bis zum Entsperren nicht gestartet werden.", name=server.name) }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="suspend" value="{{ '0' if srv and srv.suspended else '1' }}">
+      <fieldset class="plain" {% if not ready %}disabled{% endif %}>
+        <p class="muted small">{% if srv and srv.suspended %}{{ _("Der Server ist im Panel gesperrt.") }}{% else %}{{ _("Ein gesperrter Server wird gestoppt und lässt sich bis zum Entsperren nicht starten.") }}{% endif %}</p>
+        <button class="btn btn-ghost" type="submit">{{ _("Entsperren") if srv and srv.suspended else _("Sperren") }}</button>
+      </fieldset>
+    </form>
+    <form method="post" action="/servers/{{ server.identifier }}/admin/delete" class="form danger-zone" data-confirm="{{ _("Server „{name}“ endgültig im Panel löschen? Das lässt sich nicht rückgängig machen.", name=server.name) }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <fieldset class="plain" {% if not ready %}disabled{% endif %}>
+        <p class="muted small"><strong>{{ _("Server löschen:") }}</strong> {{ _("Löscht den Server mit allen Dateien im Panel und auf dem Node. Backups in Hatchtower bleiben erhalten.") }}</p>
+        <label>{{ _("Zum Bestätigen den Namen eintragen: {name}", name=srv.name if srv else server.name) }}<input name="confirm_name" autocomplete="off" spellcheck="false" required></label>
+        <label class="check"><input type="checkbox" name="force" value="1"> {{ _("Erzwingen, auch wenn der Node nicht antwortet") }}</label>
+        <button class="btn btn-danger" type="submit">{{ _("Endgültig löschen") }}</button>
+      </fieldset>
+    </form>
+    {% else %}
+    <p class="faint small">{{ _("Sperren und Löschen dürfen nur Owner.") }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
