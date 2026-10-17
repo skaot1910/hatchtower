@@ -11,16 +11,20 @@
     <p class="muted">{{ servers|length }} {{ _("Server sichtbar") }}</p>
   </div>
   <div class="head-tools">
-  {% if status_page_on and not preview and not simple_view %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} {{ ic.icon("external") }}</a>{% endif %}
+  {% if status_page_on and not preview %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} {{ ic.icon("external") }}</a>{% endif %}
+  {% if not view_locked and not preview %}
+  <div class="view-toggle scope-toggle" role="group" aria-label="{{ _("Umfang der Angaben") }}">
+    <a href="/view/simple?next=/" title="{{ _("Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp") }}"{% if simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Einfach") }}</a>
+    <a href="/view/full?next=/" title="{{ _("Alle Angaben, Diagramme und Werkzeuge") }}"{% if not simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Alles") }}</a>
+  </div>
+  {% endif %}
   <div class="view-toggle" role="group" aria-label="{{ _("Ansicht") }}">
     <button type="button" data-view="tiles" aria-pressed="false">{{ ic.icon("tiles") }}<span>{{ _("Kacheln") }}</span></button>
     <button type="button" data-view="list" aria-pressed="true">{{ ic.icon("list") }}<span>{{ _("Liste") }}</span></button>
   </div>
-  {% if not simple_view %}
   <div class="monitor-status {% if not monitor.healthy %}is-bad{% endif %}" id="monitor-status">
     {% if monitor.healthy %}{{ _("Monitoring aktiv") }}{% elif monitor.last_error %}{{ _(monitor.last_error) }}{% else %}{{ _("Monitoring startet …") }}{% endif %}
   </div>
-  {% endif %}
   </div>
 </div>
 
@@ -112,6 +116,7 @@
 </div>
 {% else %}
 <div class="grid list-view" id="server-grid" {% if not preview %}data-live="1"{% endif %}>
+  <div class="list-head" aria-hidden="true"><span>{{ _("Server") }}</span><span>{{ _("Adresse und Passwort") }}</span><span class="list-head-metrics"><span>{{ _("CPU") }}</span><span>{{ _("RAM") }}</span><span>{{ _("Speicher") }}</span></span><span></span><span></span></div>
   {% for s in servers %}
   <article class="card server-card state-{{ s.state }}{% if s.favorite %} is-favorite{% endif %}" data-ident="{{ s.identifier }}" data-tags="{{ s.tags|join('|') }}" data-name="{{ s.name }}">
     <div class="card-head">
@@ -131,7 +136,7 @@
       {% if not preview %}
       <button type="button" class="chip chip-fav" data-fav="{{ s.identifier }}" aria-pressed="{{ 'true' if s.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}" aria-label="{{ _("Als Favorit oben anheften") }}">{{ ic.icon("star") }}</button>
       {% endif %}
-      <a class="chip" href="/servers/{{ s.identifier }}">{{ _("Details") }}</a>
+      <a class="chip chip-details" href="/servers/{{ s.identifier }}">{{ _("Details") }}</a>
       {% if s.can_manage %}<a class="chip chip-ghost" href="/servers/{{ s.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
     </div>
   </article>

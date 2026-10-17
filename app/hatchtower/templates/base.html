@@ -10,7 +10,7 @@
   <meta name="timezone" content="{{ settings.timezone }}">
   {% if csrf %}<meta name="csrf-token" content="{{ csrf }}">{% endif %}
   <title>{% block title %}{{ brand.name }}{% endblock %}</title>
-  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon.svg?v={{ version|hash_version }}" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/ibm-plex-sans-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css?v={{ version|hash_version }}">
@@ -56,7 +56,6 @@
   <div class="account">
     <div class="account-prefs">
       {% if discord_url %}<a class="discord-link" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Community-Discord") }}">{{ hm.discord_icon() }} <span>{{ _("Discord") }}</span></a>{% endif %}
-      {% if not view_locked %}<span class="view-switch" role="group" aria-label="{{ _("Ansicht") }}"><a href="/view/simple?next={{ here|urlencode }}" title="{{ _("Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp") }}"{% if simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Einfach") }}</a><a href="/view/full?next={{ here|urlencode }}" title="{{ _("Alle Angaben, Diagramme und Werkzeuge") }}"{% if not simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Alles") }}</a></span>{% endif %}
       {{ thm.switch(all_themes) }}
     </div>
     {# Account menu: a pop-up in the sidebar, always open in the phone menu #}

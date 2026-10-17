@@ -1550,7 +1550,7 @@
   "Alle Angaben, Diagramme und Werkzeuge": "All details, charts and tools",
   "Beitreten": "Join",
   "„Einfach“ zeigt pro Server nur Status, Adresse, Passwort und die Knöpfe zum Starten und Stoppen. „Alles“ zeigt zusätzlich Auslastung, Diagramme, Filter und Protokolle.": "“Simple” shows only the status, address, password and the start and stop buttons for each server. “Everything” also shows usage, charts, filters and logs.",
-  "Die Darstellung (Dunkel oder Hell) und die Ansicht wählst du auch unten in der Seitenleiste, auf dem Handy im Menü.": "You can also choose the appearance (Dark or Light) and the view at the bottom of the sidebar, on phones in the menu.",
+  "Die Darstellung (Dunkel oder Hell) wählst du auch unten in der Seitenleiste, die Ansicht (Einfach oder Alles) direkt in der Übersicht.": "You can also choose the appearance (Dark or Light) at the bottom of the sidebar, and the view (Simple or Everything) right in the overview.",
   "Standard der Instanz": "Instance default",
   "Einfach: nur Status, Adresse, Passwort, Start/Stopp": "Simple: only status, address, password, start/stop",
   "Standard-Ansicht für Benutzer": "Default view for users",
@@ -1561,7 +1561,7 @@
   "Ansicht für Benutzer": "View for users",
   "Pro Server nur Status, Adresse, Passwort, Start und Stopp. Gut für Freunde, die einfach spielen wollen.": "Per server only status, address, password, start and stop. Good for friends who just want to play.",
   "Zusätzlich Auslastung, Diagramme, Konsolen-Archiv und Protokoll.": "Also usage, charts, console archive and log.",
-  "Owner sehen alles, solange sie nichts anderes wählen. Jeder Benutzer kann in der Seitenleiste umschalten; später änderbar unter Community → Erscheinungsbild.": "Owners see everything unless they choose otherwise. Every user can switch in the sidebar; you can change the default later under Community → Appearance.",
+  "Owner sehen alles, solange sie nichts anderes wählen. Jeder Benutzer kann in der Übersicht umschalten; später änderbar unter Community → Erscheinungsbild.": "Owners see everything unless they choose otherwise. Every user can switch in the overview; you can change the default later under Community → Appearance.",
   "Bereiche des Servers": "Server sections",
   "Das Bild ist zu groß (höchstens {n} × {n} Pixel).": "The image is too large (at most {n} × {n} pixels).",
   "Neuer SMTP-Server oder Verbindung ohne Verschlüsselung: Bitte das Passwort noch einmal eingeben. Das gespeicherte geht nur an den bisherigen Server.": "New SMTP server or connection without encryption: please enter the password again. The saved one is only sent to the previous server.",
@@ -2310,7 +2310,9 @@
   "Neu in Version {v}": "New in version {v}",
   "Die Beschreibung kommt von GitHub und ist auf Englisch.": "The description comes from GitHub.",
   "Auf GitHub ansehen": "View on GitHub",
-  "Übersprungene Versionen im CHANGELOG": "Skipped versions in the CHANGELOG"
+  "Übersprungene Versionen im CHANGELOG": "Skipped versions in the CHANGELOG",
+  "Adresse und Passwort": "Address and password",
+  "Umfang der Angaben": "Level of detail"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

@@ -121,7 +121,7 @@ h2 { font-size: 16px; }
 }
 .badge-prod { background: var(--red-bg); color: var(--red-fg); border-color: var(--red-line); }
 .badge-ro { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-line); }
-.container { width: 100%; max-width: 1480px; margin: 0 auto; padding: 32px 40px; flex: 1; min-width: 0; }
+.container { width: 100%; max-width: 1320px; margin: 0 auto; padding: 32px 40px; flex: 1; min-width: 0; }
 .footer { text-align: center; color: var(--faint); font-size: 12.5px; padding: 20px 28px; border-top: 1px solid var(--line); }
 
 /* Bausteine */
@@ -442,6 +442,10 @@ a.file-link:hover { color: var(--accent-text); }
 .view-toggle { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; padding: 3px; background: var(--card); }
 .view-toggle button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
 .view-toggle button[aria-pressed="true"] { background: var(--card); color: var(--strong); box-shadow: 0 0 0 1px var(--line-2), var(--shadow-card); }
+/* the simple/full switch uses the same pill as tiles/list; its options are links */
+.view-toggle a { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); padding: 5px 13px; border-radius: 999px; text-decoration: none; }
+.view-toggle a:hover { color: var(--text); }
+.view-toggle a.is-current { background: var(--card); color: var(--strong); box-shadow: 0 0 0 1px var(--line-2), var(--shadow-card); }
 .server-card.state-starting, .server-card.state-stopping { box-shadow: inset 0 3px 0 var(--amber), var(--shadow-card); }
 
 .grid.list-view { grid-template-columns: minmax(0, 1fr); gap: 0; background: var(--card); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden; }
@@ -777,7 +781,7 @@ a.file-link:hover { color: var(--accent-text); }
 }
 /* Liste im mittleren Bereich (Tablet, schmales Fenster, Handy im Modus "Desktop-Website"):
    echte Zeilen statt Kacheln */
-@media (min-width: 721px) and (max-width: 1100px) {
+@media (min-width: 721px) and (max-width: 1279px) {
   .grid.list-view { grid-template-columns: minmax(0, 1fr); gap: 0; background: var(--card); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden; }
   .list-view .server-card {
     display: grid; align-items: center; gap: 8px 20px; margin: 0; padding: 12px 16px;
@@ -801,7 +805,7 @@ a.file-link:hover { color: var(--accent-text); }
   .list-view .facts :is(.kv-address, .kv-password) > span:first-child { font-size: 12px; }
   .list-view .metric .kv { flex-direction: column; align-items: flex-start; gap: 0; padding: 0 0 3px; }
   .list-view .metric .kv > span:first-child { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .list-view .metric .kv > span:last-child { font-size: 13.5px; font-weight: 600; text-align: left; white-space: nowrap; }
+  .list-view .metric .kv > span:last-child { font-size: 13px; font-weight: 600; text-align: left; white-space: normal; }
   .list-view .bar { height: 3px; }
   .list-view .pbtn { min-height: 36px; padding: 5px 12px; }
   .list-view .actions .chip { padding: 6px 12px; }
@@ -1401,46 +1405,6 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
   .pbtn .ico-ui { width: 16px; height: 16px; }
 }
 
-/* Server list on wide screens: one compact line per server, so twenty servers can be read at a glance.
-   Name and game | address | CPU, RAM, storage | start/stop and links. The details page has everything else. */
-@media (min-width: 1101px) {
-  .list-view .server-card:not(.simple-card) {
-    grid-template-columns: minmax(170px, 2fr) auto minmax(190px, 1.5fr) auto minmax(0, auto);
-    gap: 0 14px; padding: 10px 18px;
-  }
-  .list-view .server-card:not(.simple-card) .power { flex-wrap: nowrap; }
-  /* name on the first line, status and game on the second */
-  .list-view .server-card:not(.simple-card) .card-title { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; }
-  .list-view .server-card:not(.simple-card) .title-row { display: contents; }
-  .list-view .server-card:not(.simple-card) .title-row h2 { flex: 1 0 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
-  /* start/stop as icon buttons; the label stays for screen readers and in the tooltip */
-  .list-view .server-card:not(.simple-card) .pbtn { padding: 6px 8px; }
-  .list-view .server-card:not(.simple-card) .pbtn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .list-view .server-card:not(.simple-card) :is(.card-head, .facts, .metrics, .power, .actions) { grid-row: 1; }
-  .list-view .server-card:not(.simple-card) .power { grid-column: 4; }
-  .list-view .server-card:not(.simple-card) .actions { grid-column: 5; }
-  .list-view .logo { width: 36px; height: 36px; border-radius: 9px; font-size: 13px; }
-  .list-view .card-head h2 { font-size: 14.5px; }
-  .list-view .card-title .faint.small { font-size: 12.5px; }
-  .list-view .facts .kv-ingame, .list-view .facts .kv-time { display: none; }
-  .list-view .facts { gap: 6px; }
-  /* address and password stacked: what players need to join */
-  .list-view .facts :is(.kv-address, .kv-password) { flex-direction: column; align-items: flex-start; gap: 0; padding: 0; border: 0; }
-  .list-view .facts :is(.kv-address, .kv-password) > span:first-child { font-size: 11.5px; }
-  .list-view .facts :is(.kv-address, .kv-password) > span:last-child { white-space: nowrap; overflow-wrap: normal; text-align: left; }
-  .list-view .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-  .list-view .metric .kv { flex-direction: column; align-items: flex-start; gap: 0; padding: 0 0 4px; border: 0; }
-  .list-view .metric .kv > span:first-child { font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .list-view .metric .kv > span:last-child { font-size: 12.5px; font-weight: 600; text-align: left; font-variant-numeric: tabular-nums; }
-  .list-view .server-card:not(.simple-card) .actions { flex-wrap: wrap; justify-content: flex-end; }
-  .list-view .actions .chip { padding: 4px 10px; }
-}
-@media (min-width: 1440px) {
-  .list-view .server-card:not(.simple-card) { grid-template-columns: minmax(190px, 2fr) minmax(170px, 1fr) minmax(270px, 2.2fr) auto auto; gap: 0 16px; padding: 10px 20px; }
-  .list-view .server-card:not(.simple-card) .actions { flex-wrap: nowrap; }
-  .list-view .metric .kv > span:last-child { font-size: 13px; white-space: nowrap; }
-}
-
 /* Phone, many servers: filters scroll sideways in one line, start/stop share a line with the links */
 @media (max-width: 720px), (pointer: coarse) and (max-height: 540px) {
   .status-filter, .tag-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -12px; margin-right: -12px; padding: 0 12px 2px; }
@@ -1518,4 +1482,111 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
   .stack-table td.row-actions { display: flex; }
   .stack-table td.row-actions > * { margin: 0; }
   .list-tools .status-filter { margin: 0 -12px; }
+}
+
+/* Brand in the sidebar: never cut off and never wider than the column. With an uploaded logo the logo gets its
+   own line and the name wraps below it; the bell stays at the top right. */
+.sidebar { overflow-x: hidden; }
+.sidebar-top { align-items: flex-start; }
+.sidebar .brand { flex: 1 1 auto; min-width: 0; }
+.sidebar .brand:has(.brand-logo) { flex-direction: column; align-items: flex-start; gap: 8px; }
+.sidebar .brand-logo { max-width: 100%; max-height: 40px; }
+.sidebar .brand-titles { min-width: 0; max-width: 100%; }
+.sidebar .brand-titles .brand-text { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.2; }
+.sidebar .brand-product { overflow-wrap: anywhere; }
+.sidebar .brand > .hatch-mark { margin-top: 1px; }
+@media (max-width: 900px) {
+  .sidebar-top { align-items: center; }
+  .sidebar .brand:has(.brand-logo) { flex-direction: row; align-items: center; gap: 10px; }
+  .sidebar .brand-logo { max-width: min(150px, 40vw); max-height: 32px; }
+  .sidebar .brand-titles .brand-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+}
+
+/* Simple view on wide screens: little content, so a narrow list with low rows */
+@media (min-width: 1101px) {
+  .grid.simple-grid.list-view { max-width: 980px; }
+  .list-view .simple-card { display: grid; grid-template-areas: none; grid-template-columns: minmax(200px, 1fr) 230px auto; gap: 0 24px; padding: 10px 18px; }
+  .list-view .simple-card :is(.card-head, .facts, .power) { grid-area: auto; }
+  .list-view .simple-card .card-head { grid-column: 1; grid-row: 1; }
+  .list-view .simple-card .facts { grid-column: 2; grid-row: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .list-view .simple-card .facts .kv { flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 10px; padding: 1px 0; border: 0; font-size: 14px; }
+  .list-view .simple-card .facts .kv > span:first-child { flex: none; min-width: 66px; font-size: 13px; }
+  .list-view .simple-card .facts .kv > span:last-child { white-space: nowrap; text-align: left; }
+  .list-view .simple-card .power { grid-column: 3; grid-row: 1; justify-content: flex-end; }
+  .list-view .simple-card .card-title { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+  .list-view .simple-card .card-title h2 { white-space: normal; overflow: visible; overflow-wrap: anywhere; font-size: 15px; }
+  .list-view .simple-card .logo { width: 36px; height: 36px; }
+  .list-view .simple-card .pbtn { padding: 6px 12px; font-size: 13px; }
+}
+
+/* =====================================================================
+   Server list from 1280 px: a table with one header row and fixed columns, so every row lines up.
+   The header carries the labels; rows only show values (address above password, usage as value and bar).
+   Below 1280 px the list uses the two-line rows of the tablet layout.
+   ===================================================================== */
+.list-head { display: none; }
+@media (min-width: 1280px) {
+  .grid.list-view > .list-head, .list-view .server-card:not(.simple-card) {
+    display: grid; align-items: center; gap: 0 16px;
+    grid-template-columns: minmax(190px, 2fr) 190px minmax(230px, 2fr) 80px 124px;
+  }
+  .grid.list-view > .list-head { padding: 9px 18px; background: var(--subtle); border-bottom: 1px solid var(--line-2);
+    font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); }
+  .list-head-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+
+  .list-view .server-card:not(.simple-card) { padding: 10px 18px; }
+  .list-view .server-card:not(.simple-card) :is(.card-head, .facts, .metrics) { grid-row: 1; }
+  .list-view .server-card:not(.simple-card) .power { grid-column: 4; grid-row: 1; justify-content: flex-end; flex-wrap: nowrap; }
+  .list-view .server-card:not(.simple-card) .actions { grid-column: 5; grid-row: 1; justify-content: flex-end; flex-wrap: nowrap; gap: 6px; margin: 0; }
+
+  .list-view .server-card:not(.simple-card) .card-head-link { gap: 12px; }
+  .list-view .server-card:not(.simple-card) .logo { display: none; }
+  .list-view .server-card:not(.simple-card) .card-title { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; }
+  .list-view .server-card:not(.simple-card) .title-row { display: contents; }
+  .list-view .server-card:not(.simple-card) .title-row h2 { font-size: 14.5px; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .list-view .server-card:not(.simple-card) .card-title .faint.small { font-size: 12.5px; }
+  .card-head-link:hover h2 { color: var(--accent-text); }
+
+  .list-view .server-card:not(.simple-card) .facts { display: grid; gap: 2px; }
+  .list-view .server-card:not(.simple-card) .facts :is(.kv-ingame, .kv-time) { display: none; }
+  .list-view .server-card:not(.simple-card) .facts .kv { justify-content: flex-start; padding: 0; border: 0; }
+  .list-view .server-card:not(.simple-card) .facts .kv > span:first-child,
+  .list-view .server-card:not(.simple-card) .metric .kv > span:first-child { display: none; }
+  .list-view .server-card:not(.simple-card) .facts .kv > span:last-child { text-align: left; overflow-wrap: anywhere; }
+
+  .list-view .server-card:not(.simple-card) .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .list-view .server-card:not(.simple-card) .metric .kv { padding: 0 0 5px; border: 0; }
+  .list-view .server-card:not(.simple-card) .metric .kv > span:last-child { font-size: 12.5px; font-weight: 600; text-align: left; font-variant-numeric: tabular-nums; }
+  .list-view .server-card:not(.simple-card) .bar { height: 4px; }
+
+  /* start/stop as icon buttons (label kept for screen readers and as tooltip); the name already opens the details */
+  .list-view .server-card:not(.simple-card) .pbtn { padding: 6px 8px; }
+  .list-view .server-card:not(.simple-card) .pbtn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .list-view .server-card:not(.simple-card) .chip-details { display: none; }
+  .list-view .server-card:not(.simple-card) .actions .chip { padding: 4px 10px; }
+}
+@media (min-width: 1440px) {
+  .grid.list-view > .list-head, .list-view .server-card:not(.simple-card) {
+    gap: 0 18px; grid-template-columns: minmax(230px, 2.2fr) 200px minmax(270px, 2fr) 80px 124px;
+  }
+  .grid.list-view > .list-head, .list-view .server-card:not(.simple-card) { padding-left: 20px; padding-right: 20px; }
+  .list-view .server-card:not(.simple-card) .logo { display: inline-grid; width: 36px; height: 36px; border-radius: 9px; font-size: 13px; }
+  .list-view .server-card:not(.simple-card) .metric .kv > span:last-child { font-size: 13px; white-space: nowrap; }
+}
+@media (min-width: 1440px) {
+  /* simple view, enough room: address and password side by side in fixed columns */
+  .grid.simple-grid.list-view { max-width: 1080px; }
+  .list-view .simple-card { grid-template-columns: minmax(240px, 1fr) 480px auto; }
+  .list-view .simple-card .facts { grid-template-columns: 270px 190px; gap: 0 20px; }
+}
+/* copyable values have a small hover padding; in list rows they start on the same edge as plain values */
+@media (min-width: 1101px) {
+  .list-view .facts .copyable { margin-left: -4px; }
+}
+@media (max-width: 720px), (pointer: coarse) and (max-height: 540px) {
+  /* both switches on one line on phones: icons hidden, same compact size */
+  .head-tools .view-toggle .ico-ui { display: none; }
+  .head-tools .view-toggle :is(a, button) { font-size: 14px; padding: 8px 13px; }
+  .head-tools { justify-content: flex-start; gap: 10px; }
+  .head-tools .monitor-status { flex-basis: 100%; }
 }

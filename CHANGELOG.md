@@ -3,6 +3,17 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.34.1 – 2026-10-17
+
+- Sidebar: an uploaded logo gets its own line and the community name wraps below it, so the name is always
+  readable and the sidebar never scrolls sideways
+- Overview list from 1280 px: one header row and fixed columns, so all rows line up; rows only show values
+  (address above password, usage as value and bar) and are noticeably lower. The server name opens the details
+- Simple view: narrower list with low rows; address and password side by side
+- The Simple/Everything switch moved from the sidebar into the overview, next to Tiles/List. The top row of the
+  overview (status page link, both switches, monitoring) now looks the same in both views
+- Browser tab icon: the link carries a version, so browsers replace the old cached icon
+
 ## 0.34.0 – 2026-10-17
 
 **New interface**
