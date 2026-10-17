@@ -98,6 +98,9 @@ Grundregeln:
 | POST | `/account/notify` | Formular | Eigene Benachrichtigungen |
 | POST | `/account/delete` | Formular | Eigenes Konto löschen (Passwort nötig) |
 | GET | `/account/export` | – | Eigene Daten herunterladen (Art. 15 DSGVO) |
+| GET | `/notifications` | – | Benachrichtigungen (Glocke): nur Meldungen zu sichtbaren Servern, Verwaltung nur Owner |
+| POST | `/notifications/read-all` | Formular | Eigene Benachrichtigungen als gelesen markieren |
+| POST | `/notifications/{entry_id}/read` | Formular | Eine Benachrichtigung als gelesen markieren (nur sichtbare) |
 
 ## Server – Recht pro Server
 
@@ -195,6 +198,7 @@ Grundregeln:
 | POST | `/admin/connection/nodes` | Formular | Abweichende Wings-Adressen |
 | POST | `/admin/connection/admin-key` | Formular | Optionalen Admin-Key (Schreibrechte) prüfen und speichern; die Prüfung ändert nichts am Panel |
 | POST | `/admin/connection/admin-key/remove` | Formular | Admin-Key entfernen |
+| GET | `/admin/servers` | – | Server → Alle Server (Wege zu Verwalten und Panel-Einstellungen) |
 | GET | `/admin/servers/new` | – | Server → Server anlegen (Node und Egg wählen, dann Formular) |
 | POST | `/admin/servers/new` | Formular | Server im Panel anlegen |
 | GET | `/admin/ports` | – | Server → Ports der Nodes |
@@ -227,12 +231,12 @@ Grundregeln:
 | POST | `/admin/backups/targets/{target_id}` | Formular | Backup-Ziel ändern (SMB: Verbindung wird geprüft) |
 | POST | `/admin/backups/targets/{target_id}/test` | Formular | Backup-Ziel testen |
 | POST | `/admin/backups/targets/{target_id}/delete` | Formular | Backup-Ziel entfernen |
-| GET | `/admin/appearance` | – | Auftritt → Erscheinungsbild |
+| GET | `/admin/appearance` | – | Community → Erscheinungsbild |
 | POST | `/admin/branding` | Formular | Name, Standard-Theme, Discord-Link |
 | POST | `/admin/branding/logo/{kind}` | Formular | Eigenes Logo hochladen |
 | POST | `/admin/branding/logo/{kind}/delete` | Formular | Eigenes Logo entfernen |
 | POST | `/admin/appearance/locale` | Formular | Standardsprache und Zeitzone |
-| GET | `/admin/legal` | – | Auftritt → Rechtliches |
+| GET | `/admin/legal` | – | Community → Rechtliches |
 | POST | `/admin/legal/{page}` | Formular | Impressum/Datenschutzerklärung |
 | GET | `/admin/statuspage` | – | Statusseite einstellen |
 | POST | `/admin/statuspage` | Formular | Statusseite speichern |

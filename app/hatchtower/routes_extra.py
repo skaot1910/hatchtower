@@ -1309,7 +1309,7 @@ async def admin_announcement_delete(request: Request, ann_id: int):
     return back("/admin/announcements", "Ankündigung gelöscht")
 
 
-# == Auftritt: Rechtliches (Impressum, Datenschutzerklärung) ===============================
+# == Community: Rechtliches (Impressum, Datenschutzerklärung) ===============================
 
 @app.get("/admin/legal", response_class=HTMLResponse)
 async def admin_legal(request: Request, vorlage: str = "", sprache: str = ""):
@@ -1598,3 +1598,44 @@ async def api_update_status(request: Request):
     state = updates.read_state(settings.data_dir)
     return {"state": state.get("state", ""), "from": state.get("from", ""), "to": state.get("to", ""),
             "running_version": __version__, "log": state.get("log", "")}
+
+
+# -- Notification inbox (bell) -------------------------------------------------------------
+
+@app.get("/notifications", response_class=HTMLResponse)
+async def notifications_page(request: Request, f: str = ""):
+    from . import inbox
+    user = current_user(request)
+    only_unread = f == "unread"
+    names = server_names()
+    items = [{"id": r["id"], "title": inbox.title(r), "level": inbox.level(r), "detail": r["detail"] or "",
+              "server": names.get(r["identifier"], r["identifier"]) if r["identifier"] else "",
+              "when": fmt_dt(r["created_at"], settings.timezone), "read": bool(r["is_read"]),
+              "link": inbox.link(user, r)}
+             for r in inbox.entries(user, only_unread=only_unread)]
+    return render(request, "notifications.html", items=items, only_unread=only_unread,
+                  retention_days=inbox.RETENTION_DAYS)
+
+
+@app.post("/notifications/read-all")
+async def notifications_read_all(request: Request):
+    from . import inbox
+    user = current_user(request)
+    await check_csrf(request)
+    inbox.mark_all_read(user)
+    return back("/notifications", "Alle Meldungen als gelesen markiert")
+
+
+@app.post("/notifications/{entry_id}/read")
+async def notifications_read(request: Request, entry_id: int):
+    """Mark one entry as read; with go=1 continue to the page it is about."""
+    from . import inbox
+    user = current_user(request)
+    await check_csrf(request)
+    row = inbox.entry(user, entry_id)
+    if row is None:
+        return back("/notifications")
+    inbox.mark_read(user, entry_id)
+    form = await request.form()
+    target = inbox.link(user, row) if form.get("go") == "1" else None
+    return RedirectResponse(target or "/notifications", status_code=303)

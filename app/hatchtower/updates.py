@@ -19,6 +19,8 @@ from pathlib import Path
 
 import httpx
 
+from markupsafe import Markup, escape
+
 from . import __version__, i18n
 
 log = logging.getLogger("hatchtower.updates")
@@ -30,6 +32,7 @@ HELPER_UNIT = Path("/etc/systemd/system/hatchtower-update.path")
 # Status und Protokoll schreibt root dorthin (für den Dienst nur lesbar); ältere Versionen schrieben in den Datenordner
 STATUS_DIR = Path("/var/lib/hatchtower-update")
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
+NOTES_MAX = 20_000
 
 
 def _parse(v: str) -> tuple:
@@ -41,6 +44,8 @@ class UpdateCheck:
         self.repo = os.environ.get("HATCHTOWER_REPO", "skaot1910/hatchtower").strip()
         self.latest: str | None = None
         self.url: str | None = None
+        self.notes: str = ""              # release notes of the latest version (markdown, from the GitHub release)
+        self.published_at: str | None = None
         self.error: str | None = None
         self.checked_at: str | None = None
         self._task: asyncio.Task | None = None
@@ -77,6 +82,8 @@ class UpdateCheck:
                 data = r.json()
                 self.latest = str(data.get("tag_name", "")).lstrip("v") or None
                 self.url = data.get("html_url")
+                self.notes = str(data.get("body") or "")[:NOTES_MAX]
+                self.published_at = data.get("published_at")
                 self.error = None
             elif r.status_code == 404:
                 self.error = ("Kein Release gefunden" if token else
@@ -88,6 +95,16 @@ class UpdateCheck:
         except httpx.HTTPError as exc:
             self.error = i18n.Msg("GitHub nicht erreichbar: {typ}", typ=exc.__class__.__name__)
         self.checked_at = db.utcnow()
+        self._announce()
+
+    def _announce(self) -> None:
+        """A newer version goes into the owners' inbox once per version."""
+        from . import db, inbox
+        if not self.available or db.get_setting("inbox_update_version") == self.latest:
+            return
+        db.set_setting("inbox_update_version", self.latest, None)
+        inbox.add("update", "owner", None, i18n.t("Version {neu} ist verfügbar (installiert: {alt}).",
+                                                  neu=self.latest, alt=__version__))
 
     async def _loop(self) -> None:
         await asyncio.sleep(30)
@@ -151,3 +168,58 @@ def request_update(data_dir: Path, target: str) -> bool:
         return False
     request.write_text(target + "\n")
     return True
+
+
+def release_url(repo: str, version: str) -> str:
+    return f"https://github.com/{repo}/releases/tag/v{version}"
+
+
+def changelog_url(repo: str) -> str:
+    return f"https://github.com/{repo}/blob/main/CHANGELOG.md"
+
+
+_INLINE = re.compile(r"`([^`]+)`|\*\*([^*]+)\*\*")
+
+
+def _inline(text: str) -> str:
+    out, pos = [], 0
+    for m in _INLINE.finditer(text):
+        out.append(str(escape(text[pos:m.start()])))
+        out.append(f"<code>{escape(m.group(1))}</code>" if m.group(1) is not None else f"<strong>{escape(m.group(2))}</strong>")
+        pos = m.end()
+    out.append(str(escape(text[pos:])))
+    return "".join(out)
+
+
+def notes_html(markdown: str) -> Markup:
+    """Release notes as a small, safe subset of markdown: headings, bullet lists, paragraphs, `code` and **bold**.
+    Everything is escaped first; links stay plain text."""
+    html, items, para = [], [], []
+
+    def flush():
+        if items:
+            html.append("<ul>" + "".join(f"<li>{_inline(i)}</li>" for i in items) + "</ul>")
+            items.clear()
+        if para:
+            html.append(f"<p>{_inline(' '.join(para))}</p>")
+            para.clear()
+
+    for raw in markdown.splitlines():
+        line = raw.strip()
+        if not line:
+            flush()
+        elif line.startswith("#"):
+            flush()
+            html.append(f"<h3>{_inline(line.lstrip('#').strip())}</h3>")
+        elif line[:2] in ("- ", "* "):
+            if para:
+                flush()
+            items.append(line[2:].strip())
+        elif items and raw[:1] in (" ", "\t"):
+            items[-1] += " " + line          # continuation of a bullet
+        else:
+            if items:
+                flush()
+            para.append(line)
+    flush()
+    return Markup("".join(html))

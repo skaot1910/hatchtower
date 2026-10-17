@@ -98,8 +98,8 @@ async def backups_page(request: Request):
     with db.connect() as con:
         jobs = con.execute("SELECT * FROM backup_jobs ORDER BY name COLLATE NOCASE").fetchall()
         runs = con.execute("SELECT * FROM backup_runs WHERE status NOT IN ('queued', 'running')"
-                           " ORDER BY id DESC LIMIT 300").fetchall()
-        restores = con.execute("SELECT * FROM backup_restores ORDER BY id DESC LIMIT 100").fetchall()
+                           " ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
+        restores = con.execute("SELECT * FROM backup_restores ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
     job_list = []
     for job in jobs:
         if not user_may(user, job, "backups.view"):
@@ -122,6 +122,20 @@ async def backups_page(request: Request):
     for x in restores:
         if x["status"] == "ok" and x["run_id"] and x["run_id"] not in restored:
             restored[x["run_id"]] = fmt_dt(x["finished_at"], settings.timezone)
+    q = request.query_params
+    visible_runs = [r for r in runs if has(user, r["identifier"], "backups.view")]
+    visible_restores = [x for x in restores if x["status"] != "running" and has(user, x["identifier"], "backups.view")]
+    run_filter = {"server": q.get("server", ""), "job": q.get("job", ""), "status": q.get("status", "")}
+    restore_filter = {"server": q.get("rserver", ""), "status": q.get("rstatus", "")}
+    filtered_runs = [r for r in visible_runs
+                     if (not run_filter["server"] or r["identifier"] == run_filter["server"])
+                     and (not run_filter["job"] or r["job_name"] == run_filter["job"])
+                     and (not run_filter["status"] or r["status"] == run_filter["status"])]
+    filtered_restores = [x for x in visible_restores
+                         if (not restore_filter["server"] or x["identifier"] == restore_filter["server"])
+                         and (not restore_filter["status"] or x["status"] == restore_filter["status"])]
+    run_page, runs_pager = paginate(filtered_runs, q, "page", "gespeichert")
+    restore_page, restores_pager = paginate(filtered_restores, q, "rpage", "wiederherstellungen")
     run_list = [{
         "r": r, "at": fmt_dt(r["finished_at"] or r["queued_at"], settings.timezone),
         "status": i18n.t(backups.STATUS_LABELS.get(r["status"], r["status"])),
@@ -133,14 +147,14 @@ async def backups_page(request: Request):
         "can_verify": bool(r["file"]) and r["kind"] == "target" and has(user, r["identifier"], "backups.run"),
         "can_restore": bool(r["file"]) and r["kind"] == "target" and user.can(r["identifier"], "backups.restore"),
         "can_delete": bool(r["file"]) and has(user, r["identifier"], "backups.manage"),
-    } for r in runs if has(user, r["identifier"], "backups.view")][:100]
+    } for r in run_page]
     for x in run_list:                 # Auswahlkästchen nur, wo eine Sammelaktion möglich ist
         x["can_select"] = x["can_delete"] or x["can_verify"]
     restore_list = [{
         "x": x, "at": fmt_dt(x["finished_at"] or x["started_at"], settings.timezone),
         "backup_at": fmt_dt(x["backup_at"], settings.timezone) if x["backup_at"] else "",
         "status": i18n.t(backups.STATUS_LABELS.get(x["status"], x["status"])),
-    } for x in restores if x["status"] != "running" and has(user, x["identifier"], "backups.view")][:20]
+    } for x in restore_page]
     owner_data = {}
     if user.is_owner:
         uid, gid = backups.service_ids()
@@ -150,9 +164,58 @@ async def backups_page(request: Request):
         owner_data = {"targets_view": [target_view(t) for t in targets], "mounts": mounts,
                       "data_dir": str(settings.data_dir / "backups"), "host_uid": 100000 + (uid or 0),
                       "host_gid": 100000 + (gid or 0)}
+    run_keys, restore_keys = ("server", "job", "status"), ("rserver", "rstatus")
     return render(request, "backups.html", jobs=job_list, runs=run_list, targets=targets, restores=restore_list,
                   active=active_for(user), finished=finished_results(user, request.query_params.get("done", "")),
-                  can_create=user.can_any("backups.manage"), **owner_data)
+                  can_create=user.can_any("backups.manage"),
+                  runs_total=len(visible_runs), runs_count=len(filtered_runs), runs_pager=runs_pager,
+                  restores_total=len(visible_restores), restores_count=len(filtered_restores), restores_pager=restores_pager,
+                  run_filter={**run_filter, "active": any(run_filter.values())},
+                  restore_filter={**restore_filter, "active": any(restore_filter.values())},
+                  run_servers=server_choices(visible_runs, names), restore_servers=server_choices(visible_restores, names),
+                  run_jobs=sorted({r["job_name"] for r in visible_runs if r["job_name"]}, key=str.casefold),
+                  status_options=[(k, i18n.t(backups.STATUS_LABELS[k])) for k in ("ok", "partial", "error", "cancelled", "denied")],
+                  keep_run_filter=[(k, q[k]) for k in run_keys if q.get(k)],
+                  keep_restore_filter=[(k, q[k]) for k in restore_keys if q.get(k)],
+                  runs_reset=list_url(q, drop=run_keys + ("page",), anchor="gespeichert"),
+                  restores_reset=list_url(q, drop=restore_keys + ("rpage",), anchor="wiederherstellungen"),
+                  **owner_data)
+
+
+HISTORY_MAX = 2000      # finished backups and restores read for the list (newest first)
+PAGE_SIZE = 10
+
+
+def list_url(q, drop=(), anchor="", **set_) -> str:
+    """The backups page URL with the current filters, minus `drop`, plus `set_`."""
+    params = {k: v for k, v in q.items() if k not in drop and k != "done" and v}
+    params.update({k: str(v) for k, v in set_.items()})
+    query = "&".join(f"{quote(k)}={quote(v)}" for k, v in params.items())
+    return "/admin/backups" + (f"?{query}" if query else "") + (f"#{anchor}" if anchor else "")
+
+
+def paginate(rows: list, q, key: str, anchor: str) -> tuple[list, dict | None]:
+    """One page of `rows` (PAGE_SIZE each) and the links for the pager, or None for a single page."""
+    pages = max(1, -(-len(rows) // PAGE_SIZE))
+    try:
+        page = min(max(1, int(q.get(key, "1"))), pages)
+    except ValueError:
+        page = 1
+    chunk = rows[(page - 1) * PAGE_SIZE:page * PAGE_SIZE]
+    if pages == 1:
+        return chunk, None
+    return chunk, {"page": page, "pages": pages,
+                   "prev": list_url(q, anchor=anchor, **{key: page - 1}) if page > 1 else None,
+                   "next": list_url(q, anchor=anchor, **{key: page + 1}) if page < pages else None}
+
+
+def server_choices(rows, names: dict) -> list[tuple[str, str]]:
+    seen = {}
+    for r in rows:
+        ident = r["identifier"]
+        if ident and ident not in seen:
+            seen[ident] = names.get(ident) or (r["server_name"] if "server_name" in r.keys() else None) or ident
+    return sorted(seen.items(), key=lambda kv: kv[1].casefold())
 
 
 MAX_DONE = 20

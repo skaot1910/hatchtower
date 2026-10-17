@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from . import APP_NAME, db, i18n, mailer, security
+from . import APP_NAME, db, i18n, inbox, mailer, security
 from .permissions import load_grants
 
 log = logging.getLogger("hatchtower.notify")
@@ -217,6 +217,9 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
             errors.append(f"E-Mail ({len(failed)}/{len(recipients)}): {failed[0]}")
     for e in errors:
         log.warning("Benachrichtigung %s: %s", event, e)
+    if errors and event != "test" and only is None:
+        # Otherwise nobody notices that a webhook or the mail server stopped working
+        inbox.add("delivery_failed", "owner", None, "\n".join([title, *errors]), key="delivery", cooldown=3600)
     return errors
 
 
@@ -226,6 +229,7 @@ def emit(vault, event: str, ident: str | None, detail: str = "") -> None:
         return
     if not _cooldown_ok(f"{event}:{ident}", COOLDOWN.get(event, DEFAULT_COOLDOWN)):
         return
+    inbox.from_notify(event, ident, detail)
     try:
         asyncio.get_running_loop().create_task(deliver(vault, event, ident, detail))
     except RuntimeError:

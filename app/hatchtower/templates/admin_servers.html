@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "_card.html" as c %}
+{% block title %}{{ _("Alle Server") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _("Alle Server") }}</h1>
+    <p>{{ _("Jeder Server mit dem Weg zu seinen Einstellungen in Hatchtower und im Panel.") }}</p>
+  </div>
+  <div class="head-actions">
+    {% if servers|length > 6 %}<input type="search" id="user-filter" placeholder="{{ _("Server suchen") }}" aria-label="{{ _("Server suchen") }}">{% endif %}
+    <a class="btn btn-primary" href="/admin/servers/new">{{ _("Server anlegen") }}</a>
+  </div>
+</div>
+{% if not admin_ready %}<p class="hint">{{ _("Für „Panel-Einstellungen“ fehlt noch der Admin-Key. Ohne ihn sind die Panel-Einstellungen sichtbar, aber gesperrt.") }} <a href="/admin/connection">{{ _("Zum Panel") }}</a></p>{% endif %}
+
+{% if servers %}
+<section class="card table-card" data-user-section>
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Server") }}</th><th>{{ _("Zustand") }}</th><th>{{ _("Adresse") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for s in servers %}
+      <tr data-user-row="{{ (s.name ~ ' ' ~ s.egg ~ ' ' ~ s.identifier ~ ' ' ~ s.address)|lower }}">
+        <td><a class="file-link" href="/servers/{{ s.identifier }}"><strong>{{ s.name }}</strong></a><div class="faint small">{{ s.egg }} · <span class="mono">{{ s.identifier }}</span></div></td>
+        <td data-label="{{ _("Zustand") }}">{{ c.state_pill(s) }}</td>
+        <td data-label="{{ _("Adresse") }}"><span class="mono">{{ s.address }}</span></td>
+        <td><div class="row-actions">
+          <a class="chip chip-sm" href="/servers/{{ s.identifier }}/settings">{{ _("Verwalten") }}</a>
+          <a class="chip chip-sm" href="/servers/{{ s.identifier }}/admin">{{ _("Panel-Einstellungen") }}</a>
+          <a class="chip chip-sm chip-ghost" href="/servers/{{ s.identifier }}/files">{{ _("Dateien") }}</a>
+        </div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+<p class="filter-empty" id="user-filter-empty" hidden>{{ _("Kein Server passt zur Suche.") }}</p>
+{% else %}
+<div class="empty"><h2>{{ _("Noch keine Server") }}</h2><p>{{ _("Das Monitoring liest die Server gerade aus {panel}. Lade die Seite in ein paar Sekunden neu.") }}</p></div>
+{% endif %}
+{% endblock %}

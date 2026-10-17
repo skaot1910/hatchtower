@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_icons.html" as ic %}
 {% block title %}{{ _("System") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -35,7 +36,7 @@
   <h2 class="card-h">{{ _("Selbsttest") }}</h2>
   <ul class="checks">
     {% for c in checks %}
-    <li class="{{ 'ok' if c.ok else 'bad' }}"><span class="check-icon" aria-hidden="true">{{ '✓' if c.ok else '✕' }}</span><strong>{{ _(c.label) }}</strong><span class="faint">{{ _(c.detail) if c.detail else '' }}</span></li>
+    <li class="{{ 'ok' if c.ok else 'bad' }}"><span class="check-icon" aria-hidden="true">{{ ic.icon("check" if c.ok else "close") }}</span><strong>{{ _(c.label) }}</strong><span class="faint">{{ _(c.detail) if c.detail else '' }}</span></li>
     {% endfor %}
   </ul>
 </section>

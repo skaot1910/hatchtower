@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
-from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, i18n, legal, logarchive, logos,
+from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, i18n, inbox, legal, logarchive, logos,
                mailer, retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
@@ -59,6 +59,7 @@ NAV_SECTIONS = {
         ("/admin/audit", "Audit-Log", ()),
     ],
     "servers": [
+        ("/admin/servers", "Alle Server", ()),
         ("/admin/servers/new", "Server anlegen", ()),
         ("/admin/ports", "Ports", ()),
     ],
@@ -315,7 +316,7 @@ async def check_csrf(request: Request) -> None:
 
 # Gespeichert wird in doppelter Auflösung der Anzeige, damit Logos auf scharfen Bildschirmen nicht verschwimmen.
 BRAND_LOGOS = {
-    "header": {"key": "brand_logo_header", "box": (360, 72), "label": "Kopfzeile"},
+    "header": {"key": "brand_logo_header", "box": (360, 72), "label": "Seitenleiste"},
     "login": {"key": "brand_logo_login", "box": (640, 240), "label": "Login"},
 }
 
@@ -376,6 +377,7 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
         context.setdefault("announcements", extras.active_announcements())
         context.setdefault("update_available", getattr(app.state, "updates", None) is not None and app.state.updates.available)
         context.setdefault("status_page_on", db.get_setting("status_enabled") == "1")
+        context.setdefault("inbox_unread", inbox.unread_count(context["user"]))
         if context["user"].is_owner:
             context.setdefault("proxy_warning", untrusted_proxy())
     user = context.get("user")
@@ -984,7 +986,7 @@ async def setup_legal(request: Request, sprache: str = Form("")):
         return back("/setup?step=done", "Einrichtung abgeschlossen. Willkommen bei Hatchtower!")
     audit.record("settings.legal", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"vorlage": chosen, "sprache": lang})
-    return back("/setup?step=done", "Einrichtung abgeschlossen. Ergänze die Vorlagen unter Auftritt → Rechtliches "
+    return back("/setup?step=done", "Einrichtung abgeschlossen. Ergänze die Vorlagen unter Community → Rechtliches "
                                     "und schalte sie ein.")
 
 
@@ -2595,7 +2597,11 @@ async def admin_updates(request: Request):
     return render(request, "admin_updates.html",
                   upd=app.state.updates, upd_checked=fmt_dt(app.state.updates.checked_at, settings.timezone),
                   upd_cooldown=app.state.updates.cooldown_left(), upd_helper=updates.helper_installed(),
-                  upd_running=updates.read_state(settings.data_dir).get("state") in ("requested", "running"))
+                  upd_running=updates.read_state(settings.data_dir).get("state") in ("requested", "running"),
+                  upd_notes=updates.notes_html(app.state.updates.notes) if app.state.updates.notes else "",
+                  upd_published=fmt_dt(app.state.updates.published_at, settings.timezone) if app.state.updates.published_at else "",
+                  installed_url=updates.release_url(app.state.updates.repo, __version__),
+                  changelog_url=updates.changelog_url(app.state.updates.repo))
 
 
 @app.get("/admin/appearance", response_class=HTMLResponse)

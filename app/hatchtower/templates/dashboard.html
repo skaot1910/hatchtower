@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_icons.html" as ic %}
 {% import "_card.html" as c %}
 {% block content %}
 {% if preview %}
@@ -10,10 +11,10 @@
     <p class="muted">{{ servers|length }} {{ _("Server sichtbar") }}</p>
   </div>
   <div class="head-tools">
-  {% if status_page_on and not preview and not simple_view %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} ↗</a>{% endif %}
+  {% if status_page_on and not preview and not simple_view %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} {{ ic.icon("external") }}</a>{% endif %}
   <div class="view-toggle" role="group" aria-label="{{ _("Ansicht") }}">
-    <button type="button" data-view="tiles" aria-pressed="false">{{ _("▦ Kacheln") }}</button>
-    <button type="button" data-view="list" aria-pressed="true">{{ _("☰ Liste") }}</button>
+    <button type="button" data-view="tiles" aria-pressed="false">{{ ic.icon("tiles") }}<span>{{ _("Kacheln") }}</span></button>
+    <button type="button" data-view="list" aria-pressed="true">{{ ic.icon("list") }}<span>{{ _("Liste") }}</span></button>
   </div>
   {% if not simple_view %}
   <div class="monitor-status {% if not monitor.healthy %}is-bad{% endif %}" id="monitor-status">
@@ -86,9 +87,9 @@
 {% if not preview and not simple_view %}
 <div class="bulk-bar" id="bulk-bar" hidden>
   <span id="bulk-count"></span>
-  <button type="button" class="pbtn pbtn-start" data-bulk-action="start">{{ _("▶ Start") }}</button>
-  <button type="button" class="pbtn" data-bulk-action="restart">{{ _("↻ Restart") }}</button>
-  <button type="button" class="pbtn pbtn-stop" data-bulk-action="stop">{{ _("■ Stop") }}</button>
+  <button type="button" class="pbtn pbtn-start" data-bulk-action="start">{{ ic.icon("play") }}<span>{{ _("Start") }}</span></button>
+  <button type="button" class="pbtn" data-bulk-action="restart">{{ ic.icon("restart") }}<span>{{ _("Neustart") }}</span></button>
+  <button type="button" class="pbtn pbtn-stop" data-bulk-action="stop">{{ ic.icon("stop") }}<span>{{ _("Stopp") }}</span></button>
   <button type="button" class="btn btn-ghost btn-sm" id="bulk-clear">{{ _("Auswahl aufheben") }}</button>
 </div>
 {% endif %}
@@ -128,7 +129,7 @@
     {% if not preview %}{{ c.power(s) }}{% endif %}
     <div class="actions">
       {% if not preview %}
-      <button type="button" class="chip chip-fav" data-fav="{{ s.identifier }}" aria-pressed="{{ 'true' if s.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}">{{ '★' if s.favorite else '☆' }}</button>
+      <button type="button" class="chip chip-fav" data-fav="{{ s.identifier }}" aria-pressed="{{ 'true' if s.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}" aria-label="{{ _("Als Favorit oben anheften") }}">{{ ic.icon("star") }}</button>
       {% endif %}
       <a class="chip" href="/servers/{{ s.identifier }}">{{ _("Details") }}</a>
       {% if s.can_manage %}<a class="chip chip-ghost" href="/servers/{{ s.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}

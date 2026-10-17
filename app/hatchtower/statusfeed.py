@@ -28,7 +28,7 @@ from typing import Callable
 
 import httpx
 
-from . import APP_NAME, db, i18n
+from . import APP_NAME, db, i18n, inbox
 
 log = logging.getLogger("hatchtower.statusfeed")
 
@@ -162,6 +162,8 @@ class StatusFeed:
         self._last_hash: dict[int, str] = {}
         self._last_sent: dict[int, float] = {}
         self._background: set[asyncio.Task] = set()
+        self._fails: dict[int, int] = {}
+        self._reported: set[int] = set()
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name="hatchtower-statusfeed")
@@ -207,7 +209,7 @@ class StatusFeed:
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
-                    self.last_error[feed["id"]] = i18n.t("Interner Fehler: {typ}", typ=exc.__class__.__name__)
+                    self._failed(feed, i18n.t("Interner Fehler: {typ}", typ=exc.__class__.__name__))
                     log.exception("Discord-Statusanzeige %s", feed["id"])
             try:
                 await asyncio.wait_for(self._wake.wait(), CHECK_INTERVAL)
@@ -234,13 +236,28 @@ class StatusFeed:
             response = await self._sync(http, url, payloads, fid)
         if response.status_code >= 400:
             # 429 (zu viele Anfragen) erledigt sich beim nächsten Durchlauf von selbst
-            self.last_error[fid] = i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code)
+            self._failed(feed, i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code))
             log.warning("Discord-Statusanzeige %s: HTTP %s", fid, response.status_code)
             return
         self._last_hash[fid] = digest
         self._last_sent[fid] = time.monotonic()
         self.last_ok[fid] = db.utcnow()
         self.last_error.pop(fid, None)
+        self._fails.pop(fid, None)
+        if fid in self._reported:
+            self._reported.discard(fid)
+            inbox.add("statusfeed_ok", "owner", None, feed["name"])
+
+    def _failed(self, feed, message: str) -> None:
+        """Remember the error; from the second failure in a row it goes into the owners' inbox (a single
+        HTTP 429 sorts itself out on the next run). Repeated at most every 6 hours, also across restarts."""
+        fid = feed["id"]
+        self.last_error[fid] = message
+        self._fails[fid] = self._fails.get(fid, 0) + 1
+        if self._fails[fid] >= 2 and fid not in self._reported:
+            self._reported.add(fid)
+            inbox.add("statusfeed_failed", "owner", None, f"{feed['name']}: {message}",
+                      key=f"statusfeed:{fid}", cooldown=6 * 3600)
 
     @staticmethod
     def _messages(fid: int) -> list[str]:

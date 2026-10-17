@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% import "_icons.html" as ic %}
 {% block title %}{{ _("Update") }} · {{ brand.name }}{% endblock %}
 {% block content %}
 <section class="card" id="update-progress" data-status="/api/system/update-status" data-version="{{ version }}">
   <h2 class="card-h" id="update-heading">{{ _("Hatchtower wird aktualisiert") }}</h2>
   <div class="update-result ok" id="update-success" role="status" hidden>
-    <span class="update-result-icon" aria-hidden="true">✓</span>
+    <span class="update-result-icon" aria-hidden="true">{{ ic.icon("check") }}</span>
     <div><strong>{{ _("Update erfolgreich") }}</strong><span id="update-success-text"></span></div>
   </div>
   <div class="update-result bad" id="update-failed" role="alert" hidden>
-    <span class="update-result-icon" aria-hidden="true">✕</span>
+    <span class="update-result-icon" aria-hidden="true">{{ ic.icon("close") }}</span>
     <div><strong>{{ _("Update fehlgeschlagen") }}</strong><span id="update-failed-text"></span></div>
   </div>
   <p class="update-status" id="update-status">{{ _("Update wird gestartet …") }}</p>

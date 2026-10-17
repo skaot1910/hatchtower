@@ -1,5 +1,6 @@
 <!doctype html>
 {% import "_mark.html" as hm %}
+{% import "_icons.html" as ic %}
 {% import "_lang.html" as lng with context %}
 {% import "_theme.html" as thm with context %}
 <html lang="{{ lang }}" data-theme="{{ theme }}">
@@ -10,13 +11,16 @@
   {% if csrf %}<meta name="csrf-token" content="{{ csrf }}">{% endif %}
   <title>{% block title %}{{ brand.name }}{% endblock %}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/ibm-plex-sans-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css?v={{ version|hash_version }}">
   <script type="application/json" id="i18n">{{ i18n_browser|tojson }}</script>
   <script src="/static/app.js?v={{ version|hash_version }}" defer></script>
 </head>
-<body class="{% block body_class %}{% endblock %}{% if simple_view %} is-simple{% endif %}">
+<body class="{% block body_class %}{% endblock %}{% if simple_view %} is-simple{% endif %}{% if user %} has-shell{% endif %}">
 {% if user %}
-<header class="topbar">
+<aside class="sidebar">
+  <div class="sidebar-top">
   <a class="brand" href="/">
     {% if brand.logo_header %}<img class="brand-logo" src="/branding/{{ brand.logo_header }}" alt="{{ brand.name }}">{% else %}{{ hm.mark() }}{% endif %}
     <span class="brand-titles">
@@ -25,12 +29,15 @@
       {% else %}<span class="brand-text">{{ brand.product }}</span>{% endif %}
     </span>
   </a>
+  <a class="bell{% if inbox_unread %} has-unread{% endif %}{% if request.url.path.startswith('/notifications') %} active{% endif %}" href="/notifications" title="{{ _("Benachrichtigungen") }}" aria-label="{{ _("Benachrichtigungen") }}{% if inbox_unread %}: {{ _("{n} ungelesen", n=inbox_unread) }}{% endif %}">{{ ic.icon("bell") }}{% if inbox_unread %}<span class="bell-count" aria-hidden="true">{{ inbox_unread if inbox_unread < 100 else "99+" }}</span>{% endif %}</a>
   <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="topbar-menu" aria-label="{{ _("Menü öffnen") }}"><span></span><span></span><span></span></button>
-  <div class="topbar-menu" id="topbar-menu">
-  <div class="badges">
-    {% if settings.read_only %}<span class="badge badge-ro" title="{{ _("Schreibzugriffe auf {panel} sind gesperrt") }}">{{ _("Read-only") }}</span>{% endif %}
   </div>
-  <nav class="nav">
+  <div class="sidebar-menu" id="topbar-menu">
+  {% if settings.read_only %}<div class="badges">
+    <span class="badge badge-ro" title="{{ _("Schreibzugriffe auf {panel} sind gesperrt") }}">{{ _("Read-only") }}</span>
+  </div>{% endif %}
+  <nav class="nav" aria-label="{{ _("Navigation") }}">
+    {% if user.is_owner %}<span class="nav-label">{{ _("Betrieb") }}</span>{% endif %}
     <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">{{ _("Übersicht") }}</a>
     {% if user.can_automate %}
     <a href="/admin/automation" class="{% if request.url.path.startswith('/admin/automation') %}active{% endif %}">{{ _("Automationen") }}</a>
@@ -39,9 +46,10 @@
     <a href="/admin/backups" class="{% if request.url.path.startswith('/admin/backups') %}active{% endif %}">{{ _("Backups") }}</a>
     {% endif %}
     {% if user.is_owner %}
-    <a href="/admin/servers/new" class="{% if nav_section == 'servers' %}active{% endif %}">{{ _("Server") }}</a>
+    <span class="nav-label">{{ _("Verwaltung") }}</span>
+    <a href="/admin/servers" class="{% if nav_section == 'servers' %}active{% endif %}">{{ _("Server") }}</a>
     <a href="/admin/users" class="{% if nav_section == 'users' %}active{% endif %}">{{ _("Benutzer") }}</a>
-    <a href="/admin/appearance" class="{% if nav_section == 'appearance' %}active{% endif %}">{{ _("Auftritt") }}</a>
+    <a href="/admin/appearance" class="{% if nav_section == 'appearance' %}active{% endif %}">{{ _("Community") }}</a>
     <a href="{{ '/admin/updates' if update_available else '/admin/system' }}" class="{% if nav_section == 'system' %}active{% endif %}">{{ _("System") }}{% if update_available %} <span class="nav-dot" title="{{ _("Neue Version verfügbar") }}"></span>{% endif %}</a>
     {% endif %}
   </nav>
@@ -51,12 +59,12 @@
       {% if not view_locked %}<span class="view-switch" role="group" aria-label="{{ _("Ansicht") }}"><a href="/view/simple?next={{ here|urlencode }}" title="{{ _("Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp") }}"{% if simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Einfach") }}</a><a href="/view/full?next={{ here|urlencode }}" title="{{ _("Alle Angaben, Diagramme und Werkzeuge") }}"{% if not simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Alles") }}</a></span>{% endif %}
       {{ thm.switch(all_themes) }}
     </div>
-    {# Kontomenü: auf dem Desktop aufklappbar, im Handy-Menü immer offen #}
+    {# Account menu: a pop-up in the sidebar, always open in the phone menu #}
     <div class="account-menu">
       <button type="button" class="account-toggle{% if request.url.path.startswith('/account') %} active{% endif %}" id="account-toggle" aria-expanded="false" aria-controls="account-pop">
         <span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
         <span class="account-name">{{ user.username }}</span>
-        <span class="caret" aria-hidden="true">▾</span>
+        {{ ic.icon("chevron-up", "caret") }}
       </button>
       <div class="account-pop" id="account-pop">
         <a href="/account" class="account-link{% if request.url.path.startswith('/account') %} active{% endif %}" title="{{ _("Mein Konto: Passwort, E-Mail, Benachrichtigungen und Darstellung") }}">
@@ -73,13 +81,13 @@
     </div>
   </div>
   </div>
-</header>
+</aside>
 {% endif %}
 <main class="container">
   {% for a in announcements or [] %}
   <div class="announcement announcement-{{ a.level }}" data-ann="{{ a.id }}" role="note">
     <span class="announcement-text">{{ a.text }}</span>
-    <button type="button" class="announcement-close" data-ann-close aria-label="{{ _("Ausblenden") }}">✕</button>
+    <button type="button" class="announcement-close" data-ann-close aria-label="{{ _("Ausblenden") }}">{{ ic.icon("close") }}</button>
   </div>
   {% endfor %}
   {% if proxy_warning %}

@@ -30,7 +30,7 @@
       </label>
       <label class="check brand-check"><input type="checkbox" name="show_name" value="1" {% if brand.show_name %}checked{% endif %}> {{ _("Eigenen Namen neben dem Logo anzeigen") }}</label>
     </div>
-    <p class="faint small">{{ _("Dein eigener Name steht groß in der Kopfzeile und auf der Login-Seite, „Hatchtower“ dezent darunter und in der Fußzeile. Ohne eigenen Namen steht dort einfach „Hatchtower“. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.") }}</p>
+    <p class="faint small">{{ _("Dein eigener Name steht groß oben in der Seitenleiste und auf der Login-Seite, „Hatchtower“ dezent darunter und in der Fußzeile. Ohne eigenen Namen steht dort einfach „Hatchtower“. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.") }}</p>
     <p class="faint small">{{ _("Die einfache Ansicht zeigt pro Server nur Status, Adresse, Passwort und Start/Stopp. Owner sehen immer alles, solange sie nichts anderes wählen; jeder kann oben rechts umschalten.") }}</p>
     <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
   </form>
@@ -40,7 +40,7 @@
   <h2 class="card-h">{{ _("Logos") }}</h2>
   <div class="brand-logos">
     {% for kind, label, current, size, shown, hint in [
-      ('header', 'Logo in der Kopfzeile', brand.logo_header, '360 × 72 px', 'max. 180 × 36 px', 'Breites Querformat (5:1) passt am besten, z. B. Schriftzug mit Symbol. Quadratisch geht auch: dann 72 × 72 px.'),
+      ('header', 'Logo in der Seitenleiste', brand.logo_header, '360 × 72 px', 'max. 180 × 36 px', 'Breites Querformat (5:1) passt am besten, z. B. Schriftzug mit Symbol. Quadratisch geht auch: dann 72 × 72 px.'),
       ('login', 'Logo auf der Login-Seite', brand.logo_login, '640 × 240 px', 'max. 320 × 120 px', 'Querformat (8:3). Quadratisch geht auch: dann 240 × 240 px.')
     ] %}
     <div class="brand-logo-box">

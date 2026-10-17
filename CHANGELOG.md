@@ -3,6 +3,39 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.34.0 – 2026-10-17
+
+**New interface**
+- Navigation moved into a sidebar (a top bar with a menu on phones). Owners see it in two groups, Operations and
+  Management
+- Two themes: Dark (default) and Light, both with a bordeaux accent. The former Medium theme is mapped to Dark.
+  Switching takes effect immediately and is stored per user
+- Own typeface (IBM Plex Sans, shipped with Hatchtower, no external requests) and a consistent set of line icons
+  instead of text symbols
+- Cards are panels with a header line, fewer nested frames; status badges and usage bars are calmer
+- The server list shows one compact row per server with address, password, CPU, RAM and storage, so twenty
+  servers fit on one screen. Long names wrap instead of being cut off, addresses are never shortened
+- Phones: no page scrolls sideways any more (checked at 320 and 375 px), filters scroll in one line, start and
+  stop share a row with the links
+
+**Notifications inbox**
+- New bell with a counter in the sidebar and a history page. Owners see panel outages, new servers, failed or
+  partial backups, failed webhook or e-mail delivery, problems with the Discord server status and new versions.
+  Users see crashes, restarts, failed schedules and failed backups of the servers they may see
+- Read state per user, "mark all as read", entries are removed after 30 days
+
+**Backups**
+- Backup targets are listed right below running tasks
+- Stored backups and restores are shown ten per page and can be filtered by server, job and result
+
+**Management**
+- New tab Server → All servers: every server with direct links to Manage, Panel settings and Files
+- "Presentation" is now called "Community" (name and logo, status page, announcements, legal pages)
+
+**Updates**
+- System → Updates links the installed version to its GitHub release and to the full changelog, and shows the
+  release notes of a new version before you install it
+
 ## 0.33.0 – 2026-10-17
 
 **Server administration (optional admin key)**

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_icons.html" as ic %}
 {% import "_card.html" as c %}
 {% block title %}{{ server.name }} · {{ brand.name }}{% endblock %}
 {% block content %}
@@ -11,7 +12,7 @@
     {% if not simple_view %}<div class="faint">{{ server.egg }} · {{ _("Kennung") }} {{ server.identifier }}{% if server.has_public_address and server.internal_address %} · {{ _("intern") }} {{ server.internal_address }}{% endif %}</div>
     {% if server.tags %}<div class="tags">{% for t in server.tags %}<span class="tag">#{{ t }}</span>{% endfor %}</div>{% endif %}{% endif %}
     <div class="actions">
-      <button type="button" class="chip chip-fav" data-fav="{{ server.identifier }}" aria-pressed="{{ 'true' if server.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}">{{ '★' if server.favorite else '☆' }}</button>
+      <button type="button" class="chip chip-fav" data-fav="{{ server.identifier }}" aria-pressed="{{ 'true' if server.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}" aria-label="{{ _("Als Favorit oben anheften") }}">{{ ic.icon("star") }}</button>
       {% if server.can_files %}<a class="chip" href="/servers/{{ server.identifier }}/files">{{ _("Dateien") }}</a>{% endif %}
       {% if server.can_manage %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
       {% if server.can_admin %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/admin">{{ _("Panel-Einstellungen") }}</a>{% endif %}

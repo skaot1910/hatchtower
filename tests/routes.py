@@ -101,6 +101,10 @@ ROUTES: tuple[Route, ...] = (
     R("POST", "/account/delete", "login", "Eigenes Konto löschen (Passwort nötig)", csrf="form",
       form={"current": PASSWORD, "confirm": "1"}),
     R("GET", "/account/export", "login", "Eigene Daten herunterladen (Art. 15 DSGVO)"),
+    R("GET", "/notifications", "login", "Benachrichtigungen (Glocke): nur Meldungen zu sichtbaren Servern, Verwaltung nur Owner"),
+    R("POST", "/notifications/read-all", "login", "Eigene Benachrichtigungen als gelesen markieren", csrf="form"),
+    R("POST", "/notifications/{entry_id}/read", "login", "Eine Benachrichtigung als gelesen markieren (nur sichtbare)",
+      csrf="form"),
 
     # -- Server ---------------------------------------------------------------------------
     R("GET", "/servers/{ident}", "server", "Serverdetails", perm="server.view"),
@@ -195,6 +199,7 @@ ROUTES: tuple[Route, ...] = (
       "Optionalen Admin-Key (Schreibrechte) prüfen und speichern; die Prüfung ändert nichts am Panel", csrf="form",
       form={"admin_key": "ptla_" + "b" * 43}),
     R("POST", "/admin/connection/admin-key/remove", "owner", "Admin-Key entfernen", csrf="form"),
+    R("GET", "/admin/servers", "owner", "Server → Alle Server (Wege zu Verwalten und Panel-Einstellungen)"),
     R("GET", "/admin/servers/new", "owner", "Server → Server anlegen (Node und Egg wählen, dann Formular)",
       query={"node": "1", "egg": "5"}),
     R("POST", "/admin/servers/new", "owner", "Server im Panel anlegen", csrf="form",
@@ -304,15 +309,15 @@ ROUTES: tuple[Route, ...] = (
     R("POST", "/admin/backups/targets/{target_id}/test", "owner", "Backup-Ziel testen", csrf="form"),
     R("POST", "/admin/backups/targets/{target_id}/delete", "owner", "Backup-Ziel entfernen", csrf="form"),
 
-    # -- Owner: Auftritt --------------------------------------------------------------------
-    R("GET", "/admin/appearance", "owner", "Auftritt → Erscheinungsbild"),
+    # -- Owner: Community --------------------------------------------------------------------
+    R("GET", "/admin/appearance", "owner", "Community → Erscheinungsbild"),
     R("POST", "/admin/branding", "owner", "Name, Standard-Theme, Discord-Link", csrf="form",
       form={"brand_name": "Gekapert", "show_name": "1"}),
     R("POST", "/admin/branding/logo/{kind}", "owner", "Eigenes Logo hochladen", csrf="form", upload="logo"),
     R("POST", "/admin/branding/logo/{kind}/delete", "owner", "Eigenes Logo entfernen", csrf="form"),
     R("POST", "/admin/appearance/locale", "owner", "Standardsprache und Zeitzone", csrf="form",
       form={"default_language": "en", "timezone": "UTC"}),
-    R("GET", "/admin/legal", "owner", "Auftritt → Rechtliches"),
+    R("GET", "/admin/legal", "owner", "Community → Rechtliches"),
     R("POST", "/admin/legal/{page}", "owner", "Impressum/Datenschutzerklärung", csrf="form",
       form={"enabled": "1", "text": "Gekapert"}),
     R("GET", "/admin/statuspage", "owner", "Statusseite einstellen"),

@@ -488,9 +488,11 @@
     sec.querySelectorAll("canvas[data-chart]").forEach(function (c) { canvases[c.dataset.chart] = c; });
     var nowEls = {};
     sec.querySelectorAll("[data-now]").forEach(function (e) { nowEls[e.dataset.now] = e; });
-    var colors = {
-      cpu: cssVar("--violet-2", "#a78bfa"), mem: cssVar("--blue", "#38bdf8"), rx: cssVar("--green", "#34d399"), tx: cssVar("--amber", "#fbbf24"),
-    };
+    // read on every draw, so switching the theme recolours the charts
+    function chartColors() {
+      return { cpu: cssVar("--accent-2", "#d98fa4"), mem: cssVar("--blue", "#38bdf8"), rx: cssVar("--green", "#34d399"), tx: cssVar("--amber", "#fbbf24") };
+    }
+    var colors = chartColors();
 
     function cpuFmt(v) { return Math.round(v) + " %"; }
     function maxOf(pts, idx) {
@@ -500,6 +502,7 @@
     }
 
     function draw(hoverT) {
+      colors = chartColors();
       var now = Date.now() / 1000;
       var pts = range === 120 ? live : data.points;
       var t0 = now - range, t1 = now;
@@ -779,6 +782,26 @@
     window.addEventListener("hashchange", function () { show(keyFor(location.hash)); });
     nav.hidden = false;
     show(keyFor(location.hash));
+  }
+
+  // ---- Theme switch (dark/light): applied at once, saved in the background ----------------
+  function startThemeSwitch() {
+    document.querySelectorAll(".theme-switch a[data-theme-key]").forEach(function (a) {
+      a.addEventListener("click", function (ev) {
+        if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+        ev.preventDefault();
+        var key = a.dataset.themeKey;
+        document.documentElement.setAttribute("data-theme", key);
+        document.querySelectorAll(".theme-switch a[data-theme-key]").forEach(function (o) {
+          var on = o.dataset.themeKey === key;
+          o.classList.toggle("is-current", on);
+          if (on) o.setAttribute("aria-current", "true"); else o.removeAttribute("aria-current");
+        });
+        window.dispatchEvent(new Event("resize"));  // redraw charts in the new colours
+        // the server stores the choice and answers with a redirect we do not need to follow
+        fetch(a.href, { credentials: "same-origin", redirect: "manual" }).catch(function () { location.href = a.href; });
+      });
+    });
   }
 
   // ---- Kontomenü in der Kopfzeile (Desktop) ------------------------------------------
@@ -1158,7 +1181,6 @@
       postJson("/api/servers/" + btn.dataset.fav + "/favorite", {})
         .then(function (data) {
           document.querySelectorAll('[data-fav="' + btn.dataset.fav + '"]').forEach(function (b) {
-            b.textContent = data.favorite ? "★" : "☆";
             b.setAttribute("aria-pressed", String(data.favorite));
           });
           var card = btn.closest(".server-card");
@@ -1548,9 +1570,12 @@
 
   // ---- Höhe der Kopfzeile für mitlaufende Leisten (bricht je nach Breite um) ------------------
   function startTopbarHeight() {
-    var bar = document.querySelector(".topbar");
+    var bar = document.querySelector(".sidebar-top");
     if (!bar) return;
-    function apply() { document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px"); }
+    // only the phone layout has a bar at the top; on wider screens the navigation is a sidebar
+    var phone = window.matchMedia("(max-width: 900px)");
+    function apply() { document.documentElement.style.setProperty("--topbar-h", (phone.matches ? bar.offsetHeight : 0) + "px"); }
+    if (phone.addEventListener) phone.addEventListener("change", apply);
     if (window.ResizeObserver) new ResizeObserver(apply).observe(bar);
     apply();
   }
@@ -1660,6 +1685,7 @@
     document.querySelectorAll("[data-c]").forEach(function (el) { el.style.background = el.dataset.c; });
     startMenu();
     startAccountMenu();
+    startThemeSwitch();
     startServerTabs();
     checkDesktopMode();
     startViewToggle();

@@ -16,12 +16,11 @@ controls it through the panel's API – your panel keeps running as before.
 
 **A Claude project:** Hatchtower was written with [Claude](https://claude.ai) (Anthropic), guided and tested by me.
 
-![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
-![Pelican](https://img.shields.io/badge/Pelican-1.0.0--rc.1-2563eb)
-![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
-![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE-22c55e)
-![License](https://img.shields.io/badge/License-AGPL--3.0-8b5cf6)
-![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-d97757)
+![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-5f545a)
+![Pelican](https://img.shields.io/badge/Pelican-1.0.0--rc.1-5f545a)
+![Calagopus](https://img.shields.io/badge/Calagopus-1.2-5f545a)
+![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE-5f545a)
+![License](https://img.shields.io/badge/License-AGPL--3.0-5f545a)
 
 <img src="docs/screenshots/dashboard.png" alt="The Hatchtower overview with two game servers" width="100%">
 
@@ -74,9 +73,10 @@ door that keeps the panel inside the home network.
 - **Permissions per user and server**, reusable permission groups and **invite links**
 - **Automations**: restart after a crash, scheduled starts/stops/restarts with in-game warning
 - **Backups** to a drive or SMB share, checked after writing and **restorable** in a few clicks
-- **Notifications** via Discord/webhook and email, **audit log**, optional **public status page**
+- **Notifications** in the web interface (bell with history), via Discord/webhook and email; **audit log**,
+  optional **public status page**
 - **Server administration** (optional): create servers, change resources, ports and startup parameters
-- **Read-only mode**, own name and logo, dark/medium/light theme, English and German
+- **Read-only mode**, own name and logo, dark and light theme, English and German
 
 ## 3. Screenshots
 
@@ -111,7 +111,7 @@ All screenshots use a test panel with made-up servers and users.
   </tr>
 </table>
 
-**Light theme** (switch with ☾ ◐ ☀ at the top right)
+**Light theme** (switch at the bottom of the sidebar)
 
 <img src="docs/screenshots/light-theme.png" alt="Overview in the light theme" width="60%">
 
@@ -178,7 +178,7 @@ Open the address from the installer. A wizard guides you through:
 4. **Check and save** – everything is tested without changing anything on your panel
 5. **Options** – mode, player address, time zone, default view
 
-> 💡 Hatchtower starts in **read-only mode**. Switch to **"Read and control"** under
+> **Note:** Hatchtower starts in **read-only mode**. Switch to **"Read and control"** under
 > **System → Panel → Mode** when you are ready.
 
 <img src="docs/screenshots/connection-wizard.png" alt="The connection wizard explains how to get the API key" width="80%">
@@ -195,7 +195,7 @@ Open the address from the installer. A wizard guides you through:
 **Calagopus needs one key** from a dedicated admin user: Admin – read nodes and servers; Server – everything
 except `sftp` and `query-raw`; set **Allowed IPs**.
 
-> ⚠️ A client key can do everything its user can. Use a dedicated user, Allowed IPs and two-factor
+> **Important:** a client key can do everything its user can. Use a dedicated user, Allowed IPs and two-factor
 > authentication.
 
 **Optional admin key for server administration:** with an additional key that has write access (Pterodactyl/Pelican:
@@ -331,8 +331,6 @@ Never post API keys, passwords or `hatchtower.env`. Security problems go through
 
 Hatchtower is free software under the **GNU Affero General Public License v3.0**, see [`LICENSE`](LICENSE).
 Copyright © 2026 skaot1910. Third-party licenses are listed in the interface under **Licenses**.
-
-🤖 Hatchtower was built together with [Claude](https://claude.ai) (Anthropic).
 
 <div align="center">
 <sub>Hatchtower is an independent project and is not affiliated with Pterodactyl, Pelican or Calagopus.</sub>

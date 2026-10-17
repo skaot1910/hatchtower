@@ -443,6 +443,14 @@ async def server_admin_delete(request: Request, ident: str):
 
 # -- Owner: create servers, ports of the nodes ----------------------------------------------------
 
+@app.get("/admin/servers", response_class=HTMLResponse)
+async def admin_servers(request: Request):
+    """All servers in one list, with the way into their settings (Hatchtower) and panel settings."""
+    user = require_owner(request)
+    servers = main.load_servers(user)
+    return render(request, "admin_servers.html", servers=servers, admin_ready=bool(settings.admin_key))
+
+
 @app.get("/admin/servers/new", response_class=HTMLResponse)
 async def admin_server_new(request: Request, node: str = "", egg: str = ""):
     """Create a server: first node and egg, then everything else (variables and images come from the egg)."""

@@ -1,3 +1,4 @@
+{% import "_icons.html" as ic %}
 {% macro logo(s, size="") %}
 {% if s.logo %}<img class="logo {{ size }}" src="{{ s.logo }}" alt="">{% else %}<span class="logo logo-mono {{ size }}" aria-hidden="true">{{ s.monogram }}</span>{% endif %}
 {% endmacro %}
@@ -15,10 +16,10 @@
 {% macro power(s, with_kill=False) %}
 {% if s.can_start or s.can_stop or s.can_restart or (with_kill and s.can_kill) %}
 <div class="power" data-power-for="{{ s.identifier }}" data-name="{{ s.name }}" data-state="{{ s.state }}">
-  {% if s.can_start %}<button type="button" class="pbtn pbtn-start" data-power="start" title="{{ _("Starten") }}">{{ _("▶ Start") }}</button>{% endif %}
-  {% if s.can_restart %}<button type="button" class="pbtn" data-power="restart" title="{{ _("Neu starten") }}">{{ _("↻ Restart") }}</button>{% endif %}
-  {% if s.can_stop %}<button type="button" class="pbtn pbtn-stop" data-power="stop" title="{{ _("Stoppen") }}">{{ _("■ Stop") }}</button>{% endif %}
-  {% if with_kill and s.can_kill %}<button type="button" class="pbtn pbtn-kill" data-power="kill" title="{{ _("Prozess hart beenden") }}">{{ _("✕ Kill") }}</button>{% endif %}
+  {% if s.can_start %}<button type="button" class="pbtn pbtn-start" data-power="start" title="{{ _("Starten") }}">{{ ic.icon("play") }}<span>{{ _("Start") }}</span></button>{% endif %}
+  {% if s.can_restart %}<button type="button" class="pbtn" data-power="restart" title="{{ _("Neu starten") }}">{{ ic.icon("restart") }}<span>{{ _("Neustart") }}</span></button>{% endif %}
+  {% if s.can_stop %}<button type="button" class="pbtn pbtn-stop" data-power="stop" title="{{ _("Stoppen") }}">{{ ic.icon("stop") }}<span>{{ _("Stopp") }}</span></button>{% endif %}
+  {% if with_kill and s.can_kill %}<button type="button" class="pbtn pbtn-kill" data-power="kill" title="{{ _("Prozess hart beenden") }}">{{ ic.icon("kill") }}<span>{{ _("Kill") }}</span></button>{% endif %}
 </div>
 {% endif %}
 {% endmacro %}

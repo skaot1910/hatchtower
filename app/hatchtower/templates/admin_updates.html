@@ -8,7 +8,7 @@
 <section class="card" id="version">
   <h2 class="card-h">{{ _("Version") }}</h2>
   <div class="facts">
-    <div class="kv"><span>{{ _("Installiert") }}</span><span class="mono">{{ version }}</span></div>
+    <div class="kv"><span>{{ _("Installiert") }}</span><span class="mono"><a href="{{ installed_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Diese Version auf GitHub") }}">{{ version }}</a></span></div>
     <div class="kv"><span>{{ _("Neueste auf GitHub") }}</span><span class="mono">{% if upd.latest %}{% if upd.url %}<a href="{{ upd.url }}" target="_blank" rel="noopener noreferrer">{{ upd.latest }}</a>{% else %}{{ upd.latest }}{% endif %}{% else %}–{% endif %}</span></div>
     <div class="kv"><span>{{ _("Zuletzt geprüft") }}</span><span>{{ upd_checked }}</span></div>
   </div>
@@ -38,6 +38,16 @@
       {% endif %}
     {% endif %}
   </div>
-  <p class="faint small">{{ _("Hatchtower prüft zweimal am Tag automatisch und installiert nie selbstständig. Manuelles Suchen ist höchstens alle 5 Minuten möglich.") }}</p>
+  <p class="faint small">{{ _("Hatchtower prüft zweimal am Tag automatisch und installiert nie selbstständig. Manuelles Suchen ist höchstens alle 5 Minuten möglich.") }}
+    <a href="{{ changelog_url }}" target="_blank" rel="noopener noreferrer">{{ _("Alle Änderungen aller Versionen (CHANGELOG)") }}</a></p>
 </section>
+
+{% if upd.available and upd_notes %}
+<section class="card" id="neu">
+  <h2 class="card-h">{{ _("Neu in Version {v}", v=upd.latest) }}{% if upd_published %} <span class="faint small">· {{ upd_published }}</span>{% endif %}</h2>
+  <div class="release-notes">{{ upd_notes }}</div>
+  <p class="faint small">{{ _("Die Beschreibung kommt von GitHub und ist auf Englisch.") }}
+    {% if upd.url %}<a href="{{ upd.url }}" target="_blank" rel="noopener noreferrer">{{ _("Auf GitHub ansehen") }}</a> · {% endif %}<a href="{{ changelog_url }}" target="_blank" rel="noopener noreferrer">{{ _("Übersprungene Versionen im CHANGELOG") }}</a></p>
+</section>
+{% endif %}
 {% endblock %}

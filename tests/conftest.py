@@ -125,6 +125,9 @@ class FakeUpdates:
     error = None
     url = None
     checked_at = None
+    notes = ""
+    published_at = None
+    repo = "skaot1910/hatchtower"
 
     def cooldown_left(self):
         return 0
@@ -296,6 +299,8 @@ def world(monkeypatch, tmp_path) -> World:
         fid = con.execute("INSERT INTO status_feeds (name, url_enc, fields, created_at) VALUES ('Clan', ?, 'name,status', ?)",
                           (main.vault.encrypt(FEED_URL), db.utcnow())).lastrowid
         con.execute("INSERT INTO status_feed_servers (feed_id, identifier) VALUES (?, 'srv-a')", (fid,))
+        eid = con.execute("INSERT INTO inbox (created_at, event, audience, identifier, detail) VALUES"
+                          " (?, 'crash', 'server', 'srv-a', 'weg')", (db.utcnow(),)).lastrowid
         hid = con.execute("INSERT INTO notify_webhooks (title, url_enc, events, created_at) VALUES ('Alarm', ?, 'crash', ?)",
                           (main.vault.encrypt(FEED_URL), db.utcnow())).lastrowid
     (tmp_path / "bk" / "Welt" / "Server_srv-a").mkdir(parents=True)
@@ -308,7 +313,7 @@ def world(monkeypatch, tmp_path) -> World:
     invite = accounts.create("invite", data={"role": "user"}, created_by=1)
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
-        "job_id": str(jid), "feed_id": str(fid), "hook_id": str(hid), "run_id": str(rid), "target_id": str(tid),
+        "job_id": str(jid), "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
         "token_hash": accounts._hash(invite), "kind": "header", "page": "impressum", "key": "hell", "mode": "simple", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,

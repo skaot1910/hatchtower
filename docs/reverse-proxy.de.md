@@ -86,7 +86,7 @@ Websocket-Einstellungen nötig. Danach die IP des Proxys unter **System → Netz
 - [ ] Der Port von Hatchtower ist nur für den Proxy erreichbar (`127.0.0.1`, Firewall oder `--allow`)
 - [ ] Im Panel ist beim Client-Key *Allowed IP* auf die Adresse von Hatchtower gesetzt
 - [ ] Freunde bekommen einen Einladungslink statt eines Passworts
-- [ ] Optional: Freunde bekommen die **einfache Ansicht** (Auftritt → Erscheinungsbild oder pro Benutzer)
+- [ ] Optional: Freunde bekommen die **einfache Ansicht** (Community → Erscheinungsbild oder pro Benutzer)
 
 ## Fehlersuche
 

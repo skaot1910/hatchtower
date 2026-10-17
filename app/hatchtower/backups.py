@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import AsyncIterator
 from zoneinfo import ZoneInfo
 
-from . import audit, db, i18n, notify
+from . import audit, db, i18n, inbox, notify
 from . import permissions
 from .permissions import BACKUP_STOP_NEEDS
 from .ptero import PteroError
@@ -1563,13 +1563,31 @@ class BackupManager:
             summary = i18n.t("{ok} von {n} Servern gesichert", ok=ok, n=len(rows))
         with db.connect() as con:
             con.execute("UPDATE backup_jobs SET last_result = ? WHERE id = ?", (f"{stamp} {summary}", job["id"]))
-        if rows[0]["kind"] != "target" or job["notify"] == "never" or (not bad and job["notify"] != "always"):
+        if rows[0]["kind"] != "target":
             return
         lines = [i18n.t("Job „{job}“: {summary}", job=job["name"], summary=summary)]
         for r in rows:
             label = i18n.t(STATUS_LABELS.get(r["status"], r["status"]))
             lines.append(f"• {r['server_name']}: {label}" + (f" – {r['detail'][:300]}" if r["detail"] else ""))
+        self._inbox(job, rows, lines)
+        if job["notify"] == "never" or (not bad and job["notify"] != "always"):
+            return
         notify.emit(self.vault, "backup_failed" if bad else "backup_ok", None, "\n".join(lines))
+
+    @staticmethod
+    def _inbox(job, rows, lines: list[str]) -> None:
+        """Failed or partial backups go into the inbox regardless of the job's notification setting:
+        a summary for the owners, one entry per server for its users. Cancelled runs were someone's decision."""
+        failed = [r for r in rows if r["status"] not in ("ok", "partial", "cancelled", "queued", "running")]
+        partial = [r for r in rows if r["status"] == "partial"]
+        if not failed and not partial:
+            return
+        inbox.add("backup_failed" if failed else "backup_partial", "owner", None, "\n".join(lines))
+        for r in failed + partial:
+            label = i18n.t(STATUS_LABELS.get(r["status"], r["status"]))
+            inbox.add("backup_partial" if r["status"] == "partial" else "backup_failed", "users", r["identifier"],
+                      i18n.t("Job „{job}“: {summary}", job=job["name"], summary=label)
+                      + (f" – {r['detail'][:300]}" if r["detail"] else ""))
 
     # -- Aufbewahrung ----------------------------------------------------------------------
 
@@ -1638,6 +1656,11 @@ class BackupManager:
                                 (f"{stamp} " + i18n.t("übersprungen: {grund}", grund=exc), job["id"]))
                 audit.record("backup.run", result="blocked", username=ACTOR, ip="intern",
                              detail=f"{job['name']}: {exc}")
+                text = i18n.t("Job „{job}“ (geplant für {zeit}) wurde nicht gestartet: {grund}",
+                              job=job["name"], zeit=planned, grund=exc)
+                inbox.add("backup_failed", "owner", None, text)
+                for ident in job_items(job["id"]):
+                    inbox.add("backup_failed", "users", ident, text)
                 if job["notify"] != "never":
                     notify.emit(self.vault, "backup_failed", None,
                                 i18n.t("Job „{job}“ (geplant für {zeit}) wurde nicht gestartet: {grund}",

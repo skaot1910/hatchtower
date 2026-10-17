@@ -556,6 +556,26 @@ MIGRATIONS: list[str] = [
     """
     DELETE FROM app_settings WHERE key = 'community_discord' AND value = 'https://discord.gg/uQDCrtjdKG';
     """,
+    # 28: notification inbox (bell): entries with an audience, read state per user (inbox.py)
+    """
+    CREATE TABLE inbox (
+        id          INTEGER PRIMARY KEY,
+        created_at  TEXT NOT NULL,
+        event       TEXT NOT NULL,
+        audience    TEXT NOT NULL CHECK (audience IN ('owner', 'server', 'users')),
+        identifier  TEXT,
+        detail      TEXT,
+        dedupe      TEXT
+    );
+    CREATE INDEX inbox_created ON inbox(created_at);
+    CREATE INDEX inbox_dedupe ON inbox(dedupe, created_at);
+    CREATE TABLE inbox_read (
+        user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        entry_id  INTEGER NOT NULL REFERENCES inbox(id) ON DELETE CASCADE,
+        PRIMARY KEY (user_id, entry_id)
+    );
+    ALTER TABLE users ADD COLUMN inbox_read_upto INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "_icons.html" as ic %}
+{% block title %}{{ _("Benachrichtigungen") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Benachrichtigungen") }}</h1><p class="muted">{{ _("Meldungen zu deinen Servern und zu {brand}, die du sonst vielleicht nicht mitbekommst. Einträge werden nach {n} Tagen gelöscht.", brand=brand.product, n=retention_days) }}</p></div>
+  <div class="head-tools">
+    <span class="view-switch" role="group" aria-label="{{ _("Filter") }}"><a href="/notifications"{% if not only_unread %} class="is-current" aria-current="true"{% endif %}>{{ _("Alle") }}</a><a href="/notifications?f=unread"{% if only_unread %} class="is-current" aria-current="true"{% endif %}>{{ _("Ungelesen") }}{% if inbox_unread %} ({{ inbox_unread }}){% endif %}</a></span>
+    {% if inbox_unread %}
+    <form method="post" action="/notifications/read-all">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn btn-ghost btn-sm" type="submit">{{ ic.icon("check") }} {{ _("Alle als gelesen markieren") }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if items %}
+<ul class="card inbox-list">
+  {% for e in items %}
+  <li class="inbox-item inbox-{{ e.level }}{% if not e.read %} is-unread{% endif %}">
+    <span class="inbox-mark" aria-hidden="true"></span>
+    <div class="inbox-body">
+      <div class="inbox-head">
+        <strong class="inbox-title">{{ e.title }}</strong>
+        {% if e.server %}<span class="inbox-server">{{ e.server }}</span>{% endif %}
+        {% if not e.read %}<span class="inbox-new">{{ _("Neu") }}</span>{% endif %}
+        <time class="inbox-time faint">{{ e.when }}</time>
+      </div>
+      {% if e.detail %}<p class="inbox-detail">{{ e.detail }}</p>{% endif %}
+    </div>
+    <div class="inbox-actions">
+      {% if e.link %}
+      <form method="post" action="/notifications/{{ e.id }}/read">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="go" value="1">
+        <button class="btn btn-ghost btn-sm" type="submit">{{ _("Öffnen") }}</button>
+      </form>
+      {% endif %}
+      {% if not e.read %}
+      <form method="post" action="/notifications/{{ e.id }}/read">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost btn-sm" type="submit" title="{{ _("Als gelesen markieren") }}">{{ ic.icon("check") }}<span class="sr-only">{{ _("Als gelesen markieren") }}</span></button>
+      </form>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="card empty inbox-empty">
+  {{ ic.icon("bell") }}
+  <h2>{{ _("Keine ungelesenen Meldungen") if only_unread else _("Noch keine Meldungen") }}</h2>
+  <p class="muted">{{ _("Hier erscheinen zum Beispiel Abstürze, fehlgeschlagene Backups und Fehler bei Benachrichtigungen.") }}</p>
+</div>
+{% endif %}
+{% endblock %}

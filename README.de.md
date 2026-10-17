@@ -17,12 +17,11 @@ es über dessen API – dein Panel läuft weiter wie bisher.
 **Ein Claude-Projekt:** Hatchtower wurde mit [Claude](https://claude.ai) (Anthropic) geschrieben, von mir angeleitet
 und getestet.
 
-![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-0ea5e9)
-![Pelican](https://img.shields.io/badge/Pelican-1.0.0--rc.1-2563eb)
-![Calagopus](https://img.shields.io/badge/Calagopus-1.2-f97316)
-![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN-22c55e)
-![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0-8b5cf6)
-![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-d97757)
+![Pterodactyl](https://img.shields.io/badge/Pterodactyl-1.15-5f545a)
+![Pelican](https://img.shields.io/badge/Pelican-1.0.0--rc.1-5f545a)
+![Calagopus](https://img.shields.io/badge/Calagopus-1.2-5f545a)
+![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN-5f545a)
+![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0-5f545a)
 
 <img src="docs/screenshots/dashboard.png" alt="Die Hatchtower-Übersicht mit zwei Gameservern" width="100%">
 
@@ -77,9 +76,10 @@ deshalb Hatchtower: eine kleine, sichere Haustür, hinter der das Panel im Heimn
 - **Rechte pro Benutzer und Server**, wiederverwendbare Rechtegruppen und **Einladungslinks**
 - **Automationen**: Neustart nach Absturz, geplantes Starten/Stoppen/Neustarten mit Vorwarnung im Spiel
 - **Backups** auf ein Laufwerk oder eine SMB-Freigabe, nach dem Schreiben geprüft und mit wenigen Klicks **wiederherstellbar**
-- **Meldungen** per Discord/Webhook und E-Mail, **Audit-Log**, optionale **öffentliche Statusseite**
+- **Benachrichtigungen** in der Oberfläche (Glocke mit Verlauf), per Discord/Webhook und E-Mail; **Audit-Log**,
+  optionale **öffentliche Statusseite**
 - **Server-Administration** (optional): Server anlegen, Ressourcen, Ports und Startparameter ändern
-- **Read-Only-Modus**, eigener Name und Logo, dunkles/mittleres/helles Farbschema, Deutsch und Englisch
+- **Read-Only-Modus**, eigener Name und Logo, dunkles und helles Farbschema, Deutsch und Englisch
 
 ## 3. Screenshots
 
@@ -114,7 +114,7 @@ Alle Screenshots zeigen ein Test-Panel mit erfundenen Servern und Benutzern.
   </tr>
 </table>
 
-**Helles Farbschema** (umschalten mit ☾ ◐ ☀ oben rechts)
+**Helles Farbschema** (umschalten unten in der Seitenleiste)
 
 <img src="docs/screenshots/light-theme.png" alt="Übersicht im hellen Farbschema" width="60%">
 
@@ -181,7 +181,7 @@ Die Adresse aus dem Skript öffnen. Ein Assistent führt durch:
 4. **Prüfen und speichern** – alles wird getestet, ohne etwas am Panel zu ändern
 5. **Optionen** – Modus, Adresse für Spieler, Zeitzone, Standardansicht
 
-> 💡 Hatchtower startet im **Read-Only-Modus**. Unter **System → Panel → Modus** auf
+> **Hinweis:** Hatchtower startet im **Read-Only-Modus**. Unter **System → Panel → Modus** auf
 > **„Lesen und steuern“** umstellen, wenn alles passt.
 
 <img src="docs/screenshots/connection-wizard.png" alt="Der Assistent erklärt, wie man den API-Key bekommt" width="80%">
@@ -198,7 +198,7 @@ Die Adresse aus dem Skript öffnen. Ein Assistent führt durch:
 **Calagopus braucht einen Key** von einem eigenen Admin-Benutzer: Admin – Nodes und Server lesen; Server – alles
 außer `sftp` und `query-raw`; **Allowed IPs** setzen.
 
-> ⚠️ Ein Client-Key darf alles, was sein Benutzer darf. Deshalb: eigener Benutzer, Allowed IPs und
+> **Wichtig:** Ein Client-Key darf alles, was sein Benutzer darf. Deshalb: eigener Benutzer, Allowed IPs und
 > Zwei-Faktor-Anmeldung.
 
 **Optionaler Admin-Key für die Server-Administration:** Mit einem zusätzlichen Key mit Schreibrechten
@@ -336,8 +336,6 @@ Passwörter oder `hatchtower.env` posten. Sicherheitsprobleme bitte über [SECUR
 
 Hatchtower ist freie Software unter der **GNU Affero General Public License v3.0**, siehe [`LICENSE`](LICENSE).
 Copyright © 2026 skaot1910. Lizenzen der Abhängigkeiten stehen in der Oberfläche unter **Lizenzen**.
-
-🤖 Hatchtower ist gemeinsam mit [Claude](https://claude.ai) (Anthropic) entstanden.
 
 <div align="center">
 <sub>Hatchtower ist ein unabhängiges Projekt und gehört nicht zu Pterodactyl, Pelican oder Calagopus.</sub>

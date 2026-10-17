@@ -3,6 +3,7 @@
 - Audit-Log (mit IP-Adressen und Benutzernamen): einstellbar 1–90 Tage, Standard 30
 - Konsolen-Archiv: einstellbar 1–90 Tage oder aus, Standard 3
 - Statuswechsel und Absturz-Ereignisse (ohne Personenbezug): 90 Tage
+- Notification inbox (bell): 30 days
 - abgelaufene Sitzungen und Einmal-Links sofort (abgelaufene Einladungen werden im Audit-Log vermerkt)
 - Liste gelaufener Backups: Einträge ohne gespeicherte Datei nach 90 Tagen
 """
@@ -13,7 +14,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
-from . import accounts, db
+from . import accounts, db, inbox
 
 log = logging.getLogger("hatchtower.retention")
 
@@ -69,6 +70,7 @@ def cleanup() -> dict[str, int]:
         # Abgelaufene Ankündigungen nach 30 Tagen entfernen
         removed["announcements"] = con.execute(
             "DELETE FROM announcements WHERE ends_at IS NOT NULL AND ends_at < ?", (_iso_before(30),)).rowcount
+    removed["inbox"] = inbox.cleanup()
     return removed
 
 
