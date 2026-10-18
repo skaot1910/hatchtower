@@ -548,7 +548,16 @@ a.file-link:hover { color: var(--accent-text); }
 .chart figcaption > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart-now { display: block; min-height: 1.45em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; }
 /* Erscheinungsbild */
-.login-logo { display: block; max-width: 320px; max-height: 120px; width: auto; height: auto; object-fit: contain; }
+/* Login logo: rounded corners and a soft fade at the edges, so a logo with its own background blends into the
+   card instead of sitting on it as a hard rectangle. Transparent logos are unaffected (their edges are empty). */
+.login-logo { display: block; max-width: 320px; max-height: 120px; width: auto; height: auto; object-fit: contain;
+  border-radius: 14px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent),
+    linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent),
+    linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  mask-composite: intersect; }
 .brand-form { margin-bottom: 22px; }
 .brand-check { align-self: end; padding-bottom: 10px; }
 .brand-logos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 18px; border-top: 1px solid var(--line); padding-top: 18px; }

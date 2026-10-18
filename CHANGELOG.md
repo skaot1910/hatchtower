@@ -3,6 +3,11 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.35.1 – 2026-10-18
+
+- Login page: the uploaded logo gets rounded corners and softly faded edges, so a logo with its own background
+  blends into the login card instead of sitting on it as a hard rectangle. Transparent logos look as before
+
 ## 0.35.0 – 2026-10-18
 
 **File search**
