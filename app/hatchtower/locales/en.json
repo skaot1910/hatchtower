@@ -152,7 +152,6 @@
   "Dateien und Ordner umbenennen.": "Rename files and folders.",
   "Dateiinhalt": "File content",
   "Dein Konto": "Your account",
-  "Dein eigener Name steht groß oben in der Seitenleiste und auf der Login-Seite, „Hatchtower“ dezent darunter und in der Fußzeile. Ohne eigenen Namen steht dort einfach „Hatchtower“. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.": "Your own name appears large at the top of the sidebar and on the login page, with “Hatchtower” subtly below it and in the footer. Without your own name, it simply says “Hatchtower”. Every user can choose their theme and language under “Account”.",
   "Den Benutzer nicht zum Administrator machen, sondern nur als Subuser zu den gewünschten Servern hinzufügen. {panel} begrenzt dann selbst, was möglich ist. Neue Server musst du aber jedes Mal zuweisen.": "Don't make the user an administrator; only add it as a subuser to the servers you want. {panel} then limits what is possible itself. However, you have to assign every new server.",
   "Den Key kopieren. Er beginnt mit": "Copy the key. It starts with",
   "Der Einrichtungscode stimmt nicht oder ist abgelaufen. Einen neuen erzeugst du auf dem Server mit: hatchtower setup-token": "The setup code is wrong or has expired. Create a new one on the server with: hatchtower setup-token",
@@ -188,7 +187,6 @@
   "Du hast noch keine Rechtegruppen.": "You don't have any permission groups yet.",
   "Du kannst dich nicht selbst löschen": "You cannot delete yourself",
   "Eigene Bündel von Rechten, z. B. „Moderator“ oder „Admin Valheim“. Eine Gruppe weist du unter Benutzer pro Server zu. Änderst du eine Gruppe, gilt das sofort für alle, die sie haben.": "Your own bundles of permissions, e.g. “Moderator” or “Admin Valheim”. You assign a group per server under Users. If you change a group, it applies immediately to everyone who has it.",
-  "Eigenen Namen neben dem Logo anzeigen": "Show your own name next to the logo",
   "Eigener Name (optional)": "Your own name (optional)",
   "Eigenes Passwort geändert": "Own password changed",
   "Eine andere Adresse brauchst du nur, wenn der Node im Panel unter einer Adresse eingetragen ist, die dieser Server nicht erreicht, z. B. eine öffentliche Domain hinter der eigenen Firewall. Leer lassen = Adresse aus dem Panel.": "You only need a different address if the node is registered in the panel under an address this server cannot reach, e.g. a public domain behind your own firewall. Leave empty = address from the panel.",
@@ -278,9 +276,7 @@
   "Logo gespeichert": "Logo saved",
   "Logo geändert": "Logo changed",
   "Logo hochladen": "Upload logo",
-  "Logo in der Seitenleiste": "Logo in the sidebar",
   "Logo auf der Login-Seite": "Logo on the login page",
-  "Breites Querformat (5:1) passt am besten, z. B. Schriftzug mit Symbol. Quadratisch geht auch: dann 72 × 72 px.": "A wide landscape format (5:1) fits best, e.g. a wordmark with a symbol. Square works too: then 72 × 72 px.",
   "Querformat (8:3). Quadratisch geht auch: dann 240 × 240 px.": "Landscape format (8:3). Square works too: then 240 × 240 px.",
   "{label} auswählen": "Choose {label}",
   "{label} entfernen?": "Remove {label}?",
@@ -2312,7 +2308,16 @@
   "Auf GitHub ansehen": "View on GitHub",
   "Übersprungene Versionen im CHANGELOG": "Skipped versions in the CHANGELOG",
   "Adresse und Passwort": "Address and password",
-  "Umfang der Angaben": "Level of detail"
+  "Umfang der Angaben": "Level of detail",
+  "Alle Dateien und Ordner durchsuchen … (z. B. server.properties oder *.yml)": "Search all files and folders … (e.g. server.properties or *.yml)",
+  "Dateien und Ordner suchen": "Search files and folders",
+  "Alle Ordner neu einlesen": "Read all folders again",
+  "Neu einlesen": "Rescan",
+  "Der Index wurde gerade erst aufgebaut. Bitte kurz warten.": "The index was just built. Please wait a moment.",
+  "Dateisuche neu indiziert": "File search reindexed",
+  "Eigenen Namen in der Seitenleiste und auf der Login-Seite anzeigen": "Show your own name in the sidebar and on the login page",
+  "Oben in der Seitenleiste stehen immer das Hatchtower-Logo und „Hatchtower“, dein eigener Name klein darunter. Auf der Login-Seite steht er groß, mit „läuft mit Hatchtower“ darunter. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.": "The sidebar always shows the Hatchtower logo and “Hatchtower”, with your own name in small letters below. On the login page your name is shown large, with “powered by Hatchtower” below. Every user can choose their theme and language under “Account”.",
+  "Logo": "Logo"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",
@@ -2398,6 +2403,17 @@
   "{n} Einträge verschieben – Zielordner anklicken, dann bestätigen.": "Move {n} entries – click the target folder, then confirm.",
   "Die Auswahl liegt schon in diesem Ordner": "The selection is already in this folder",
   "Ungültiger Ordnername": "Invalid folder name",
-  "Ziel: {pfad}": "Target: {pfad}"
+  "Ziel: {pfad}": "Target: {pfad}",
+  "Index wird aufgebaut: {dirs} Ordner, {n} Einträge bisher. Gefundenes ist schon durchsuchbar.": "Building the index: {dirs} folders, {n} entries so far. What has been found is already searchable.",
+  "Index unvollständig, das Einlesen wurde abgebrochen. „Neu einlesen“ versucht es noch einmal.": "Index incomplete, scanning was interrupted. “Rescan” tries again.",
+  "{n} Einträge in {dirs} Ordnern durchsuchbar · Stand {zeit}": "{n} entries in {dirs} folders searchable · as of {zeit}",
+  "sehr großer Server, nicht alle Ordner erfasst": "very large server, not all folders covered",
+  "Index wird vorbereitet …": "Preparing the index …",
+  "Noch nichts gefunden – der Index wird noch aufgebaut.": "Nothing found yet – the index is still being built.",
+  "Nichts gefunden.": "Nothing found.",
+  "Ordner öffnen": "Open folder",
+  "Ordner": "Folder",
+  "Herunterladen": "Download",
+  "Weitere Treffer – Suche genauer eingrenzen.": "More matches – narrow down the search."
  }
 }

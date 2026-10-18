@@ -8,8 +8,8 @@
   {{ lng.switch("lang-switch-corner") }}
   <div class="login-card">
     <div class="login-head">
-      {% if brand.logo_login %}<img class="login-logo" src="/branding/{{ brand.logo_login }}" alt="{{ brand.name }}">{% else %}{{ hm.mark("hatch-mark-lg") }}{% endif %}
-      <h1>{{ _("Willkommen bei {name}", name=brand.name) }}</h1>
+      {% if brand.logo_login %}<img class="login-logo" src="/branding/{{ brand.logo_login }}" alt="{{ brand.custom or brand.name }}">{% else %}{{ hm.mark("hatch-mark-lg") }}{% endif %}
+      <h1>{{ _("Willkommen bei {name}", name=brand.custom or brand.name) }}</h1>
       <p class="login-product">{{ _("Du wurdest eingeladen. Leg dein Konto an.") }}</p>
     </div>
     {% if error %}<div class="alert" role="alert">{{ _(error) }}</div>{% endif %}

@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
-from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, i18n, inbox, legal, logarchive, logos,
+from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, fileindex, i18n, inbox, legal, logarchive, logos,
                mailer, retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
@@ -316,7 +316,6 @@ async def check_csrf(request: Request) -> None:
 
 # Gespeichert wird in doppelter Auflösung der Anzeige, damit Logos auf scharfen Bildschirmen nicht verschwimmen.
 BRAND_LOGOS = {
-    "header": {"key": "brand_logo_header", "box": (360, 72), "label": "Seitenleiste"},
     "login": {"key": "brand_logo_login", "box": (640, 240), "label": "Login"},
 }
 
@@ -327,11 +326,10 @@ def load_brand() -> dict:
             "SELECT key, value FROM app_settings WHERE key LIKE 'brand_%'")}
     custom = (values.get("brand_name") or "").strip()
     return {
-        "name": custom or APP_NAME,       # für Browser-Tab
+        "name": APP_NAME,                 # browser tab: always Hatchtower
         "custom": custom,                 # eigener Name (optional)
         "product": APP_NAME,              # Hatchtower, wird immer dezent mit angezeigt
         "show_name": values.get("brand_show_name", "1") == "1",
-        "logo_header": values.get("brand_logo_header") or None,
         "logo_login": values.get("brand_logo_login") or None,
     }
 
@@ -1268,6 +1266,8 @@ async def files_page(request: Request, ident: str, dir: str = "/"):
     for part in [p for p in directory.split("/") if p]:
         acc += "/" + part
         crumbs.append((part, acc))
+    if error is None:
+        fileindex.note_listing(ident, directory, files)
     for f in files:
         f["path"] = posixpath.join(directory, f["name"])
         f["size_text"] = fmt_size(f["size"]) if f["is_file"] else ""
@@ -1296,8 +1296,50 @@ async def api_folders(request: Request, ident: str, dir: str = "/"):
         return JSONResponse({"error": str(exc)}, status_code=502)
     audit.record("files.list", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
                  detail=directory)
+    fileindex.note_listing(ident, directory, files)
     return {"dir": directory,
             "folders": sorted((f["name"] for f in files if not f["is_file"]), key=str.lower)}
+
+
+def index_state_view(st: dict | None) -> dict:
+    if st is None:
+        return {"status": "none"}
+    return {"status": st["status"], "dirs": st["dirs"], "entries": st["entries"], "truncated": bool(st["truncated"]),
+            "finished": fmt_dt(st["finished_at"], settings.timezone) if st["finished_at"] else ""}
+
+
+@app.get("/api/servers/{ident}/files/search")
+async def api_files_search(request: Request, ident: str, q: str = ""):
+    """Search a server's files and folders in the local index; starts (or refreshes) the index when needed."""
+    user = current_user(request)
+    get_server_or_deny(request, user, ident)
+    require(request, user, ident, "sftp.view")
+    st = fileindex.ensure(app.state.ptero, ident)
+    rows, more = fileindex.search(ident, q.strip()[:200])
+    can_edit = user.can(ident, "sftp.edit")
+    results = []
+    for r in rows:
+        editable = (not r["is_dir"] and can_edit and r["size"] <= MAX_EDIT_BYTES
+                    and r["name"].lower().endswith(TEXT_SUFFIXES))
+        results.append({"name": r["name"], "dir": r["dir"], "path": r["path"], "is_dir": r["is_dir"],
+                        "size": "" if r["is_dir"] else fmt_size(r["size"]), "editable": editable})
+    return {"index": index_state_view(st), "results": results, "more": more}
+
+
+@app.post("/api/servers/{ident}/files/reindex")
+async def api_files_reindex(request: Request, ident: str):
+    """Rebuild the search index now (at most once a minute per server; reading only)."""
+    user = current_user(request)
+    check_csrf_header(request)
+    get_server_or_deny(request, user, ident)
+    require(request, user, ident, "sftp.view")
+    st = fileindex.state(ident)
+    if st and st["status"] != "running" and fileindex.age(st) < 60:
+        return JSONResponse({"error": i18n.t("Der Index wurde gerade erst aufgebaut. Bitte kurz warten.")},
+                            status_code=429)
+    st = fileindex.ensure(app.state.ptero, ident, force=True)
+    audit.record("files.reindex", user_id=user.id, username=user.username, ip=ip_of(request), server=ident)
+    return {"index": index_state_view(st)}
 
 
 @app.get("/servers/{ident}/files/download")
@@ -2476,7 +2518,7 @@ async def admin_schedule_delete(request: Request, sched_id: int):
 async def branding_file(filename: str):
     """Logos des Managers, auch ohne Anmeldung (Login-Seite). Nur die aktuell eingestellten Dateien."""
     brand = load_brand()
-    if filename not in (brand["logo_header"], brand["logo_login"]):
+    if filename != brand["logo_login"]:
         return Response(status_code=404)
     path = settings.logo_dir / filename
     if not path.is_file():

@@ -29,6 +29,7 @@ ACTION_LABELS = {
     "server.password.view": "Passwort angezeigt",
     "console.open": "Konsole geöffnet",
     "files.list": "Dateien aufgelistet",
+    "files.reindex": "Dateisuche neu indiziert",
     "files.download": "Datei heruntergeladen",
     "files.download_zip": "Als ZIP heruntergeladen",
     "access.denied": "Zugriff verweigert",

@@ -7,7 +7,7 @@
 <div class="status-wrap">
   {% if logged_in %}<a class="backlink" href="/">{{ _("← Zur Übersicht") }}</a>{% endif %}
   <div class="status-head">
-    {% if brand.logo_header %}<img class="brand-logo" src="/branding/{{ brand.logo_header }}" alt="{{ brand.name }}">{% else %}{{ hm.mark() }}{% endif %}
+    {{ hm.mark() }}
     <div>
       <h1>{{ title }}</h1>
       <p class="muted">{{ _("Serverstatus") }} · <span id="status-updated">{{ _("wird automatisch aktualisiert") }}</span></p>

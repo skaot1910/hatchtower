@@ -74,7 +74,7 @@ def build_export(vault, logo_dir: Path, passphrase: str) -> bytes:
                     row["url"] = vault.decrypt(row.pop("url_enc", None))
             data["tables"][table] = rows
         logo_names = {r["logo_file"] for r in con.execute("SELECT logo_file FROM server_meta WHERE logo_file IS NOT NULL")}
-    logo_names |= {data["settings"].get("brand_logo_header"), data["settings"].get("brand_logo_login")}
+    logo_names.add(data["settings"].get("brand_logo_login"))
     for name in sorted(n for n in logo_names if n and LOGO_NAME.match(n)):
         path = logo_dir / name
         if path.is_file():

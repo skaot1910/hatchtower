@@ -27,7 +27,7 @@ def _parts(msg):
 
 
 def test_html_und_text_mit_anrede_knopf_und_angaben(world):
-    db.set_setting("brand_logo_header", "", None)
+    db.set_setting("brand_logo_login", "", None)
     text, html, images = _parts(mailer.build_message(_cfg(), ["a@example.com"], _mail()))
     assert "Hallo olga," in text and "Los:\nhttps://ht.example.com/x?a=1&b=2" in text and "Viele Grüße" in text
     assert "Hallo olga," in html and "Erster &lt;Absatz&gt;" in html          # Inhalte werden maskiert
@@ -41,7 +41,7 @@ def test_logo_wird_als_png_eingebettet(world, tmp_path, monkeypatch):
     Image.new("RGBA", (400, 200), (109, 40, 217, 255)).save(out, "WEBP")
     (tmp_path / "logo.webp").write_bytes(out.getvalue())
     monkeypatch.setattr(mailer, "LOGO_DIR", tmp_path)
-    db.set_setting("brand_logo_header", "logo.webp", None)
+    db.set_setting("brand_logo_login", "logo.webp", None)
     msg = mailer.build_message(_cfg(), ["a@example.com"], _mail())
     _text, html, images = _parts(msg)
     assert len(images) == 1 and images[0].get_content_type() == "image/png"
@@ -54,7 +54,7 @@ def test_logo_wird_als_png_eingebettet(world, tmp_path, monkeypatch):
 def test_kaputtes_logo_gibt_mail_ohne_logo(world, tmp_path, monkeypatch):
     (tmp_path / "kaputt.webp").write_bytes(b"RIFF")
     monkeypatch.setattr(mailer, "LOGO_DIR", tmp_path)
-    db.set_setting("brand_logo_header", "kaputt.webp", None)
+    db.set_setting("brand_logo_login", "kaputt.webp", None)
     _text, html, images = _parts(mailer.build_message(_cfg(), ["a@example.com"], _mail()))
     assert images == [] and "Hatchtower" in html
 

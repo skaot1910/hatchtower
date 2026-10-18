@@ -127,7 +127,7 @@ def logo_png() -> bytes | None:
     """Logo aus dem Erscheinungsbild als PNG (viele Mailprogramme zeigen kein WebP), höchstens 96 px hoch."""
     if LOGO_DIR is None:
         return None
-    name = db.get_setting("brand_logo_header") or db.get_setting("brand_logo_login")
+    name = db.get_setting("brand_logo_login")
     if not name or "/" in name or "\\" in name:
         return None
     try:

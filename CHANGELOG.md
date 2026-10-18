@@ -3,6 +3,28 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.35.0 – 2026-10-18
+
+**File search**
+- The file manager can search all files and folders of a server at once, as you type. Several words narrow the
+  search (e.g. `essentials config`), `*.yml` finds by pattern; matches show their folder, size and download link,
+  text files open directly in the editor
+- Hatchtower reads the folder tree once in the background and searches its own index, so results appear
+  instantly. Reading is throttled against the panel's rate limit (at most 2 requests per second, pauses when less
+  than half of the limit is left, one server at a time); what is found is searchable right away
+- The index survives restarts and is rebuilt at most once a day, only when someone opens the files of that
+  server. Folders opened in the file manager update their part of the index at no extra cost; "Rescan" reads
+  everything again
+- Up to 5000 folders and 200,000 entries per server; `node_modules`, `.git` and similar folders are listed but
+  not searched inside
+
+**Branding**
+- The sidebar always shows the Hatchtower mark and name; your own name appears as a short tagline below it.
+  The upload for a sidebar logo was removed (a previously uploaded one is no longer used), the login page logo
+  stays and is also used in e-mails
+- The browser tab is always titled "Hatchtower"
+- Sidebar: the group headings Operations and Management stand out more clearly from the links below them
+
 ## 0.34.1 – 2026-10-17
 
 - Sidebar: an uploaded logo gets its own line and the community name wraps below it, so the name is always

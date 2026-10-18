@@ -868,6 +868,135 @@
     update();
   }
 
+  // ---- Files: search across all folders (index on the server, see fileindex.py) ----------
+  function startFileSearch() {
+    var box = document.getElementById("file-search");
+    if (!box) return;
+    var input = box.querySelector("[data-search-input]");
+    var status = box.querySelector("[data-search-status]");
+    var list = box.querySelector("[data-search-results]");
+    var reindex = box.querySelector("[data-search-reindex]");
+    var base = box.dataset.base;
+    var canDownload = box.hasAttribute("data-can-download");
+    var ticket = 0, timer = null, poll = null, lastStatus = "";
+
+    function folderUrl(dir) { return base + "?dir=" + encodeURIComponent(dir); }
+    function showStatus(ix) {
+      var text;
+      if (ix.status === "running") text = tr("Index wird aufgebaut: {dirs} Ordner, {n} Einträge bisher. Gefundenes ist schon durchsuchbar.", { dirs: ix.dirs, n: ix.entries });
+      else if (ix.status === "error") text = tr("Index unvollständig, das Einlesen wurde abgebrochen. „Neu einlesen“ versucht es noch einmal.");
+      else if (ix.status === "done") text = tr("{n} Einträge in {dirs} Ordnern durchsuchbar · Stand {zeit}", { n: ix.entries, dirs: ix.dirs, zeit: ix.finished })
+        + (ix.truncated ? " · " + tr("sehr großer Server, nicht alle Ordner erfasst") : "");
+      else text = tr("Index wird vorbereitet …");
+      status.textContent = text;
+      reindex.disabled = ix.status === "running";
+      // While the crawl runs, refresh status (and results) every few seconds
+      var busy = ix.status === "running" || ix.status === "none";
+      if (busy && !poll) poll = setInterval(function () { run(true); }, 4000);
+      if (!busy && poll) { clearInterval(poll); poll = null; }
+      lastStatus = ix.status;
+    }
+    function highlight(el, text, terms) {
+      var lower = text.toLowerCase(), marks = [];
+      terms.forEach(function (t) {
+        if (/[*?]/.test(t)) return;
+        var i = lower.indexOf(t);
+        if (i >= 0) marks.push([i, i + t.length]);
+      });
+      marks.sort(function (a, b) { return a[0] - b[0]; });
+      var pos = 0;
+      marks.forEach(function (m) {
+        if (m[0] < pos) return;
+        el.appendChild(document.createTextNode(text.slice(pos, m[0])));
+        var mk = document.createElement("mark");
+        mk.textContent = text.slice(m[0], m[1]);
+        el.appendChild(mk);
+        pos = m[1];
+      });
+      el.appendChild(document.createTextNode(text.slice(pos)));
+    }
+    function draw(data, q) {
+      list.textContent = "";
+      if (!q) { list.hidden = true; return; }
+      list.hidden = false;
+      var terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!data.results.length) {
+        var none = document.createElement("li");
+        none.className = "faint small";
+        none.textContent = lastStatus === "running" ? tr("Noch nichts gefunden – der Index wird noch aufgebaut.") : tr("Nichts gefunden.");
+        list.appendChild(none);
+        return;
+      }
+      data.results.forEach(function (r) {
+        var li = document.createElement("li");
+        li.className = r.is_dir ? "is-dir" : "is-file";
+        var a = document.createElement("a");
+        a.className = "file-search-name";
+        a.href = r.is_dir ? folderUrl(r.path) : r.editable ? base + "/edit?file=" + encodeURIComponent(r.path) : folderUrl(r.dir);
+        highlight(a, r.name + (r.is_dir ? "/" : ""), terms);
+        li.appendChild(a);
+        var where = document.createElement("a");
+        where.className = "file-search-path faint small";
+        where.href = folderUrl(r.dir);
+        where.title = tr("Ordner öffnen");
+        where.textContent = r.dir;
+        li.appendChild(where);
+        var meta = document.createElement("span");
+        meta.className = "file-search-meta faint small";
+        meta.textContent = r.is_dir ? tr("Ordner") : r.size;
+        li.appendChild(meta);
+        if (!r.is_dir && canDownload) {
+          var dl = document.createElement("a");
+          dl.className = "chip chip-sm";
+          dl.href = base + "/download?file=" + encodeURIComponent(r.path);
+          dl.textContent = tr("Herunterladen");
+          li.appendChild(dl);
+        }
+        list.appendChild(li);
+      });
+      if (data.more) {
+        var more = document.createElement("li");
+        more.className = "faint small";
+        more.textContent = tr("Weitere Treffer – Suche genauer eingrenzen.");
+        list.appendChild(more);
+      }
+    }
+    function run(quiet) {
+      var q = input.value.trim();
+      var mine = ++ticket;
+      fetch(box.dataset.search + "?q=" + encodeURIComponent(q), { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (r) {
+          if (r.status === 401) { window.location = "/login"; throw new Error("login"); }
+          return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || tr("Fehler {code}", { code: r.status })); return d; });
+        })
+        .then(function (data) {
+          if (mine !== ticket) return;
+          showStatus(data.index);
+          draw(data, q);
+        })
+        .catch(function (err) { if (!quiet && err.message !== "login") status.textContent = err.message; });
+    }
+    input.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(run, 180);
+    });
+    input.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") { input.value = ""; run(true); }
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        var first = list.querySelector("a.file-search-name");
+        if (first) window.location = first.href;
+      }
+    });
+    reindex.addEventListener("click", function () {
+      reindex.disabled = true;
+      postJson(box.dataset.reindex, {})
+        .then(function (data) { showStatus(data.index); run(true); })
+        .catch(function (err) { reindex.disabled = false; if (err.message !== "login") toast(err.message, false); });
+    });
+    run(true);   // shows the index state and starts building it when there is none yet
+  }
+
   // ---- Datei-Explorer: Zielordner zum Verschieben per Klick wählen -----------------------
   function startMoveDialog(form, boxes, target) {
     var dlg = document.getElementById("move-dialog");
@@ -1694,6 +1823,7 @@
     startTopbarHeight();
     startSort();
     startFileSelection();
+    startFileSearch();
     startCharts();
     startControls();
     startLive();

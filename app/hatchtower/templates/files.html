@@ -18,6 +18,15 @@
 
 {% if error %}<div class="alert">{{ _(error) }}</div>{% endif %}
 
+<div class="file-search card" id="file-search" data-search="/api/servers/{{ server.identifier }}/files/search" data-reindex="/api/servers/{{ server.identifier }}/files/reindex" data-base="/servers/{{ server.identifier }}/files"{% if can_download %} data-can-download{% endif %}>
+  <div class="file-search-bar">
+    <input type="search" placeholder="{{ _("Alle Dateien und Ordner durchsuchen … (z. B. server.properties oder *.yml)") }}" aria-label="{{ _("Dateien und Ordner suchen") }}" autocomplete="off" spellcheck="false" maxlength="200" data-search-input>
+    <button class="chip chip-sm chip-ghost" type="button" data-search-reindex title="{{ _("Alle Ordner neu einlesen") }}">{{ _("Neu einlesen") }}</button>
+  </div>
+  <p class="faint small file-search-status" data-search-status aria-live="polite"></p>
+  <ul class="file-search-results" data-search-results hidden></ul>
+</div>
+
 {% if can_upload or can_mkdir %}
 <div class="file-tools card">
   {% if can_upload %}

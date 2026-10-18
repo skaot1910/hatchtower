@@ -576,6 +576,34 @@ MIGRATIONS: list[str] = [
     );
     ALTER TABLE users ADD COLUMN inbox_read_upto INTEGER NOT NULL DEFAULT 0;
     """,
+    # 29: file search index per server (fileindex.py): one row per file or folder, plus crawl state
+    """
+    CREATE TABLE file_index (
+        identifier   TEXT NOT NULL,
+        dir          TEXT NOT NULL,
+        name         TEXT NOT NULL,
+        is_dir       INTEGER NOT NULL,
+        size         INTEGER NOT NULL DEFAULT 0,
+        modified_at  TEXT,
+        gen          INTEGER NOT NULL,
+        PRIMARY KEY (identifier, dir, name)
+    ) WITHOUT ROWID;
+    CREATE TABLE file_index_state (
+        identifier   TEXT PRIMARY KEY,
+        status       TEXT NOT NULL CHECK (status IN ('running', 'done', 'error')),
+        gen          INTEGER NOT NULL,
+        started_at   TEXT NOT NULL,
+        finished_at  TEXT,
+        dirs         INTEGER NOT NULL DEFAULT 0,
+        entries      INTEGER NOT NULL DEFAULT 0,
+        truncated    INTEGER NOT NULL DEFAULT 0,
+        error        TEXT
+    );
+    """,
+    # 30: the sidebar always shows the Hatchtower mark; the uploaded sidebar logo is no longer used
+    """
+    DELETE FROM app_settings WHERE key = 'brand_logo_header';
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

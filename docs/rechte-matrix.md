@@ -25,7 +25,7 @@ Grundregeln:
 | `console.read` | Konsole lesen |  | `server.view` | `GET /servers/{ident}/console/stream` |  |
 | `console.command` | Befehle senden | ✎ | `server.view`, `console.read` | `POST /api/servers/{ident}/command` | Je nach Spiel reichen Befehle weit, z. B. Spieler zu Admins machen oder die Welt verändern. |
 | `console.archive` | Konsolen-Archiv sehen |  | `server.view` | `GET /api/servers/{ident}/logs`<br>`GET /servers/{ident}/logs.txt` |  |
-| `sftp.view` | Dateien ansehen |  | `server.view` | `GET /api/servers/{ident}/folders`<br>`GET /servers/{ident}/files` |  |
+| `sftp.view` | Dateien ansehen |  | `server.view` | `GET /api/servers/{ident}/files/search`<br>`GET /api/servers/{ident}/folders`<br>`GET /servers/{ident}/files`<br>`POST /api/servers/{ident}/files/reindex` |  |
 | `sftp.download` | Herunterladen |  | `server.view`, `sftp.view` | `GET /servers/{ident}/files/download`<br>`POST /servers/{ident}/files/zip` | Konfigurationsdateien können Passwörter und Zugangsschlüssel enthalten. |
 | `sftp.upload` | Hochladen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/upload` |  |
 | `sftp.edit` | Bearbeiten | ✎ | `server.view`, `sftp.view`, `sftp.download` | `GET /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/edit`<br>`POST /servers/{ident}/files/restore` |  |
@@ -128,6 +128,8 @@ Grundregeln:
 | POST | `/servers/{ident}/files/delete` | `sftp.delete` | Formular | schreibt | Löschen |
 | POST | `/servers/{ident}/files/delete-many` | `sftp.delete` | Formular | schreibt | Mehrere Dateien und Ordner löschen |
 | GET | `/api/servers/{ident}/folders` | `sftp.view` | – | liest | Unterordner für die Ordnerauswahl beim Verschieben |
+| GET | `/api/servers/{ident}/files/search` | `sftp.view` | – | liest | Dateien und Ordner suchen (lokaler Index) |
+| POST | `/api/servers/{ident}/files/reindex` | `sftp.view` | Header | liest | Suchindex der Dateien neu aufbauen (nur lesend) |
 | POST | `/servers/{ident}/files/move` | `sftp.rename` | Formular | schreibt | Dateien und Ordner in einen anderen Ordner verschieben |
 | POST | `/servers/{ident}/files/backup` | `backups.manage` | Formular | liest | Auswahl zu einem Backup-Job hinzufügen |
 | GET | `/servers/{ident}/settings` | `server.manage` | – | liest | Serverangaben im Manager |

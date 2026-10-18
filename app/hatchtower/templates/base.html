@@ -22,11 +22,11 @@
 <aside class="sidebar">
   <div class="sidebar-top">
   <a class="brand" href="/">
-    {% if brand.logo_header %}<img class="brand-logo" src="/branding/{{ brand.logo_header }}" alt="{{ brand.name }}">{% else %}{{ hm.mark() }}{% endif %}
+    {{ hm.mark() }}
+    {# Hatchtower always leads; the community's own name is a small tagline below it #}
     <span class="brand-titles">
-      {% if brand.custom and brand.show_name %}<span class="brand-text">{{ brand.custom }}</span><span class="brand-product">{{ brand.product }}</span>
-      {% elif brand.logo_header %}<span class="brand-product">{{ brand.product }}</span>
-      {% else %}<span class="brand-text">{{ brand.product }}</span>{% endif %}
+      <span class="brand-text">{{ brand.product }}</span>
+      {% if brand.custom and brand.show_name %}<span class="brand-tagline">{{ brand.custom }}</span>{% endif %}
     </span>
   </a>
   <a class="bell{% if inbox_unread %} has-unread{% endif %}{% if request.url.path.startswith('/notifications') %} active{% endif %}" href="/notifications" title="{{ _("Benachrichtigungen") }}" aria-label="{{ _("Benachrichtigungen") }}{% if inbox_unread %}: {{ _("{n} ungelesen", n=inbox_unread) }}{% endif %}">{{ ic.icon("bell") }}{% if inbox_unread %}<span class="bell-count" aria-hidden="true">{{ inbox_unread if inbox_unread < 100 else "99+" }}</span>{% endif %}</a>

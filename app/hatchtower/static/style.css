@@ -406,6 +406,21 @@ a.file-link:hover { color: var(--accent-text); }
 
 /* Dateien */
 .file-tools { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; padding: 14px 18px; }
+.file-search { padding: 14px 18px; }
+.file-search-bar { display: flex; gap: 8px; align-items: center; }
+.file-search-bar input { flex: 1; }
+.file-search-status { margin: 8px 0 0; }
+.file-search-results { list-style: none; margin: 10px 0 0; padding: 4px; max-height: 420px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.file-search-results li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 7px 10px; border-radius: var(--radius-sm); }
+.file-search-results li:hover { background: var(--hover-2); }
+.file-search-results li.faint { display: block; }
+.file-search-name { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.file-search-results li.is-dir .file-search-name { color: var(--accent-text); }
+.file-search-name mark { background: var(--accent-bg); color: var(--strong); border-radius: 3px; box-shadow: inset 0 -2px 0 var(--accent); }
+.file-search-path { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--faint); }
+.file-search-path:hover { color: var(--text); }
+.file-search-meta { white-space: nowrap; }
 .inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0; min-width: 0; max-width: 100%; }
 .inline-form > label { min-width: 0; max-width: 100%; }
 .inline-form input { padding: 6px 10px; font-size: 13px; }
@@ -533,7 +548,6 @@ a.file-link:hover { color: var(--accent-text); }
 .chart figcaption > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart-now { display: block; min-height: 1.45em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; }
 /* Erscheinungsbild */
-.brand-logo { display: block; max-height: 36px; max-width: 180px; width: auto; height: auto; object-fit: contain; }
 .login-logo { display: block; max-width: 320px; max-height: 120px; width: auto; height: auto; object-fit: contain; }
 .brand-form { margin-bottom: 22px; }
 .brand-check { align-self: end; padding-bottom: 10px; }
@@ -857,8 +871,9 @@ a.file-link:hover { color: var(--accent-text); }
 .hm-crack { fill: none; stroke: var(--accent-deep); stroke-width: 3.4; stroke-linejoin: round; stroke-linecap: round; }
 .brand-titles { display: grid; line-height: 1.15; min-width: 0; }
 .brand-titles .brand-text { font-weight: 600; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.brand-product { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
-.brand-titles .brand-text + .brand-product { margin-top: 2px; }
+/* Own name under "Hatchtower": small, but bold, tracked and in the accent colour so it reads as a signature */
+.brand-tagline { margin-top: 3px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent-text); line-height: 1.25; }
 .login-product { margin: -4px 0 0; font-size: 13px; color: var(--faint); }
 .login-product strong { color: var(--accent-text); }
 .footer strong { color: var(--muted); font-weight: 600; }
@@ -866,9 +881,6 @@ a.file-link:hover { color: var(--accent-text); }
 .key-warning p { margin: 0 0 6px; }
 .key-warning p:last-child { margin: 0; }
 .key-warning strong { color: var(--strong); }
-@media (max-width: 720px), (pointer: coarse) and (max-height: 540px) {
-  .brand-product { font-size: 10.5px; }
-}
 /* Sprachumschalter DE/EN */
 .lang-switch { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; overflow: hidden; flex: none; }
 .lang-switch a { padding: 3px 9px; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--faint); text-decoration: none; }
@@ -1298,8 +1310,11 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
 .sidebar-menu { display: flex; flex-direction: column; flex: 1; gap: 14px; padding: 0 12px 14px; }
 .badges { display: flex; gap: 6px; padding: 0 6px; }
 .nav { display: flex; flex-direction: column; gap: 1px; }
-.nav-label { padding: 16px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
-.nav-label:first-child { padding-top: 2px; }
+/* Section headings: accent colour plus a rule so they read as group titles, not as links */
+.nav-label { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 6px 12px 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-text); }
+.nav-label::after { content: ""; flex: 1; height: 1px; background: var(--accent-line); }
+.nav-label:first-child { margin-top: 0; padding-top: 2px; }
 .nav a { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-sm);
   color: var(--muted); font-weight: 600; font-size: 14px; transition: background var(--ease), color var(--ease); }
 .nav a:hover { color: var(--text); background: var(--hover-2); }
@@ -1357,7 +1372,6 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
   body.has-shell { display: flex; flex-direction: column; }
   .sidebar { position: sticky; top: 0; height: auto; overflow: visible; border-right: 0; border-bottom: 1px solid var(--line-2); background: var(--topbar-bg); }
   .sidebar-top { padding: 8px 12px; }
-  .brand-logo { max-height: 32px; max-width: 150px; }
   .brand-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .menu-toggle {
     display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
@@ -1484,21 +1498,18 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
   .list-tools .status-filter { margin: 0 -12px; }
 }
 
-/* Brand in the sidebar: never cut off and never wider than the column. With an uploaded logo the logo gets its
-   own line and the name wraps below it; the bell stays at the top right. */
+/* Brand in the sidebar: never cut off and never wider than the column; the bell stays at the top right. */
 .sidebar { overflow-x: hidden; }
 .sidebar-top { align-items: flex-start; }
 .sidebar .brand { flex: 1 1 auto; min-width: 0; }
-.sidebar .brand:has(.brand-logo) { flex-direction: column; align-items: flex-start; gap: 8px; }
-.sidebar .brand-logo { max-width: 100%; max-height: 40px; }
 .sidebar .brand-titles { min-width: 0; max-width: 100%; }
 .sidebar .brand-titles .brand-text { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.2; }
-.sidebar .brand-product { overflow-wrap: anywhere; }
+.sidebar .brand-text { font-size: 17px; letter-spacing: .01em; }
+.sidebar .brand-tagline { overflow-wrap: anywhere; }
 .sidebar .brand > .hatch-mark { margin-top: 1px; }
 @media (max-width: 900px) {
   .sidebar-top { align-items: center; }
-  .sidebar .brand:has(.brand-logo) { flex-direction: row; align-items: center; gap: 10px; }
-  .sidebar .brand-logo { max-width: min(150px, 40vw); max-height: 32px; }
+  .sidebar .brand-tagline { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; }
   .sidebar .brand-titles .brand-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 }
 
