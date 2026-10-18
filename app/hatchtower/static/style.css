@@ -22,7 +22,7 @@
 
 :root, [data-theme="nacht"] {
   /* Surfaces: page < inset/input < card < raised (buttons, menus) */
-  --bg: #101012; --bg-2: #171518; --card: #201b1f; --card-2: #292126; --subtle: #241d21;
+  --bg: #101012; --bg-2: #171518; --card: #201b1f; --card-2: #292126; --subtle: #241d21; --row-alt: #2e252b;
   /* Lines: --line separators, --line-2 borders, --control form controls (>= 3:1) */
   --line: #33292f; --line-2: #403139; --control: #7a6870;
   --text: #f3ecef; --muted: #b6a8ae; --faint: #9c8c93; --strong: #fff;
@@ -51,7 +51,7 @@
 }
 
 [data-theme="hell"] {
-  --bg: #f5f3f2; --bg-2: #faf8f7; --card: #fff; --card-2: #fbf9f9; --subtle: #f7f3f4;
+  --bg: #f5f3f2; --bg-2: #faf8f7; --card: #fff; --card-2: #fbf9f9; --subtle: #f7f3f4; --row-alt: #f3ecee;
   --line: #e9e3e4; --line-2: #ded6d8; --control: #8c7c83;
   --text: #292327; --muted: #5f545a; --faint: #6f6369; --strong: #17121a;
   --accent: #843449; --accent-2: #9a4058; --accent-text: #7a2f43; --accent-bg: #f6f1f1;
@@ -97,6 +97,8 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* viewport-fit=cover: keep content clear of the phone's gesture bar and of notches in landscape */
+  padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 a { color: var(--accent-text); text-decoration: none; }
 a:hover { color: var(--strong); }
@@ -393,7 +395,7 @@ a.file-link:hover { color: var(--accent-text); }
 .power[data-state="offline"] .pbtn-kill, .power[data-state="suspended"] .pbtn { display: none; }
 .server-head .power { margin-left: auto; align-self: flex-start; }
 
-.toasts { position: fixed; right: 20px; bottom: 20px; display: grid; gap: 8px; z-index: 50; max-width: 380px; }
+.toasts { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; z-index: 50; max-width: 380px; }
 .toast { padding: 11px 15px; border-radius: var(--radius-sm); background: var(--menu-bg); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); box-shadow: var(--shadow-pop); font-size: 13.5px; animation: toast-in .2s ease; overflow-wrap: anywhere; }
 .toast.ok { border-color: var(--green-line); border-left-color: var(--green); }
 .toast.err { border-color: var(--red-line); border-left-color: var(--red); color: var(--red-fg); }
@@ -466,7 +468,9 @@ a.file-link:hover { color: var(--accent-text); }
 .grid.list-view { grid-template-columns: minmax(0, 1fr); gap: 0; background: var(--card); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden; }
 .list-view .server-card { background: transparent; border: 0; border-radius: 0; border-bottom: 1px solid var(--line); box-shadow: none; transition: background var(--ease); }
 .list-view .server-card:last-child { border-bottom: 0; }
-.list-view .server-card:hover { background: var(--hover); }
+/* Every second server (of those the filter shows) gets a slightly different background, so rows read apart */
+.list-view .server-card:nth-child(even of .server-card:not(.filtered-out)) { background: var(--row-alt); }
+.list-view .server-card:hover { background-image: linear-gradient(var(--hover), var(--hover)); }   /* on top of either row colour */
 .list-view .server-card {
   display: grid; align-items: center; gap: 6px 26px; padding: 14px 20px;
   grid-template-columns: minmax(220px, 1.3fr) minmax(260px, 1.6fr) minmax(200px, 1.1fr) minmax(170px, auto);
@@ -1057,6 +1061,7 @@ a.file-link:hover { color: var(--accent-text); }
 .status-head-tools { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .status-head .lang-switch-corner { margin: 0; }
 .status-card { padding: 10px 14px; background: var(--card); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: var(--shadow-card); }
+.status-card:nth-child(even) { background: var(--row-alt); }
 .status-card.state-running { box-shadow: inset 4px 0 0 var(--green); }
 .status-card.state-offline { box-shadow: inset 4px 0 0 var(--red); }
 .status-card.state-starting, .status-card.state-stopping { box-shadow: inset 4px 0 0 var(--amber); }
@@ -1609,4 +1614,35 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
   .head-tools .view-toggle :is(a, button) { font-size: 14px; padding: 8px 13px; }
   .head-tools { justify-content: flex-start; gap: 10px; }
   .head-tools .monitor-status { flex-basis: 100%; }
+}
+
+/* Phone list: compact rows like on the desktop, all values kept. Head, then address and password side by side,
+   then the three metrics, then power and links in one line. Kept at the end of the file so it wins over the earlier phone rules. */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 540px) {
+  .list-view .server-card:not(.simple-card) {
+    display: grid; align-items: center; gap: 6px 10px; padding: 8px 12px 8px 14px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "head head" "facts facts" "metrics metrics" "power actions";
+  }
+  .list-view .server-card:not(.simple-card) .card-head { grid-area: head; gap: 10px; }
+  .list-view .server-card:not(.simple-card) .card-head-link { gap: 10px; }
+  .list-view .server-card:not(.simple-card) .logo { width: 32px; height: 32px; font-size: 12px; border-radius: 8px; }
+  .list-view .server-card:not(.simple-card) .card-head h2 { font-size: 15.5px; line-height: 1.25; }
+  .list-view .server-card:not(.simple-card) .title-row { gap: 2px 8px; }
+  .list-view .server-card:not(.simple-card) .pill { font-size: 11.5px; padding: 1px 8px; }
+  .list-view .server-card:not(.simple-card) .facts { grid-area: facts; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; }
+  .list-view .server-card:not(.simple-card) .facts :is(.kv-address, .kv-password) { flex-direction: column; align-items: flex-start; gap: 0; font-size: 13.5px; line-height: 1.35; }
+  .list-view .server-card:not(.simple-card) .facts :is(.kv-address, .kv-password) > span:first-child { font-size: 11.5px; }
+  .list-view .server-card:not(.simple-card) .facts :is(.kv-address, .kv-password) > span:last-child { max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+  .list-view .server-card:not(.simple-card) .metrics { grid-area: metrics; gap: 10px; }
+  .list-view .server-card:not(.simple-card) .metric { gap: 2px; }
+  .list-view .server-card:not(.simple-card) .metric .kv { padding: 0 0 2px; line-height: 1.3; }
+  .list-view .server-card:not(.simple-card) .metric .kv > span:first-child { font-size: 11.5px; }
+  .list-view .server-card:not(.simple-card) .metric .kv > span:last-child { font-size: 13px; }
+  .list-view .server-card:not(.simple-card) .bar { height: 3px; }
+  .list-view .server-card:not(.simple-card) .power { grid-area: power; display: flex; gap: 6px; justify-content: flex-start; }
+  .list-view .server-card:not(.simple-card) .pbtn { min-height: 34px; min-width: 40px; padding: 3px 10px; font-size: 14px; }
+  .list-view .server-card:not(.simple-card) .pbtn span { display: none; }   /* icons only; the title names the action */
+  .list-view .server-card:not(.simple-card) .actions { grid-area: actions; flex-wrap: nowrap; gap: 6px; justify-content: flex-end; margin: 0; }
+  .list-view .server-card:not(.simple-card) .actions .chip { flex: none; min-height: 34px; padding: 5px 11px; font-size: 13.5px; }
 }

@@ -794,6 +794,8 @@
         document.documentElement.setAttribute("data-theme", key);
         var bar = document.querySelector('meta[name="theme-color"]');
         if (bar) bar.setAttribute("content", key === "hell" ? "#efebe9" : "#141215");
+        var scheme = document.querySelector('meta[name="color-scheme"]');
+        if (scheme) scheme.setAttribute("content", key === "hell" ? "light" : "dark");
         document.querySelectorAll(".theme-switch a[data-theme-key]").forEach(function (o) {
           var on = o.dataset.themeKey === key;
           o.classList.toggle("is-current", on);

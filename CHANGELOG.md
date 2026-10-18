@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.35.3 – 2026-10-18
+
+- Phones: the server list is compact again (about a quarter less height per server) and keeps all values:
+  address and password side by side, CPU/RAM/storage in one row, power buttons and links in one line
+- Server list (all screen sizes) and public status page: every second server has a slightly different
+  background, so rows are easier to tell apart; only the servers currently shown by the filter count
+- Android: the page now extends behind the gesture bar, so the bar shows the page colour instead of white;
+  content keeps clear of it
+
 ## 0.35.2 – 2026-10-18
 
 - Phones: the menu opens again. Since 0.34.1 the top bar clipped the opened menu, so it stayed invisible

@@ -6,9 +6,12 @@
 <html lang="{{ lang }}" data-theme="{{ theme }}">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  {# Colour of the phone browser's own bars (address bar, bottom toolbar); without it some browsers use white #}
+  {# viewport-fit=cover: Android Chrome draws the page behind the gesture bar instead of a white strip
+     (the safe-area padding in style.css keeps content clear of it) #}
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  {# Colour of the phone browser's own bars (address bar); without it some browsers use white #}
   <meta name="theme-color" content="{{ '#efebe9' if theme == 'hell' else '#141215' }}">
+  <meta name="color-scheme" content="{{ 'light' if theme == 'hell' else 'dark' }}">
   <meta name="timezone" content="{{ settings.timezone }}">
   {% if csrf %}<meta name="csrf-token" content="{{ csrf }}">{% endif %}
   <title>{% block title %}{{ brand.name }}{% endblock %}</title>
