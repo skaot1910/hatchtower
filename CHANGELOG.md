@@ -3,6 +3,12 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.35.2 – 2026-10-18
+
+- Phones: the menu opens again. Since 0.34.1 the top bar clipped the opened menu, so it stayed invisible
+- Phones: the browser's own bars (address bar, bottom toolbar) take the theme colour instead of white, so the
+  system buttons stay visible; they switch along with the theme
+
 ## 0.35.1 – 2026-10-18
 
 - Login page: the uploaded logo gets rounded corners and softly faded edges, so a logo with its own background

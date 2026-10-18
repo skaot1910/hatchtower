@@ -7,6 +7,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# Colour of the phone browser's own bars (address bar, bottom toolbar); without it some browsers use white #}
+  <meta name="theme-color" content="{{ '#efebe9' if theme == 'hell' else '#141215' }}">
   <meta name="timezone" content="{{ settings.timezone }}">
   {% if csrf %}<meta name="csrf-token" content="{{ csrf }}">{% endif %}
   <title>{% block title %}{{ brand.name }}{% endblock %}</title>

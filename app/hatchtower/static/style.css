@@ -88,7 +88,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-html { scrollbar-color: var(--line-2) var(--bg); }
+html { scrollbar-color: var(--line-2) var(--bg); background: var(--bg); }
 body {
   background: var(--bg);
   color: var(--text);
@@ -1508,7 +1508,7 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
 }
 
 /* Brand in the sidebar: never cut off and never wider than the column; the bell stays at the top right. */
-.sidebar { overflow-x: hidden; }
+@media (min-width: 901px) { .sidebar { overflow-x: hidden; } }   /* phones: the bar must not clip the drawer */
 .sidebar-top { align-items: flex-start; }
 .sidebar .brand { flex: 1 1 auto; min-width: 0; }
 .sidebar .brand-titles { min-width: 0; max-width: 100%; }
