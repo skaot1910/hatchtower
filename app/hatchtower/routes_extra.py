@@ -206,6 +206,21 @@ def discord_status_view(feed) -> tuple[str, list[dict], set[str], str, str]:
     return title, servers, fields, link, f"{base}/" if base else ""
 
 
+# Colours of the installed app per theme: theme = status bar, background = splash screen and the window
+# behind Android's gesture bar (white without a manifest). Same values as the theme-color meta in base.html.
+MANIFEST_COLOURS = {"hell": ("#efebe9", "#f5f3f2"), "nacht": ("#141215", "#101012")}
+
+
+@app.get("/manifest.webmanifest")
+async def web_manifest(theme: str = ""):
+    theme_colour, background = MANIFEST_COLOURS.get(theme, MANIFEST_COLOURS["nacht"])
+    brand = load_brand()
+    body = {"name": brand["name"], "short_name": brand["name"][:30], "start_url": "/", "scope": "/",
+            "display": "standalone", "theme_color": theme_colour, "background_color": background,
+            "icons": [{"src": f"/static/favicon.svg?v={__version__}", "type": "image/svg+xml", "sizes": "any"}]}
+    return JSONResponse(body, media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/status.json")
 async def status_json(request: Request):
     if not status_enabled():

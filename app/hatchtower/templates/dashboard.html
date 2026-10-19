@@ -5,17 +5,19 @@
 {% if preview %}
 <div class="preview-banner">{{ _("Vorschau: So sieht") }} <strong>{{ preview }}</strong> {{ _("die Übersicht.") }} <a href="/admin/users">{{ _("Vorschau beenden") }}</a></div>
 {% endif %}
-<div class="page-head">
-  <div>
+<div class="page-head dash-head">
+  <div class="dash-title">
     <h1>{{ _("Übersicht") }}</h1>
     <p class="muted">{{ servers|length }} {{ _("Server sichtbar") }}</p>
   </div>
   <div class="head-tools">
-  {% if status_page_on and not preview %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} {{ ic.icon("external") }}</a>{% endif %}
+  {% if status_page_on and not preview %}<a class="chip chip-ghost status-link" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} {{ ic.icon("external") }}</a>{% endif %}
+  <div class="view-switches">
   {% if not view_locked and not preview %}{{ c.scope_toggle(simple_view, "/") }}{% endif %}
   <div class="view-toggle" role="group" aria-label="{{ _("Ansicht") }}">
-    <button type="button" data-view="tiles" aria-pressed="false">{{ ic.icon("tiles") }}<span>{{ _("Kacheln") }}</span></button>
     <button type="button" data-view="list" aria-pressed="true">{{ ic.icon("list") }}<span>{{ _("Liste") }}</span></button>
+    <button type="button" data-view="tiles" aria-pressed="false">{{ ic.icon("tiles") }}<span>{{ _("Kacheln") }}</span></button>
+  </div>
   </div>
   <div class="monitor-status {% if not monitor.healthy %}is-bad{% endif %}" id="monitor-status">
     {% if monitor.healthy %}{{ _("Monitoring aktiv") }}{% elif monitor.last_error %}{{ _(monitor.last_error) }}{% else %}{{ _("Monitoring startet …") }}{% endif %}

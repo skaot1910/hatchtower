@@ -52,6 +52,7 @@ Grundregeln:
 | POST | `/login` | Vorab-Token | Anmelden |
 | GET | `/lang/{code}` | – | Sprache umschalten (angemeldet: im Konto gespeichert) |
 | GET | `/status` | – | Öffentliche Statusseite (abschaltbar) |
+| GET | `/manifest.webmanifest` | – | Web-App-Manifest (Farben und Symbol der installierten App) |
 | GET | `/status.json` | – | Statusseite als JSON, nur freigegebene Angaben |
 | GET | `/status/logo/{ident}` | – | Logo eines Servers, nur wenn er auf der Statusseite steht |
 | GET | `/impressum` | – | Impressum (abschaltbar) |

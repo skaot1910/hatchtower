@@ -53,6 +53,7 @@ ROUTES: tuple[Route, ...] = (
       form={"username": "olga", "password": PASSWORD}),
     R("GET", "/lang/{code}", "public", "Sprache umschalten (angemeldet: im Konto gespeichert)"),
     R("GET", "/status", "public", "Öffentliche Statusseite (abschaltbar)"),
+    R("GET", "/manifest.webmanifest", "public", "Web-App-Manifest (Farben und Symbol der installierten App)"),
     R("GET", "/status.json", "public", "Statusseite als JSON, nur freigegebene Angaben"),
     R("GET", "/status/logo/{ident}", "public", "Logo eines Servers, nur wenn er auf der Statusseite steht"),
     R("GET", "/impressum", "public", "Impressum (abschaltbar)"),

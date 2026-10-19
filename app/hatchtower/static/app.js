@@ -733,7 +733,11 @@
     var btn = document.getElementById("menu-toggle");
     var menu = document.getElementById("topbar-menu");
     if (!btn || !menu) return;
+    var bar = btn.closest(".sidebar-top");
     function set(open) {
+      // the menu starts right below the top bar, whose height depends on the community name
+      if (open && bar) document.documentElement.style.setProperty("--menu-top", Math.round(bar.getBoundingClientRect().bottom) + "px");
+      document.documentElement.classList.toggle("menu-open", open);
       menu.classList.toggle("open", open);
       btn.setAttribute("aria-expanded", String(open));
       btn.setAttribute("aria-label", open ? tr("Menü schließen") : tr("Menü öffnen"));

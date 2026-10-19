@@ -3,6 +3,16 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.37.1 – 2026-10-19
+
+- Footer on every page (login included): "Hatchtower" links to the GitHub repository
+- Installed web app (Android): new web app manifest with the theme colours, so the bar behind the gesture
+  navigation is no longer white. Reinstall the app once to pick it up
+- Phone menu covers the whole page below the top bar; the page behind it no longer scrolls
+- Phone overview: the public status page link sits next to the heading, both switches (Simple/Everything and
+  List/Tiles) share one row
+- List/Tiles switch: List comes first
+
 ## 0.37.0 – 2026-10-19
 
 - Owners are told when someone registers through an invitation link, like with new servers: a notice in the
