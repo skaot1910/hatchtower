@@ -217,8 +217,10 @@ async def web_manifest():
     theme = themes.valid(db.get_setting("default_theme")) or themes.DEFAULT
     theme_colour, background = MANIFEST_COLOURS.get(theme, MANIFEST_COLOURS["nacht"])
     brand = load_brand()
-    icons = [{"src": f"/static/{name}.png?v={__version__}", "type": "image/png", "sizes": "512x512", "purpose": purpose}
-             for name, purpose in (("icon-512", "any"), ("icon-maskable-512", "maskable"))]
+    # Chrome only offers "Install app" with both a 192 px and a 512 px icon
+    icons = [{"src": f"/static/{name}-{size}.png?v={__version__}", "type": "image/png", "sizes": f"{size}x{size}",
+              "purpose": purpose}
+             for name, purpose in (("icon", "any"), ("icon-maskable", "maskable")) for size in (192, 512)]
     body = {"id": "/", "name": brand["name"], "short_name": brand["name"][:30], "start_url": "/", "scope": "/",
             "display": "standalone", "theme_color": theme_colour, "background_color": background, "icons": icons}
     return JSONResponse(body, media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})

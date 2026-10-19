@@ -3,6 +3,11 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.37.3 – 2026-10-19
+
+- Installed web app (Android): the manifest now also has 192 px icons. Chrome only offers "Install app" when there
+  is both a 192 px and a 512 px icon, so 0.37.2 could not be installed as an app
+
 ## 0.37.2 – 2026-10-19
 
 - Create server: short, collapsible guide with the essentials – where to find eggs (pelican-eggs/steamcmd,
