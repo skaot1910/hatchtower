@@ -69,8 +69,10 @@ door that keeps the panel inside the home network.
 
 - **Simple view** for friends: status, address, join password, start/restart – also on phones
 - **Overview** with live CPU, RAM and disk, favourites and tags; server page with history, uptime and **live console**
+- **Players tab**: is anyone online? Read from the game's query (Steam, Minecraft) or console, otherwise estimated
+  from network traffic – always showing which source decided, with a short history
 - **File manager**: view, upload, download (also as ZIP), edit, rename, delete
-- **Permissions per user and server**, reusable permission groups and **invite links**
+- **Permissions per user and server**, permission groups compared side by side, and **invite links**
 - **Automations**: restart after a crash, scheduled starts/stops/restarts with in-game warning
 - **Backups** to a drive or SMB share, checked after writing and **restorable** in a few clicks
 - **Notifications** in the web interface (bell with history), via Discord/webhook and email; **audit log**,
@@ -90,6 +92,10 @@ All screenshots use a test panel with made-up servers and users.
 
 <img src="docs/screenshots/server.png" alt="Server detail page" width="100%">
 
+**Players** – who is online and how Hatchtower knows.
+
+<img src="docs/screenshots/players.png" alt="Players tab: result, the three sources and the history" width="100%">
+
 **Files**
 
 <img src="docs/screenshots/files.png" alt="File manager" width="100%">
@@ -97,6 +103,10 @@ All screenshots use a test panel with made-up servers and users.
 **Permissions per user and server**
 
 <img src="docs/screenshots/user-permissions.png" alt="Permissions of a user on two servers" width="100%">
+
+**Permission groups** side by side
+
+<img src="docs/screenshots/permission-groups.png" alt="Permission groups compared in one table" width="100%">
 
 **Backups**
 
@@ -295,10 +305,11 @@ checks, enforced read-only mode, encrypted storage of keys.
 
 **Does it replace my panel?** No. Servers, eggs and nodes are still managed in the panel.
 
-**Does it show player counts?** No – that is not reliable across games.
+**Does it show player counts?** Yes, in the *Players* tab – exact where the game answers a query (Steam,
+Minecraft) or logs joins in the console, otherwise as an estimate from network traffic. The source is always shown.
 
 **Does Hatchtower phone home?** No, there is no telemetry. It only connects to your panel and Wings, to GitHub
-(twice a day, to look for updates), to your game servers (Steam query, to read the in-game server name) and to the
+(twice a day, to look for updates), to your game servers (Steam and Minecraft query, for the in-game server name and player count) and to the
 webhooks and mail server you set up.
 
 **Is it free?** Yes, under the AGPL-3.0.

@@ -30,7 +30,7 @@ from .permissions import (BY_KEY, PERMISSIONS, UserContext, create_starter_group
                           save_assignments, save_default_group, save_group, starter_groups_missing,
                           users_with_default_access, with_dependencies)
 from .ptero import PteroClient, PteroError, ReadOnlyViolation
-from .views import SERVER_QUERY, fmt_dt, fmt_size, server_view
+from .views import SERVER_QUERY, fmt_dt, fmt_size, presence_detail, presence_history, server_view
 from .wings import console_stream
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -137,6 +137,7 @@ async def lifespan(app: FastAPI):
     app.state.monitor.on_offline = app.state.automation.on_offline
     app.state.monitor.on_silent_restart = app.state.automation.on_silent_restart
     app.state.logarchive.on_status = lambda ident: app.state.monitor.follow(ident, 20)
+    app.state.logarchive.on_line = app.state.monitor.presence.feed
     app.state.monitor.on_new_servers = announce_new_servers
     app.state.monitor.start()
     app.state.automation.start()
@@ -1187,18 +1188,47 @@ async def api_metrics(request: Request, ident: str, range: int = 3600):
 # -- Serverdetails, Konsole, Dateien ---------------------------------------
 
 @app.get("/servers/{ident}", response_class=HTMLResponse)
-async def server_detail(request: Request, ident: str, log: str = "", log_n: int = serverlog.PAGE):
+async def server_detail(request: Request, ident: str, log: str = "", log_n: int = serverlog.PAGE,
+                        log_user: str = "", log_sort: str = ""):
     user = current_user(request)
     server = get_server_or_deny(request, user, ident)
     server["favorite"] = ident in extras.favorites(user.id)
     log = log if log in serverlog.KINDS else ""
-    log_entries, log_more = (serverlog.entries(ident, settings.timezone, log, log_n) if server["can_log"]
-                             else ([], False))
+    log_sort = log_sort if log_sort in serverlog.SORTS else ""
+    log_users = serverlog.users(ident) if server["can_log"] else []
+    log_user = log_user if log_user in log_users else ""
+    log_entries, log_more = (serverlog.entries(ident, settings.timezone, log, log_n, log_user, log_sort)
+                             if server["can_log"] else ([], False))
     return render(request, "server.html", server=server, uptime=extras.availability(ident),
                   uptime_bars=extras.uptime_bars(ident, 30, settings.timezone)["bars"],
                   archive_days=retention.console_days(), log_entries=log_entries, log_more=log_more,
                   log_kind=log, log_n=min(max(log_n, 1), serverlog.MAX), log_kinds=serverlog.KIND_LABELS,
-                  audit_days=retention.audit_days(), log_page=serverlog.PAGE, log_max=serverlog.MAX)
+                  log_users=log_users, log_user=log_user, log_sort=log_sort, log_sorts=serverlog.SORTS,
+                  audit_days=retention.audit_days(), log_page=serverlog.PAGE, log_max=serverlog.MAX,
+                  players=load_presence(server) if server["can_players"] else None)
+
+
+def load_presence(server: dict) -> dict:
+    with db.connect() as con:
+        row = con.execute("SELECT state, updated_at, presence, presence_source, presence_players, presence_info"
+                          " FROM server_state WHERE identifier = ?", (server["identifier"],)).fetchone()
+    if row is None:
+        row = {"state": None, "updated_at": None, "presence": None, "presence_source": None,
+               "presence_players": None, "presence_info": None}
+    lines = server["can_console"] or server["can_archive"]
+    detail = presence_detail(row, settings.timezone, lines)
+    detail["history"] = presence_history(server["identifier"], settings.timezone, lines)
+    return detail
+
+
+@app.get("/servers/{ident}/players", response_class=HTMLResponse)
+async def server_players(request: Request, ident: str):
+    """The 'Spieler' tab on its own, reloaded every few seconds while it is open."""
+    user = current_user(request)
+    server = get_server_or_deny(request, user, ident)
+    if not server["can_players"]:
+        deny(request, user, "server.players", ident)
+    return render(request, "_players.html", server=server, players=load_presence(server))
 
 
 CONSOLE_RECHECK_SECONDS = 15

@@ -108,6 +108,7 @@ ROUTES: tuple[Route, ...] = (
 
     # -- Server ---------------------------------------------------------------------------
     R("GET", "/servers/{ident}", "server", "Serverdetails", perm="server.view"),
+    R("GET", "/servers/{ident}/players", "server", "Reiter Spieler: wer online ist und woran es erkannt wird", perm="server.players"),
     R("GET", "/api/servers/{ident}/metrics", "server", "Verlauf CPU, RAM, Netzwerk", perm="server.view"),
     R("POST", "/api/servers/{ident}/favorite", "server", "Favorit an/aus (nur eigene Liste)", perm="server.view",
       csrf="header"),

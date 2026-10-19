@@ -3,6 +3,22 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.36.0 – 2026-10-19
+
+- New **Players** tab on the server page: shows whether anyone is online and how that was detected. Three sources
+  are asked in order: query protocol (Steam A2S, Minecraft Java, Minecraft Bedrock), console lines of known games
+  (joins/leaves and player counts, e.g. Minecraft, Terraria, Valheim, Factorio, Palworld, 7 Days to Die), and as a
+  last resort an estimate from network traffic. The deciding source, its evidence and a 30-day history are shown.
+  Needs the new permission **View players** (owners always see it)
+- Server log tab: filter by user and sort by user
+- Permission groups: one comparison table (permissions as rows, groups as columns) instead of separate cards; the
+  edit form lists each permission in a tidy row
+- Server page: switch between the simple and the full view there as well
+- Simple overview: "Select all" and checkboxes for shared start/stop/restart, as in the full view
+- System → Updates: the "Check for updates now" button is highlighted
+- Server list: name on its own line with status and game always together below it
+- The Minecraft Java ping is only sent to Minecraft eggs, so other games no longer log it as a connecting player
+
 ## 0.35.3 – 2026-10-18
 
 - Phones: the server list is compact again (about a quarter less height per server) and keeps all values:

@@ -38,6 +38,7 @@ KIND_OF = {a: kind for kind, actions in KINDS.items() for a in actions}
 STATES = ("running", "offline")       # „wird gestartet“ und „wird gestoppt“ wären nur Rauschen
 PAGE = 25
 MAX = 500
+SORTS = {"": "Neueste zuerst", "user": "Nach Benutzer"}
 
 
 def _epoch(iso: str) -> float:
@@ -70,16 +71,35 @@ def _detail(raw: str | None) -> str:
     return str(value)
 
 
-def entries(ident: str, tz: str, kind: str = "", limit: int = PAGE) -> tuple[list[dict], bool]:
-    """Neueste Einträge zuerst. Zweiter Wert: ob es ältere gibt."""
+def users(ident: str) -> list[str]:
+    """Everyone who did something on this server that the log shows (for the user filter)."""
+    marks = ",".join("?" * len(ACTIONS))
+    with db.connect() as con:
+        rows = con.execute(
+            f"SELECT DISTINCT username FROM audit_log WHERE server = ? AND action IN ({marks})"
+            " AND result IN ('ok', 'error') AND username IS NOT NULL AND username != ''"
+            " ORDER BY username COLLATE NOCASE", (ident, *ACTIONS)).fetchall()
+    return [r["username"] for r in rows]
+
+
+def entries(ident: str, tz: str, kind: str = "", limit: int = PAGE, user: str = "",
+            sort: str = "") -> tuple[list[dict], bool]:
+    """Newest first, or grouped by user (sort="user"; status changes without a user come last).
+    With a user filter only that user's actions are shown. Second value: whether there are more."""
     actions = KINDS.get(kind, ACTIONS)
     limit = max(1, min(limit, MAX))
     marks = ",".join("?" * len(actions))
+    by_user = sort == "user"
+    where, params = "", []
+    if user:
+        where, params = " AND username = ?", [user]
+    order = "username COLLATE NOCASE, id DESC" if by_user else "id DESC"
     items = []
     with db.connect() as con:
         rows = con.execute(
             f"SELECT ts, username, action, detail, result FROM audit_log WHERE server = ? AND action IN ({marks})"
-            " AND result IN ('ok', 'error') ORDER BY id DESC LIMIT ?", (ident, *actions, limit + 1)).fetchall()
+            f" AND result IN ('ok', 'error'){where} ORDER BY {order} LIMIT ?",
+            (ident, *actions, *params, limit + 1)).fetchall()
         for r in rows:
             items.append({
                 "at": _epoch(r["ts"]), "ts": fmt_dt(r["ts"], tz, seconds=True), "kind": KIND_OF[r["action"]],
@@ -87,7 +107,7 @@ def entries(ident: str, tz: str, kind: str = "", limit: int = PAGE) -> tuple[lis
                 "detail": _detail(r["detail"]), "error": r["result"] == "error",
                 "crash": r["action"] == "automation.crash",
             })
-        if kind in ("", "power"):
+        if kind in ("", "power") and not user:
             states = con.execute(
                 "SELECT ts, state FROM state_changes WHERE identifier = ? AND state IN (?, ?) ORDER BY ts DESC LIMIT ?",
                 (ident, *STATES, limit + 1)).fetchall()
@@ -98,5 +118,8 @@ def entries(ident: str, tz: str, kind: str = "", limit: int = PAGE) -> tuple[lis
                     "action": t("Status: {state}", state=t(STATE_LABELS.get(r["state"], r["state"]))),
                     "username": "", "detail": "", "error": False, "crash": False, "state": r["state"],
                 })
-    items.sort(key=lambda e: e["at"], reverse=True)
+    if by_user:
+        items.sort(key=lambda e: (not e["username"], e["username"].lower(), -e["at"]))
+    else:
+        items.sort(key=lambda e: e["at"], reverse=True)
     return items[:limit], len(items) > limit

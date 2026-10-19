@@ -604,6 +604,26 @@ MIGRATIONS: list[str] = [
     """
     DELETE FROM app_settings WHERE key = 'brand_logo_header';
     """,
+    # 31: is anyone on the server? verdict, deciding source and the evidence (presence.py)
+    """
+    ALTER TABLE server_state ADD COLUMN presence TEXT;
+    ALTER TABLE server_state ADD COLUMN presence_source TEXT;
+    ALTER TABLE server_state ADD COLUMN presence_players INTEGER;
+    ALTER TABLE server_state ADD COLUMN presence_info TEXT;
+    """,
+    # 32: history of player detection changes (shown in the players tab, kept for 30 days)
+    """
+    CREATE TABLE presence_log (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        identifier  TEXT NOT NULL,
+        ts          INTEGER NOT NULL,
+        presence    TEXT NOT NULL,
+        source      TEXT,
+        players     INTEGER,
+        evidence    TEXT
+    );
+    CREATE INDEX presence_log_server ON presence_log (identifier, id);
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

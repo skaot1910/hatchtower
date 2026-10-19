@@ -784,6 +784,20 @@
     show(keyFor(location.hash));
   }
 
+  // ---- Server page: the "Spieler" tab reloads itself while it is visible ------------------
+  function startPresenceTab() {
+    var box = document.querySelector("[data-presence]");
+    if (!box) return;
+    function reload() {
+      if (box.hidden || document.hidden) return;
+      fetch(box.dataset.presence, { credentials: "same-origin", headers: { Accept: "text/html" } })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (html) { if (html !== null) box.innerHTML = html; })
+        .catch(function () { /* next try in a few seconds */ });
+    }
+    setInterval(reload, 10000);
+  }
+
   // ---- Theme switch (dark/light): applied at once, saved in the background ----------------
   function startThemeSwitch() {
     document.querySelectorAll(".theme-switch a[data-theme-key]").forEach(function (a) {
@@ -1820,6 +1834,7 @@
     startAccountMenu();
     startThemeSwitch();
     startServerTabs();
+    startPresenceTab();
     checkDesktopMode();
     startViewToggle();
     startStatusFilter();

@@ -72,8 +72,10 @@ deshalb Hatchtower: eine kleine, sichere Haustür, hinter der das Panel im Heimn
 
 - **Einfache Ansicht** für Freunde: Status, Adresse, Beitritts-Passwort, Starten/Neustarten – auch am Handy
 - **Übersicht** mit CPU, RAM und Speicher live, Favoriten und Tags; Serverseite mit Verlauf, Verfügbarkeit und **Live-Konsole**
+- **Reiter Spieler**: Ist jemand online? Aus der Query des Spiels (Steam, Minecraft) oder der Konsole, sonst aus dem
+  Netzwerk-Traffic geschätzt – immer mit der Quelle, die entschieden hat, und einem kurzen Verlauf
 - **Dateiverwaltung**: ansehen, hochladen, herunterladen (auch als ZIP), bearbeiten, umbenennen, löschen
-- **Rechte pro Benutzer und Server**, wiederverwendbare Rechtegruppen und **Einladungslinks**
+- **Rechte pro Benutzer und Server**, Rechtegruppen im direkten Vergleich und **Einladungslinks**
 - **Automationen**: Neustart nach Absturz, geplantes Starten/Stoppen/Neustarten mit Vorwarnung im Spiel
 - **Backups** auf ein Laufwerk oder eine SMB-Freigabe, nach dem Schreiben geprüft und mit wenigen Klicks **wiederherstellbar**
 - **Benachrichtigungen** in der Oberfläche (Glocke mit Verlauf), per Discord/Webhook und E-Mail; **Audit-Log**,
@@ -93,6 +95,10 @@ Alle Screenshots zeigen ein Test-Panel mit erfundenen Servern und Benutzern.
 
 <img src="docs/screenshots/server.png" alt="Detailseite eines Servers" width="100%">
 
+**Spieler** – wer online ist und woher Hatchtower das weiß.
+
+<img src="docs/screenshots/players.png" alt="Reiter Spieler: Ergebnis, die drei Quellen und der Verlauf" width="100%">
+
 **Dateien**
 
 <img src="docs/screenshots/files.png" alt="Dateiverwaltung" width="100%">
@@ -100,6 +106,10 @@ Alle Screenshots zeigen ein Test-Panel mit erfundenen Servern und Benutzern.
 **Rechte pro Benutzer und Server**
 
 <img src="docs/screenshots/user-permissions.png" alt="Rechte eines Benutzers auf zwei Servern" width="100%">
+
+**Rechtegruppen** im Vergleich
+
+<img src="docs/screenshots/permission-groups.png" alt="Rechtegruppen in einer Tabelle verglichen" width="100%">
 
 **Backups**
 
@@ -300,11 +310,13 @@ Server, erzwungener Read-Only-Modus, verschlüsselte Ablage der Keys.
 
 **Ersetzt es mein Panel?** Nein. Server, Eggs und Nodes verwaltest du weiter im Panel.
 
-**Zeigt es die Spielerzahl?** Nein – das klappt nicht zuverlässig für jedes Spiel.
+**Zeigt es die Spielerzahl?** Ja, im Reiter *Spieler* – genau, wo das Spiel auf eine Query antwortet (Steam,
+Minecraft) oder Beitritte in die Konsole schreibt, sonst als Schätzung aus dem Netzwerk-Traffic. Die Quelle steht
+immer dabei.
 
 **Sendet Hatchtower Daten nach Hause?** Nein, es gibt keine Telemetrie. Hatchtower verbindet sich nur mit deinem Panel
-und Wings, mit GitHub (zweimal am Tag, um nach Updates zu sehen), mit deinen Gameservern (Steam-Query, um den
-Ingame-Servernamen zu lesen) und mit den Webhooks und dem Mailserver, die du einrichtest.
+und Wings, mit GitHub (zweimal am Tag, um nach Updates zu sehen), mit deinen Gameservern (Steam- und Minecraft-Query,
+für Ingame-Servernamen und Spielerzahl) und mit den Webhooks und dem Mailserver, die du einrichtest.
 
 **Ist es kostenlos?** Ja, unter der AGPL-3.0.
 

@@ -14,7 +14,8 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from . import db, i18n, notify
-from .gamequery import GameQuery
+from .gamequery import GameQuery, is_minecraft_java
+from .presence import Presence
 from .ptero import PteroClient, PteroError
 from .security import Vault
 
@@ -44,6 +45,7 @@ PANEL_DOWN_AFTER = 2              # so viele Fehlversuche in Folge, bis Pterodac
 
 POLL_QUERY = (
     "SELECT s.identifier, s.primary_ip, s.allocations, s.limit_memory, s.limit_disk, s.limit_cpu, m.query_port AS fixed_port,"
+    " s.egg, m.game_name,"
     " st.state AS prev_state, st.uptime_ms AS prev_uptime, st.updated_at AS prev_updated FROM servers s"
     " LEFT JOIN server_meta m ON m.identifier = s.identifier"
     " LEFT JOIN server_state st ON st.identifier = s.identifier"
@@ -73,6 +75,7 @@ class Monitor:
         self.poll_interval = poll_interval
         self.sync_interval = sync_interval
         self.query = GameQuery()
+        self.presence = Presence()
         self.last_ok: str | None = None
         self.last_error: str | None = None
         self.last_sync: str | None = None
@@ -300,14 +303,21 @@ class Monitor:
         except Exception:
             log.exception("Ressourcen-Prüfung")
 
-        players = max_players = query_name = query_port = None
+        players = max_players = query_name = query_port = q = None
         if state == "running":
             ports = [a["port"] for a in json.loads(row["allocations"] or "[]") if a.get("port")]
-            q = await self.query.query(ident, row["primary_ip"], ports, row["fixed_port"])
+            q = await self.query.query(ident, row["primary_ip"], ports, row["fixed_port"],
+                                       java=is_minecraft_java(f'{row["egg"] or ""} {row["game_name"] or ""}'))
             if q:
                 players, max_players, query_name, query_port = q.players, q.max_players, q.name, q.port
         else:
             self.query.forget(ident)
+        presence, presence_source, presence_players, presence_info = self.presence.update(
+            ident, state, prev, started_at, (res["rx_bytes"] or 0) + (res["tx_bytes"] or 0), q)
+        try:
+            self.presence.record(ident, presence, presence_source, presence_players)
+        except Exception:
+            log.exception("Player detection history")
 
         if time.time() - self._last_sample.get(ident, 0) >= METRICS_MIN_GAP:
             self._last_sample[ident] = time.time()
@@ -319,8 +329,9 @@ class Monitor:
             con.execute(
                 """
                 INSERT INTO server_state (identifier, state, last_started_at, last_stopped_at, cpu,
-                    memory_bytes, disk_bytes, uptime_ms, players, max_players, query_name, query_port, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    memory_bytes, disk_bytes, uptime_ms, players, max_players, query_name, query_port, updated_at,
+                    presence, presence_source, presence_players, presence_info)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(identifier) DO UPDATE SET
                     state = excluded.state,
                     last_started_at = COALESCE(excluded.last_started_at, server_state.last_started_at),
@@ -329,8 +340,11 @@ class Monitor:
                     uptime_ms = excluded.uptime_ms, players = excluded.players, max_players = excluded.max_players,
                     query_name = COALESCE(excluded.query_name, server_state.query_name),
                     query_port = COALESCE(excluded.query_port, server_state.query_port),
-                    updated_at = excluded.updated_at
+                    updated_at = excluded.updated_at, presence = excluded.presence,
+                    presence_source = excluded.presence_source, presence_players = excluded.presence_players,
+                    presence_info = excluded.presence_info
                 """,
                 (ident, state, started_at, stopped_at, res["cpu"], res["memory_bytes"], res["disk_bytes"],
-                 res["uptime_ms"], players, max_players, query_name, query_port, now_s),
+                 res["uptime_ms"], players, max_players, query_name, query_port, now_s,
+                 presence, presence_source, presence_players, presence_info),
             )

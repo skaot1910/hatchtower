@@ -33,6 +33,9 @@ PERMISSIONS: tuple[Permission, ...] = (
                "Das Protokoll des Servers sehen: wer ihn wann gestartet, gestoppt oder neu gestartet hat, Abstürze,"
                " Statuswechsel, Konsolenbefehle, Dateiänderungen, Zeitpläne und Backups. Ohne IP-Adressen.",
                requires=("server.view",)),
+    Permission("server.players", "Spieler sehen", "Allgemein",
+               "Den Reiter „Spieler“ sehen: ob gerade jemand auf dem Server ist, woran das erkannt wird, und den"
+               " Verlauf. Die Namen der Spieler sind darin zu sehen.", requires=("server.view",)),
     Permission("server.manage", "Server verwalten", "Allgemein",
                "Logo, Ingame-Servername, Passwort und öffentliche Adresse im Manager pflegen.", requires=("server.view",)),
     Permission("power.start", "Start", "Steuerung", "Server starten.", write=True, requires=("server.view",)),
@@ -328,7 +331,7 @@ STARTER_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("Gruppe|Spieler", "Darf den Server außerdem starten und neu starten, aber nicht stoppen",
      ("server.view", "server.password", "power.start", "power.restart")),
     ("Gruppe|Moderator", "Steuert den Server, liest die Konsole, sendet Befehle und sieht das Protokoll",
-     ("server.view", "server.password", "server.log", "power.start", "power.stop", "power.restart",
+     ("server.view", "server.password", "server.log", "server.players", "power.start", "power.stop", "power.restart",
       "console.read", "console.command", "console.archive")),
 )
 

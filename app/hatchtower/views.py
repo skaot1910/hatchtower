@@ -178,6 +178,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
         "can_console": user.can(ident, "console.read"),
         "can_archive": user.can(ident, "console.archive"),
         "can_log": user.can(ident, "server.log"),
+        "can_players": user.can(ident, "server.players"),
         "can_files": user.can(ident, "sftp.view"),
         "can_manage": user.can(ident, "server.manage"),
         "can_admin": user.can(ident, "admin.view"),
@@ -194,6 +195,25 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
     }
 
 
+PRESENCE_SOURCES = {"query": "Query-Protokoll", "console": "Konsole", "traffic": "Netzwerk-Traffic (Schätzung)"}
+
+
+def presence_badge(presence: str | None, source: str | None, players: int | None) -> dict:
+    """Verdict shown at the top of the 'Spieler' tab; empty while not running."""
+    if not presence:
+        return {"presence": "", "presence_label": ""}
+    if presence == "busy":
+        if source == "traffic" or players is None:
+            label = t("vermutlich belegt")
+        else:
+            label = t("1 Spieler online") if players == 1 else t("{n} Spieler online", n=players)
+    elif presence == "empty":
+        label = t("vermutlich leer") if source == "traffic" else t("niemand online")
+    else:
+        label = t("Spieler unbekannt")
+    return {"presence": presence, "presence_label": label}
+
+
 SERVER_QUERY = """
 SELECT s.*, st.state, st.last_started_at, st.last_stopped_at, st.cpu, st.memory_bytes, st.disk_bytes,
        st.players, st.max_players, st.query_name, st.updated_at,
@@ -203,3 +223,91 @@ LEFT JOIN server_state st ON st.identifier = s.identifier
 LEFT JOIN server_meta m ON m.identifier = s.identifier
 WHERE s.present = 1
 """
+
+
+QUERY_PROTOCOLS = {"a2s": "Steam-Query (A2S)", "minecraft": "Minecraft Java (Server List Ping)",
+                   "bedrock": "Minecraft Bedrock (RakNet-Ping)"}
+
+
+def presence_detail(row, tz: str, show_lines: bool) -> dict:
+    """Everything the 'Spieler' tab shows: the verdict and what each source currently sees."""
+    from .presence import fmt_rate   # local import: presence imports db, views stays light
+
+    running = (row["state"] or "") == "running" and not is_stale(row["updated_at"])
+    try:
+        info = json.loads(row["presence_info"] or "{}")
+    except ValueError:
+        info = {}
+    q, c, tr = info.get("query"), info.get("console") or {}, info.get("traffic") or {}
+    source = row["presence_source"] if running else None
+
+    def at(ts) -> str:
+        return fmt_dt(datetime.fromtimestamp(ts, timezone.utc).isoformat(), tz, seconds=True) if ts else "–"
+
+    query = {"active": bool(q), "decides": source == "query"}
+    if q:
+        query.update(protocol=t(QUERY_PROTOCOLS.get(q.get("protocol"), q.get("protocol") or "")), port=q.get("port"),
+                     players=q.get("players"), max=q.get("max"), at=at(q.get("at")))
+
+    names = c.get("names") or []
+    known = c.get("count") is not None or bool(names) or bool(c.get("since_start"))
+    console = {"active": running and known, "decides": source == "console", "game": c.get("game"),
+               "names": names, "count": c.get("count") if c.get("count") is not None else len(names),
+               "max": c.get("max"), "since_start": bool(c.get("since_start")),
+               "last_line": c.get("last_line") if show_lines else None, "last_at": at(c.get("last_at"))}
+
+    traffic = {"active": running and tr.get("rate") is not None and tr.get("threshold") is not None,
+               "decides": source == "traffic", "rate": fmt_rate(tr.get("rate")),
+               "threshold": fmt_rate(tr.get("threshold")), "baseline": fmt_rate(tr.get("baseline")),
+               "learned_idle": fmt_rate(tr.get("learned_idle")), "threshold_from": tr.get("threshold_from"),
+               "over": (tr.get("rate") or 0) > (tr.get("threshold") or float("inf"))}
+
+    # one sentence: where the verdict comes from
+    reason = ""
+    if source == "query" and q:
+        reason = t("{protocol} auf Port {port} meldet {n} Spieler.", protocol=query["protocol"], port=q.get("port"),
+                   n=f'{q.get("players")} / {q.get("max")}' if q.get("max") else q.get("players"))
+    elif source == "console":
+        if names:
+            reason = t("Laut Konsole beigetreten und nicht wieder gegangen: {names}", names=", ".join(names))
+        elif c.get("count") is not None:
+            reason = (t("Letzte Konsolenzeile mit Spielerzahl: {line}", line=c.get("last_line"))
+                      if show_lines and c.get("last_line") else t("Spielerzahl aus einer Konsolenzeile ({game})",
+                                                                   game=c.get("game") or "–"))
+        else:
+            reason = t("Seit dem Serverstart ist laut Konsole niemand beigetreten.")
+    elif source == "traffic":
+        reason = t("Netzwerk-Traffic {rate}, Grenze für „belegt“ {threshold}.", rate=traffic["rate"],
+                   threshold=traffic["threshold"])
+
+    return {"running": running, "source": source, "reason": reason,
+            "source_label": t(PRESENCE_SOURCES[source]) if source in PRESENCE_SOURCES else "",
+            **presence_badge((row["presence"] or "unknown") if running else None, row["presence_source"],
+                             row["presence_players"]),
+            "players": row["presence_players"] if running else None,
+            "query": query, "console": console, "traffic": traffic,
+            "updated_at": fmt_dt(row["updated_at"], tz, seconds=True)}
+
+
+HISTORY_ROWS = 20
+
+
+def presence_history(ident: str, tz: str, show_lines: bool) -> list[dict]:
+    """Last changes of the player detection, newest first."""
+    from . import db
+    with db.connect() as con:
+        rows = con.execute("SELECT ts, presence, source, players, evidence FROM presence_log WHERE identifier = ?"
+                           " ORDER BY id DESC LIMIT ?", (ident, HISTORY_ROWS)).fetchall()
+    items = []
+    for r in rows:
+        evidence = r["evidence"] or ""
+        if r["source"] == "query" and ":" in evidence:
+            protocol, port = evidence.split(":", 1)
+            evidence = t("{protocol}, Port {port}", protocol=t(QUERY_PROTOCOLS.get(protocol, protocol)), port=port)
+        elif r["source"] == "console" and not show_lines:
+            evidence = ""
+        items.append({"ts": fmt_dt(datetime.fromtimestamp(r["ts"], timezone.utc).isoformat(), tz, seconds=True),
+                      **presence_badge(r["presence"], r["source"], r["players"]),
+                      "source_label": t(PRESENCE_SOURCES[r["source"]]) if r["source"] in PRESENCE_SOURCES else "–",
+                      "evidence": evidence})
+    return items

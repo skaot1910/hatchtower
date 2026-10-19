@@ -24,7 +24,7 @@
   <div class="form-actions">
     <form method="post" action="/admin/system/update-check" class="inline-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="btn btn-ghost btn-sm" type="submit" {% if upd_cooldown %}disabled title="{{ _("Wieder möglich in {n} Sekunden", n=upd_cooldown) }}"{% endif %}>{{ _("Jetzt nach Updates suchen") }}</button>
+      <button class="btn {{ 'btn-ghost' if upd.available and not upd_running else 'btn-primary' }} btn-sm" type="submit" {% if upd_cooldown %}disabled title="{{ _("Wieder möglich in {n} Sekunden", n=upd_cooldown) }}"{% endif %}>{{ _("Jetzt nach Updates suchen") }}</button>
     </form>
     {% if upd.available and not upd_running %}
       {% if upd_helper %}

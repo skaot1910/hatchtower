@@ -12,12 +12,7 @@
   </div>
   <div class="head-tools">
   {% if status_page_on and not preview %}<a class="chip chip-ghost" href="/status" target="_blank" rel="noopener" title="{{ _("Öffentliche Statusseite in neuem Tab öffnen") }}">{{ _("Öffentlicher Serverstatus") }} {{ ic.icon("external") }}</a>{% endif %}
-  {% if not view_locked and not preview %}
-  <div class="view-toggle scope-toggle" role="group" aria-label="{{ _("Umfang der Angaben") }}">
-    <a href="/view/simple?next=/" title="{{ _("Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp") }}"{% if simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Einfach") }}</a>
-    <a href="/view/full?next=/" title="{{ _("Alle Angaben, Diagramme und Werkzeuge") }}"{% if not simple_view %} class="is-current" aria-current="true"{% endif %}>{{ _("Alles") }}</a>
-  </div>
-  {% endif %}
+  {% if not view_locked and not preview %}{{ c.scope_toggle(simple_view, "/") }}{% endif %}
   <div class="view-toggle" role="group" aria-label="{{ _("Ansicht") }}">
     <button type="button" data-view="tiles" aria-pressed="false">{{ ic.icon("tiles") }}<span>{{ _("Kacheln") }}</span></button>
     <button type="button" data-view="list" aria-pressed="true">{{ ic.icon("list") }}<span>{{ _("Liste") }}</span></button>
@@ -58,7 +53,7 @@
 {% if servers %}
 <div class="list-tools">
 {% set ns = namespace(selectable=false) %}{% for s in servers %}{% if s.can_start or s.can_stop or s.can_restart %}{% set ns.selectable = true %}{% endif %}{% endfor %}
-{% if not preview and ns.selectable and not simple_view %}
+{% if not preview and ns.selectable %}
 <label class="bulk-all" title="{{ _("Alle sichtbaren Server für eine gemeinsame Aktion auswählen") }}">
   <input type="checkbox" class="bulk-box" id="bulk-all"> {{ _("Alle auswählen") }}
 </label>
@@ -88,7 +83,7 @@
 </div>
 {% endif %}
 <p class="filter-empty" id="filter-empty" hidden>{{ _("Kein Server passt zum gewählten Filter.") }}</p>
-{% if not preview and not simple_view %}
+{% if not preview %}
 <div class="bulk-bar" id="bulk-bar" hidden>
   <span id="bulk-count"></span>
   <button type="button" class="pbtn pbtn-start" data-bulk-action="start">{{ ic.icon("play") }}<span>{{ _("Start") }}</span></button>
@@ -104,6 +99,7 @@
   {% for s in servers %}
   <article class="card server-card simple-card state-{{ s.state }}{% if s.favorite %} is-favorite{% endif %}" data-ident="{{ s.identifier }}" data-tags="{{ s.tags|join('|') }}" data-name="{{ s.name }}">
     <div class="card-head">
+      {{ c.bulk_box(s, preview) }}
       <a class="card-head-link" href="/servers/{{ s.identifier }}" title="{{ s.name }}">
         {{ c.logo(s) }}
         <div class="card-title"><h2>{{ s.name }}</h2>{{ c.state_pill(s) }}</div>
@@ -120,7 +116,7 @@
   {% for s in servers %}
   <article class="card server-card state-{{ s.state }}{% if s.favorite %} is-favorite{% endif %}" data-ident="{{ s.identifier }}" data-tags="{{ s.tags|join('|') }}" data-name="{{ s.name }}">
     <div class="card-head">
-      {% if not preview and (s.can_start or s.can_stop or s.can_restart) %}<input type="checkbox" class="bulk-box" data-bulk="{{ s.identifier }}" data-can="{{ 'start ' if s.can_start }}{{ 'stop ' if s.can_stop }}{{ 'restart' if s.can_restart }}" aria-label="{{ _("{name} für gemeinsame Aktion auswählen", name=s.name) }}" title="{{ _("Für gemeinsame Aktion auswählen") }}">{% endif %}
+      {{ c.bulk_box(s, preview) }}
       <a class="card-head-link" href="/servers/{{ s.identifier }}" title="{{ s.name }}">
         {{ c.logo(s) }}
         <div class="card-title">

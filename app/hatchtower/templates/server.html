@@ -16,6 +16,7 @@
       {% if server.can_files %}<a class="chip" href="/servers/{{ server.identifier }}/files">{{ _("Dateien") }}</a>{% endif %}
       {% if server.can_manage %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
       {% if server.can_admin %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/admin">{{ _("Panel-Einstellungen") }}</a>{% endif %}
+      {% if not view_locked %}{{ c.scope_toggle(simple_view, "/servers/" ~ server.identifier) }}{% endif %}
     </div>
   </div>
   {{ c.power(server, not simple_view) }}
@@ -30,6 +31,7 @@
 {# Reiter: ohne JavaScript bleiben alle Bereiche untereinander sichtbar #}
 <nav class="subnav server-tabs" id="server-tabs" aria-label="{{ _("Bereiche des Servers") }}" hidden>
   <a href="#uebersicht" data-tab-link="uebersicht">{{ _("Übersicht") }}</a>
+  {% if server.can_players %}<a href="#spieler" data-tab-link="spieler">{{ _("Spieler") }}</a>{% endif %}
   {% if server.can_console %}<a href="#konsole" data-tab-link="konsole">{{ _("Konsole") }}</a>{% endif %}
   {% if server.can_archive %}<a href="#log-archiv" data-tab-link="log-archiv">{{ _("Konsolen-Archiv") }}</a>{% endif %}
   {% if server.can_log %}<a href="#protokoll" data-tab-link="protokoll">{{ _("Protokoll") }}</a>{% endif %}
@@ -78,6 +80,11 @@
   </div>
   <p class="faint small chart-note" id="chart-note">{{ _("Live: letzte 2 Minuten, jede Sekunde aktualisiert, solange der Server läuft. Gespeichert werden 72 Stunden.") }}</p>
 </section>
+{% if server.can_players %}
+<section class="card" id="spieler" data-tab="spieler" data-presence="/servers/{{ server.identifier }}/players">
+{% include "_players.html" %}
+</section>
+{% endif %}
 {% endif %}
 
 {% if server.can_console %}
@@ -139,12 +146,21 @@
     <select name="log" aria-label="{{ _("Art") }}">
       {% for key, label in log_kinds.items() %}<option value="{{ key }}" {% if key == log_kind %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}
     </select>
+    {% if log_users %}
+    <select name="log_user" aria-label="{{ _("Spalte|Benutzer") }}">
+      <option value="">{{ _("Alle Benutzer") }}</option>
+      {% for name in log_users %}<option value="{{ name }}" {% if name == log_user %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="log_sort" aria-label="{{ _("Sortierung") }}">
+      {% for key, label in log_sorts.items() %}<option value="{{ key }}" {% if key == log_sort %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}
+    </select>
     <button class="btn btn-ghost btn-sm" type="submit">{{ _("Anzeigen") }}</button>
   </form>
   {% if log_entries %}
   <div class="table-card">
   <table class="table stack-table server-log">
-    <thead><tr><th>{{ _("Zeit") }}</th><th>{{ _("Ereignis") }}</th><th>{{ _("Spalte|Benutzer") }}</th><th>{{ _("Details") }}</th></tr></thead>
+    <thead><tr><th>{{ _("Zeit") }}</th><th>{{ _("Ereignis") }}</th><th><a class="th-sort{% if log_sort == 'user' %} active{% endif %}" href="/servers/{{ server.identifier }}?log={{ log_kind }}&amp;log_user={{ log_user|urlencode }}&amp;log_sort={{ '' if log_sort == 'user' else 'user' }}#protokoll" title="{{ _("Nach Benutzer sortieren") }}">{{ _("Spalte|Benutzer") }}{% if log_sort == 'user' %} ↓{% endif %}</a></th><th>{{ _("Details") }}</th></tr></thead>
     <tbody>
     {% for e in log_entries %}
     <tr class="log-{{ e.kind }}{% if e.state %} log-state-{{ e.state }}{% endif %}{% if e.error %} log-error{% endif %}{% if e.crash %} log-crash{% endif %}">
@@ -158,7 +174,7 @@
   </table>
   </div>
   {% if log_more and log_n < log_max %}
-  <a class="btn btn-ghost btn-sm" href="/servers/{{ server.identifier }}?log={{ log_kind }}&amp;log_n={{ [log_n + log_page * 2, log_max]|min }}#protokoll">{{ _("Ältere Einträge anzeigen") }}</a>
+  <a class="btn btn-ghost btn-sm" href="/servers/{{ server.identifier }}?log={{ log_kind }}&amp;log_user={{ log_user|urlencode }}&amp;log_sort={{ log_sort }}&amp;log_n={{ [log_n + log_page * 2, log_max]|min }}#protokoll">{{ _("Ältere Einträge anzeigen") }}</a>
   {% endif %}
   {% else %}
   <p class="faint">{{ _("Noch keine Einträge.") }}</p>

@@ -1,0 +1,80 @@
+{# Inhalt des Reiters "Spieler": Ergebnis und was jede Quelle gerade sieht (wird alle paar Sekunden neu geladen) #}
+{% set p = players %}
+<div class="console-toolbar">
+  <h2 class="card-h">{{ _("Spieler") }}</h2>
+  <span class="faint small">{{ _("Stand:") }} {{ p.updated_at }}</span>
+</div>
+{% if not p.running %}
+<p class="faint">{{ _("Der Server läuft gerade nicht, deshalb wird nichts erkannt.") }}</p>
+{% else %}
+<div class="presence-result">
+  <span class="presence presence-{{ p.presence }}"><span class="dot"></span><span>{{ p.presence_label }}</span></span>
+  {% if p.source %}<span class="faint">{{ _("entschieden über:") }} <strong>{{ p.source_label }}</strong></span>
+  {% else %}<span class="faint">{{ _("Keine Quelle liefert gerade ein Ergebnis.") }}</span>{% endif %}
+</div>
+{% if p.reason %}<p class="presence-reason">{{ p.reason }}</p>{% endif %}
+{% endif %}
+<p class="faint small">{{ _("Die Quellen werden der Reihe nach gefragt; die erste, die etwas weiß, entscheidet. Query und Konsole zählen genau, der Traffic ist nur eine Schätzung.") }}</p>
+
+<div class="presence-sources">
+  <section class="presence-source{% if p.query.decides %} is-deciding{% elif p.query.active %} is-active{% endif %}">
+    <h3>1 · {{ _("Query-Protokoll") }} {% if p.query.decides %}<span class="badge">{{ _("entscheidet") }}</span>{% endif %}</h3>
+    {% if p.query.active %}
+    <div class="kv"><span>{{ _("Netzwerk|Protokoll") }}</span><span>{{ p.query.protocol }}</span></div>
+    <div class="kv"><span>{{ _("Port") }}</span><span class="mono">{{ p.query.port }}</span></div>
+    <div class="kv"><span>{{ _("Spieler") }}</span><span>{{ p.query.players }}{% if p.query.max %} / {{ p.query.max }}{% endif %}</span></div>
+    <div class="kv"><span>{{ _("Letzte Antwort") }}</span><span>{{ p.query.at }}</span></div>
+    {% else %}
+    <p class="faint small">{{ _("Keine Antwort. Probiert werden Steam-Query (A2S), Minecraft Bedrock und bei Minecraft-Eggs Minecraft Java auf den Ports des Servers (A2S auch auf Port + 1); ohne Antwort erst nach 5 Minuten wieder.") }}</p>
+    {% endif %}
+  </section>
+
+  <section class="presence-source{% if p.console.decides %} is-deciding{% elif p.console.active %} is-active{% endif %}">
+    <h3>2 · {{ _("Konsole") }} {% if p.console.decides %}<span class="badge">{{ _("entscheidet") }}</span>{% endif %}</h3>
+    {% if p.console.game %}<div class="kv"><span>{{ _("Erkanntes Muster") }}</span><span>{{ p.console.game }}</span></div>{% endif %}
+    {% if p.console.active %}
+    <div class="kv"><span>{{ _("Spieler") }}</span><span>{{ p.console.count }}{% if p.console.max %} / {{ p.console.max }}{% endif %}</span></div>
+    {% if p.console.names %}<div class="kv"><span>{{ _("Namen") }}</span><span>{{ p.console.names|join(", ") }}</span></div>{% endif %}
+    {% endif %}
+    {% if p.console.last_line %}
+    <div class="kv"><span>{{ _("Letzte passende Zeile") }}</span><span class="faint small">{{ p.console.last_at }}</span></div>
+    <pre class="presence-line">{{ p.console.last_line }}</pre>
+    {% endif %}
+    {% if not p.console.active %}
+    <p class="faint small">{{ _("Noch nichts erkannt. Gesucht werden Beitritts- und Verlassen-Zeilen bekannter Spiele (Minecraft, Bedrock, Terraria, Factorio, Palworld, 7 Days to Die) und Zeilen mit der Spielerzahl (Minecraft „list“, Terraria „playing“, Valheim). Wurde Hatchtower erst nach dem Serverstart gestartet, ist „niemand“ erst nach dem nächsten Start sicher.") }}</p>
+    {% elif not p.console.since_start and not p.console.names %}
+    <p class="faint small">{{ _("Gezählt seit dem letzten Serverstart.") }}</p>
+    {% endif %}
+  </section>
+
+  <section class="presence-source{% if p.traffic.decides %} is-deciding{% elif p.traffic.active %} is-active{% endif %}">
+    <h3>3 · {{ _("Netzwerk-Traffic (Schätzung)") }} {% if p.traffic.decides %}<span class="badge">{{ _("entscheidet") }}</span>{% endif %}</h3>
+    <div class="kv"><span>{{ _("Aktuell (2 Minuten)") }}</span><span class="{% if p.traffic.over %}accent{% endif %}">{{ p.traffic.rate }}</span></div>
+    <div class="kv"><span>{{ _("Grenze für „belegt“") }}</span><span>{{ p.traffic.threshold }}</span></div>
+    <div class="kv"><span>{{ _("Leerlauf gelernt") }}</span><span>{{ p.traffic.learned_idle }}</span></div>
+    <div class="kv"><span>{{ _("Leerlauf aus Verlauf (24 h)") }}</span><span>{{ p.traffic.baseline }}</span></div>
+    <p class="faint small">{% if p.traffic.threshold_from == "learned" %}{{ _("Die Grenze beruht auf dem Traffic, während Query oder Konsole „niemand online“ gemeldet haben.") }}{% elif p.traffic.threshold_from == "history" %}{{ _("Die Grenze beruht auf den ruhigsten Minuten der letzten 24 Stunden.") }}{% else %}{{ _("Noch zu wenig Verlauf für eine Grenze (mindestens eine Viertelstunde).") }}{% endif %}
+    {{ _("Als belegt gilt: dreifacher Leerlauf und mindestens 3 KB/s darüber.") }}</p>
+  </section>
+</div>
+
+<h3 class="presence-history-h">{{ _("Verlauf") }} <span class="faint small">{{ _("letzte Wechsel, 30 Tage aufbewahrt") }}</span></h3>
+{% if p.history %}
+<div class="table-card">
+<table class="table stack-table presence-history">
+  <thead><tr><th>{{ _("Zeit") }}</th><th>{{ _("Ergebnis") }}</th><th>{{ _("Quelle") }}</th><th>{{ _("Beleg") }}</th></tr></thead>
+  <tbody>
+  {% for h in p.history %}
+  <tr>
+    <td data-label="{{ _("Zeit") }}" class="nowrap">{{ h.ts }}</td>
+    <td data-label="{{ _("Ergebnis") }}"><span class="presence presence-{{ h.presence }}"><span class="dot"></span><span>{{ h.presence_label }}</span></span></td>
+    <td data-label="{{ _("Quelle") }}">{{ h.source_label }}</td>
+    <td data-label="{{ _("Beleg") }}" class="log-detail">{{ h.evidence or '–' }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="faint">{{ _("Noch keine Einträge.") }}</p>
+{% endif %}

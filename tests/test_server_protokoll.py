@@ -47,3 +47,21 @@ def test_filter_und_mehr_laden(world):
     more = c.get("/servers/srv-a?log=console&log_n=75").text
     assert "say 0<" in more and "Ältere Einträge anzeigen" not in more
     assert c.get("/servers/srv-a?log=quatsch&log_n=-5").status_code == 200
+
+
+def test_nach_benutzer_filtern_und_sortieren(world):
+    _fill()
+    audit.record("files.upload", user_id=2, username="anton", ip="x", server="srv-a", detail="/mods/a.jar")
+    audit.record("power.stop", user_id=1, username="olga", ip="x", server="srv-a", detail="zuletzt")
+    c = world.client(world.ids["olga"])
+    page = c.get("/servers/srv-a").text
+    assert '<option value="anton"' in page and '<option value="olga"' in page and 'value="victim"' not in page
+    only = c.get("/servers/srv-a?log_user=anton").text
+    assert "/mods/a.jar" in only and "/server.cfg" not in only and "Status: offline" not in only
+    assert '<option value="anton" selected' in only
+    ignored = c.get("/servers/srv-a?log_user=gibtsnicht").text        # unknown user: no filter
+    assert "/server.cfg" in ignored
+    sorted_page = c.get("/servers/srv-a?log_sort=user").text
+    anton, hatchtower, olga = (sorted_page.index(x) for x in ("/mods/a.jar", "Neu gestartet", "zuletzt"))
+    assert anton < hatchtower < olga < sorted_page.index("Status: offline")
+    assert sorted_page.index("zuletzt") < sorted_page.index("/server.cfg")    # newest first per user

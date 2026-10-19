@@ -43,6 +43,7 @@ class LogArchive:
         self._main: asyncio.Task | None = None
         self.on_status = None        # Rückruf, wenn Wings einen neuen Zustand meldet (z. B. Absturz, Stopp im Spiel)
         self._last_state: dict[str, str] = {}
+        self.on_line = None          # callback per console line (player detection, presence.py)
 
     def start(self) -> None:
         self._main = asyncio.create_task(self._loop(), name="hatchtower-logarchive")
@@ -59,7 +60,8 @@ class LogArchive:
 
     @property
     def enabled(self) -> bool:
-        return retention.console_days() > 0 and self.client.settings.configured
+        # follow even with the archive switched off: player detection reads the same stream
+        return self.client.settings.configured
 
     async def _loop(self) -> None:
         while True:
@@ -85,9 +87,17 @@ class LogArchive:
         seen = self._seen.setdefault(ident, deque(maxlen=400))
         rows = []
         now = int(time.time())
+        keep = retention.console_days() > 0
         for raw in lines:
             line = ANSI.sub("", raw).rstrip()[:MAX_LINE]
             if not line.strip():
+                continue
+            if self.on_line:
+                try:
+                    self.on_line(ident, line)
+                except Exception:
+                    log.exception("Player detection")
+            if not keep:
                 continue
             digest = hashlib.blake2s(line.encode(), digest_size=8).hexdigest()
             if dedup and digest in seen:

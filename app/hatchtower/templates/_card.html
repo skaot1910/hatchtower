@@ -7,6 +7,19 @@
 <span class="pill state-{{ s.state }}" data-f="state"><span class="dot"></span><span data-f="state_label">{{ s.state_label }}</span></span>
 {% endmacro %}
 
+{# Choose a server for a shared start/stop/restart (overview, both views) #}
+{% macro bulk_box(s, preview=False) %}
+{% if not preview and (s.can_start or s.can_stop or s.can_restart) %}<input type="checkbox" class="bulk-box" data-bulk="{{ s.identifier }}" data-can="{{ 'start ' if s.can_start }}{{ 'stop ' if s.can_stop }}{{ 'restart' if s.can_restart }}" aria-label="{{ _("{name} für gemeinsame Aktion auswählen", name=s.name) }}" title="{{ _("Für gemeinsame Aktion auswählen") }}">{% endif %}
+{% endmacro %}
+
+{# Switch between the simple and the full view; next = page to come back to #}
+{% macro scope_toggle(simple, next) %}
+<div class="view-toggle scope-toggle" role="group" aria-label="{{ _("Umfang der Angaben") }}">
+  <a href="/view/simple?next={{ next|urlencode }}" title="{{ _("Nur das Wichtigste: Status, Adresse, Passwort, Start und Stopp") }}"{% if simple %} class="is-current" aria-current="true"{% endif %}>{{ _("Einfach") }}</a>
+  <a href="/view/full?next={{ next|urlencode }}" title="{{ _("Alle Angaben, Diagramme und Werkzeuge") }}"{% if not simple %} class="is-current" aria-current="true"{% endif %}>{{ _("Alles") }}</a>
+</div>
+{% endmacro %}
+
 {% macro metrics(s) %}
 <div class="metric metric-cpu" title="{{ s.cpu_hint }}" data-f-title="cpu_hint"><div class="kv"><span data-f="cpu_label">{{ s.cpu_label }}</span><span data-f="cpu_text">{{ s.cpu_text }}</span></div><div class="bar"><div data-pct="{{ s.cpu_pct }}" data-f="cpu_pct"></div></div></div>
 <div class="metric metric-ram"><div class="kv"><span>{{ _("RAM") }}</span><span data-f="mem_text">{{ s.mem_text }}</span></div><div class="bar"><div data-pct="{{ s.mem_pct }}" data-f="mem_pct"></div></div></div>
