@@ -35,27 +35,89 @@ ANSI = re.compile(r"\x1b\[[0-9;]*m")
 NOTES_MAX = 20_000
 
 
-def _parse(v: str) -> tuple:
-    return tuple(int(p) if p.isdigit() else 0 for p in v.lstrip("v").split("."))
+PRERELEASE_SETTING = "update_prereleases"     # "1" = also offer pre-releases (e.g. 0.38.0-pre.1)
+_VERSION = re.compile(r"^v?(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?$")
+
+
+def version_key(v: str) -> tuple:
+    """Sort key following semver precedence: 0.38.0-pre.1 < 0.38.0-pre.2 < 0.38.0-rc.1 < 0.38.0 < 0.38.1."""
+    m = _VERSION.match((v or "").strip())
+    if not m:
+        return ((0, 0, 0), 0, ())
+    nums = tuple(int(p) for p in m.group(1).split("."))
+    nums += (0,) * (3 - len(nums))
+    if not m.group(2):
+        return (nums, 1, ())
+    # numeric identifiers rank below alphanumeric ones, as in semver
+    return (nums, 0, tuple((0, int(p), "") if p.isdigit() else (1, 0, p) for p in m.group(2).split(".")))
+
+
+def is_prerelease(v: str | None) -> bool:
+    return bool(v) and "-" in str(v)
+
+
+def _release(data: dict) -> dict:
+    return {"version": str(data.get("tag_name", "")).lstrip("v"), "url": data.get("html_url"),
+            "notes": str(data.get("body") or "")[:NOTES_MAX], "published_at": data.get("published_at")}
 
 
 class UpdateCheck:
     def __init__(self) -> None:
         self.repo = os.environ.get("HATCHTOWER_REPO", "skaot1910/hatchtower").strip()
-        self.latest: str | None = None
-        self.url: str | None = None
-        self.notes: str = ""              # release notes of the latest version (markdown, from the GitHub release)
-        self.published_at: str | None = None
+        self.prereleases = False          # mirrors the setting PRERELEASE_SETTING (loaded in start())
+        self._stable: dict | None = None  # newest regular release
+        self._newest: dict | None = None  # newest release including pre-releases
         self.error: str | None = None
         self.checked_at: str | None = None
         self._task: asyncio.Task | None = None
         self._manual_at = 0.0
 
     @property
+    def _offered(self) -> dict:
+        return (self._newest if self.prereleases else self._stable) or {}
+
+    @property
+    def latest(self) -> str | None:
+        return self._offered.get("version") or None
+
+    @property
+    def url(self) -> str | None:
+        return self._offered.get("url")
+
+    @property
+    def notes(self) -> str:
+        """Release notes of the offered version (markdown, from the GitHub release)."""
+        return self._offered.get("notes", "")
+
+    @property
+    def published_at(self) -> str | None:
+        return self._offered.get("published_at")
+
+    @property
+    def latest_is_prerelease(self) -> bool:
+        return is_prerelease(self.latest)
+
+    @property
     def available(self) -> bool:
-        return bool(self.latest) and _parse(self.latest) > _parse(__version__)
+        # Strictly newer only: whoever runs a pre-release and turns the switch off is never downgraded,
+        # but gets the next regular release that is at least as new.
+        return bool(self.latest) and version_key(self.latest) > version_key(__version__)
+
+    def load_setting(self) -> None:
+        from . import db
+        self.prereleases = db.get_setting(PRERELEASE_SETTING) == "1"
+
+    def set_prereleases(self, on: bool, user_id: int | None) -> None:
+        from . import db
+        db.set_setting(PRERELEASE_SETTING, "1" if on else "0", user_id)
+        self.prereleases = on
+        self._announce()
 
     def start(self) -> None:
+        try:
+            self.load_setting()
+        except Exception:
+            log.exception("Update-Einstellung")
         self._task = asyncio.create_task(self._loop(), name="hatchtower-updates")
 
     async def stop(self) -> None:
@@ -77,14 +139,16 @@ class UpdateCheck:
             headers["Authorization"] = f"Bearer {token}"
         try:
             async with httpx.AsyncClient(timeout=15) as http:
-                r = await http.get(f"https://api.github.com/repos/{self.repo}/releases/latest", headers=headers)
+                # One request covers both channels, so flipping the switch needs no new request
+                r = await http.get(f"https://api.github.com/repos/{self.repo}/releases",
+                                   params={"per_page": 30}, headers=headers)
             if r.status_code == 200:
-                data = r.json()
-                self.latest = str(data.get("tag_name", "")).lstrip("v") or None
-                self.url = data.get("html_url")
-                self.notes = str(data.get("body") or "")[:NOTES_MAX]
-                self.published_at = data.get("published_at")
-                self.error = None
+                found = [_release(d) for d in r.json() if isinstance(d, dict) and not d.get("draft")]
+                found = [x for x in found if _VERSION.match(x["version"])]
+                stable = [x for x in found if not is_prerelease(x["version"])]
+                self._stable = max(stable, key=lambda x: version_key(x["version"]), default=None)
+                self._newest = max(found, key=lambda x: version_key(x["version"]), default=None)
+                self.error = None if found else "Kein Release gefunden"
             elif r.status_code == 404:
                 self.error = ("Kein Release gefunden" if token else
                               "Repository privat oder noch kein Release – Token setzen mit: hatchtower github-token")

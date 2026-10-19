@@ -373,6 +373,7 @@ ROUTES: tuple[Route, ...] = (
       form={"passphrase": "x" * 12, "current": PASSWORD, "confirm": "1"}, upload="file"),
     R("GET", "/admin/updates", "owner", "System → Updates"),
     R("POST", "/admin/system/update-check", "owner", "Nach Updates suchen", csrf="form"),
+    R("POST", "/admin/system/update-channel", "owner", "Vorab-Versionen ein/aus", csrf="form"),
     R("POST", "/admin/system/update", "owner", "Update starten", csrf="form"),
     R("GET", "/admin/system/update", "owner", "Update-Fortschritt"),
     R("GET", "/api/system/update-status", "owner", "Update-Status"),

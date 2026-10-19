@@ -2,6 +2,8 @@
 # Hatchtower – Befehl auf dem Server (als root).
 #   hatchtower setup-token | create-owner | reset-password | selftest | version
 #   hatchtower update                 neueste Version von GitHub laden und installieren
+#                                     (Vorab-Versionen nur mit dem Schalter unter System → Updates
+#                                      oder HATCHTOWER_PRERELEASES=1; =0 schaltet sie für diesen Aufruf ab)
 #   hatchtower update --check         nur nachsehen, ob es eine neue Version gibt
 #   hatchtower update <paket.tar.gz>  ein vorhandenes Paket installieren
 #   hatchtower github-token [--remove]   Lese-Token hinterlegen (nur für ein privates Repository nötig)

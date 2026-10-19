@@ -8,14 +8,14 @@
 <section class="card" id="version">
   <h2 class="card-h">{{ _("Version") }}</h2>
   <div class="facts">
-    <div class="kv"><span>{{ _("Installiert") }}</span><span class="mono"><a href="{{ installed_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Diese Version auf GitHub") }}">{{ version }}</a></span></div>
-    <div class="kv"><span>{{ _("Neueste auf GitHub") }}</span><span class="mono">{% if upd.latest %}{% if upd.url %}<a href="{{ upd.url }}" target="_blank" rel="noopener noreferrer">{{ upd.latest }}</a>{% else %}{{ upd.latest }}{% endif %}{% else %}–{% endif %}</span></div>
+    <div class="kv"><span>{{ _("Installiert") }}</span><span class="mono"><a href="{{ installed_url }}" target="_blank" rel="noopener noreferrer" title="{{ _("Diese Version auf GitHub") }}">{{ version }}</a>{% if installed_pre %} <span class="tag tag-pre">{{ _("Vorab-Version") }}</span>{% endif %}</span></div>
+    <div class="kv"><span>{{ _("Neueste auf GitHub") }}</span><span class="mono">{% if upd.latest %}{% if upd.url %}<a href="{{ upd.url }}" target="_blank" rel="noopener noreferrer">{{ upd.latest }}</a>{% else %}{{ upd.latest }}{% endif %}{% if upd.latest_is_prerelease %} <span class="tag tag-pre">{{ _("Vorab-Version") }}</span>{% endif %}{% else %}–{% endif %}</span></div>
     <div class="kv"><span>{{ _("Zuletzt geprüft") }}</span><span>{{ upd_checked }}</span></div>
   </div>
   {% if upd_running %}
   <div class="hint">{{ _("Ein Update läuft gerade.") }} <a href="/admin/system/update">{{ _("Fortschritt ansehen") }}</a></div>
   {% elif upd.available %}
-  <div class="hint">{{ _("Version {v} ist verfügbar.", v=upd.latest) }}</div>
+  <div class="hint">{% if upd.latest_is_prerelease %}{{ _("Vorab-Version {v} ist verfügbar. Sie kann Fehler enthalten.", v=upd.latest) }}{% else %}{{ _("Version {v} ist verfügbar.", v=upd.latest) }}{% endif %}</div>
   {% elif upd.error %}
   <p class="faint small">{{ _(upd.error) }}</p>
   {% elif upd.latest %}
@@ -31,7 +31,7 @@
       <form method="post" action="/admin/system/update" class="inline-form"
             data-confirm="{{ _("Hatchtower jetzt auf Version {v} aktualisieren? Die Oberfläche ist dabei etwa eine Minute nicht erreichbar. Vorher wird die Datenbank gesichert; startet die neue Version nicht, geht es automatisch zurück.", v=upd.latest) }}">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <button class="btn btn-primary btn-sm" type="submit">{{ _("Update auf {v} installieren", v=upd.latest) }}</button>
+        <button class="btn btn-primary btn-sm" type="submit">{{ _("Vorab-Version {v} installieren", v=upd.latest) if upd.latest_is_prerelease else _("Update auf {v} installieren", v=upd.latest) }}</button>
       </form>
       {% else %}
       <p class="faint small">{{ _("Das Update über die Oberfläche steht ab der nächsten Version bereit. Dieses Mal bitte auf dem Server als root ausführen:") }} <span class="mono">hatchtower update</span></p>
@@ -42,9 +42,20 @@
     <a href="{{ changelog_url }}" target="_blank" rel="noopener noreferrer">{{ _("Alle Änderungen aller Versionen (CHANGELOG)") }}</a></p>
 </section>
 
+<section class="card" id="vorab">
+  <h2 class="card-h">{{ _("Vorab-Versionen") }}</h2>
+  <form method="post" action="/admin/system/update-channel" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="prereleases" value="1" {% if upd.prereleases %}checked{% endif %}> {{ _("Vorab-Versionen erhalten") }}</label>
+    <p class="faint small">{{ _("Du möchtest neue Funktionen sofort testen? Dann aktiviere das. Vorab-Versionen können Fehler enthalten. Sie werden angeboten, aber wie alle Updates nie selbstständig installiert.") }}</p>
+    {% if installed_pre %}<p class="faint small">{{ _("Schaltest du das aus, bleibt die installierte Vorab-Version, bis die nächste reguläre Version erscheint.") }}</p>{% endif %}
+    <button class="btn btn-primary btn-sm" type="submit">{{ _("Speichern") }}</button>
+  </form>
+</section>
+
 {% if upd.available and upd_notes %}
 <section class="card" id="neu">
-  <h2 class="card-h">{{ _("Neu in Version {v}", v=upd.latest) }}{% if upd_published %} <span class="faint small">· {{ upd_published }}</span>{% endif %}</h2>
+  <h2 class="card-h">{{ _("Neu in Version {v}", v=upd.latest) }}{% if upd.latest_is_prerelease %} <span class="tag tag-pre">{{ _("Vorab-Version") }}</span>{% endif %}{% if upd_published %} <span class="faint small">· {{ upd_published }}</span>{% endif %}</h2>
   <div class="release-notes">{{ upd_notes }}</div>
   <p class="faint small">{{ _("Die Beschreibung kommt von GitHub und ist auf Englisch.") }}
     {% if upd.url %}<a href="{{ upd.url }}" target="_blank" rel="noopener noreferrer">{{ _("Auf GitHub ansehen") }}</a> · {% endif %}<a href="{{ changelog_url }}" target="_blank" rel="noopener noreferrer">{{ _("Übersprungene Versionen im CHANGELOG") }}</a></p>

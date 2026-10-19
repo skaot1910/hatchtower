@@ -21,6 +21,7 @@ ACTION_LABELS = {
     "user.self_delete": "Eigenes Konto gelöscht",
     "system.update_check": "Nach Updates gesucht",
     "system.update_start": "Update angestoßen",
+    "system.update_channel": "Vorab-Versionen umgeschaltet",
     "system.update": "Update installiert",
     "user.password_reset": "Passwort zurückgesetzt",
     "permissions.update": "Rechte geändert",

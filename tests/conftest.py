@@ -128,6 +128,11 @@ class FakeUpdates:
     notes = ""
     published_at = None
     repo = "skaot1910/hatchtower"
+    prereleases = False
+    latest_is_prerelease = False
+
+    def set_prereleases(self, on, user_id):
+        self.prereleases = on
 
     def cooldown_left(self):
         return 0

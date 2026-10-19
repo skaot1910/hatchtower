@@ -1050,6 +1050,7 @@ a.file-link:hover { color: var(--accent-text); }
 
 /* Tags und Favoriten */
 .tag { display: inline-block; font-size: 12px; color: var(--muted); background: var(--pill-bg); border-radius: 999px; padding: 0 8px; margin-left: 4px; }
+.tag-pre { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .tags { margin: 6px 0 0; display: flex; gap: 4px; flex-wrap: wrap; }
 .tags .tag { margin-left: 0; }
 .tag-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: -6px 0 14px; }

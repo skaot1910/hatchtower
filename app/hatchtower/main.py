@@ -2728,6 +2728,7 @@ async def admin_updates(request: Request):
                   upd_notes=updates.notes_html(app.state.updates.notes) if app.state.updates.notes else "",
                   upd_published=fmt_dt(app.state.updates.published_at, settings.timezone) if app.state.updates.published_at else "",
                   installed_url=updates.release_url(app.state.updates.repo, __version__),
+                  installed_pre=updates.is_prerelease(__version__),
                   changelog_url=updates.changelog_url(app.state.updates.repo))
 
 

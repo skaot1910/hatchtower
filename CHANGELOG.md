@@ -3,6 +3,17 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.38.0 – 2026-10-19
+
+- Pre-releases: new switch "Receive pre-releases" under System → Updates. When it is on, the update check and
+  `hatchtower update` also offer pre-releases (versions like `0.39.0-pre.1` or `0.39.0-rc.1`), clearly marked as
+  such; when it is off, only regular releases are offered, as before. Turning it off never downgrades – a server on
+  a pre-release stays there until the next regular release. Like all updates, nothing is installed on its own
+- Versions are now compared by semver precedence (`0.39.0-pre.1 < 0.39.0-rc.1 < 0.39.0`), in the web interface and
+  in `hatchtower update`; `HATCHTOWER_PRERELEASES=1|0` overrides the switch for a single command
+- `tools/release.sh` publishes a version with a `-pre.N`/`-rc.N` suffix as a GitHub pre-release (never marked as
+  latest)
+
 ## 0.37.3 – 2026-10-19
 
 - Installed web app (Android): the manifest now also has 192 px icons. Chrome only offers "Install app" when there

@@ -11,7 +11,9 @@
 #
 #  Umgebungsvariablen:
 #      HATCHTOWER_REPO      GitHub-Repository (Standard: skaot1910/hatchtower)
-#      HATCHTOWER_VERSION   bestimmte Version statt der neuesten, z. B. 0.13.0
+#      HATCHTOWER_VERSION   bestimmte Version statt der neuesten, z. B. 0.13.0 oder 0.38.0-pre.1
+#      HATCHTOWER_PRERELEASES=1|0  also consider pre-releases (default for updates: the switch under
+#                           System → Updates; for a new installation: no)
 #      GITHUB_TOKEN         Lese-Token – nur für ein privates Repository (z. B. eigener Fork) nötig
 #      GITHUB_TOKEN_FILE    alternativ: Datei, in der der Token steht
 #      HATCHTOWER_SAVE_TOKEN=1   Token nach der Installation für spätere Updates speichern
@@ -22,7 +24,9 @@ set -euo pipefail
 
 REPO="${HATCHTOWER_REPO:-skaot1910/hatchtower}"
 WANT="${HATCHTOWER_VERSION:-}"
+PRE="${HATCHTOWER_PRERELEASES:-}"
 TOKEN_STORE=/etc/hatchtower/github-token
+DB=/var/lib/hatchtower/hatchtower.db
 API="https://api.github.com/repos/$REPO"
 
 say()  { printf '\033[1;35m==>\033[0m %s\n' "$*"; }
@@ -64,8 +68,37 @@ fi
 WORK="$(mktemp -d /tmp/hatchtower-get.XXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
+# Pre-releases only when switched on in the web interface (System → Updates), unless overridden
+if [ -z "$PRE" ] && [ "$MODE" != install ] && [ -r "$DB" ]; then
+  PRE="$(python3 - "$DB" 2>/dev/null <<'PY' || true
+import sqlite3, sys
+con = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
+row = con.execute("SELECT value FROM app_settings WHERE key = 'update_prereleases'").fetchone()
+print(row[0] if row and row[0] else "0")
+PY
+)"
+fi
+[ "$PRE" = 1 ] || PRE=0
+
+# Version order as in the web interface: 0.38.0-pre.1 < 0.38.0-rc.1 < 0.38.0 < 0.38.1
+cat > "$WORK/version.py" <<'PY'
+import re
+PATTERN = re.compile(r"^v?(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?$")
+def key(v):
+    m = PATTERN.match((v or "").strip())
+    if not m:
+        return ((0, 0, 0), 0, ())
+    nums = tuple(int(p) for p in m.group(1).split("."))
+    nums += (0,) * (3 - len(nums))
+    if not m.group(2):
+        return (nums, 1, ())
+    return (nums, 0, tuple((0, int(p), "") if p.isdigit() else (1, 0, p) for p in m.group(2).split(".")))
+PY
+
 # --- Release-Angaben von GitHub holen -----------------------------------------------
-if [ -n "$WANT" ]; then URL="$API/releases/tags/v${WANT#v}"; else URL="$API/releases/latest"; fi
+if [ -n "$WANT" ]; then URL="$API/releases/tags/v${WANT#v}"
+elif [ "$PRE" = 1 ]; then URL="$API/releases?per_page=30"   # newest of all releases, pre-releases included
+else URL="$API/releases/latest"; fi
 code=$(curl -sS -o "$WORK/release.json" -w '%{http_code}' -H "Accept: application/vnd.github+json" "${AUTH[@]}" "$URL" || echo 000)
 case "$code" in
   200) ;;
@@ -79,9 +112,17 @@ case "$code" in
   *)   fail "GitHub answered with HTTP $code.";;
 esac
 
-eval "$(python3 - "$WORK/release.json" <<'PY'
+eval "$(python3 - "$WORK/release.json" "$WORK" <<'PY'
 import json, shlex, sys
+sys.path.insert(0, sys.argv[2])
+from version import PATTERN, key
 r = json.load(open(sys.argv[1]))
+if isinstance(r, list):
+    found = [x for x in r if not x.get("draft") and PATTERN.match(str(x.get("tag_name", "")))]
+    if not found:
+        print("fail 'No release found.'")
+        sys.exit()
+    r = max(found, key=lambda x: key(x["tag_name"]))
 version = r["tag_name"].lstrip("v")
 assets = {a["name"]: a["url"] for a in r.get("assets", [])}
 pkg = f"hatchtower-{version}.tar.gz"
@@ -89,17 +130,21 @@ print(f"VERSION={shlex.quote(version)}")
 print(f"PKG_URL={shlex.quote(assets.get(pkg, ''))}")
 print(f"SUM_URL={shlex.quote(assets.get(pkg + '.sha256', ''))}")
 print(f"PKG={shlex.quote(pkg)}")
+print(f"IS_PRE={1 if r.get('prerelease') or '-' in version else 0}")
 PY
 )"
 
 INSTALLED="$(cat /opt/hatchtower/VERSION 2>/dev/null || echo "")"
 newer() {  # ist $1 neuer als $2?
   [ -z "$2" ] && return 0
-  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]
+  python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from version import key; sys.exit(key(sys.argv[2]) <= key(sys.argv[3]))' \
+    "$WORK" "$1" "$2"
 }
+LABEL="$VERSION"; [ "$IS_PRE" = 1 ] && LABEL="$VERSION (pre-release)"
 
 if [ "$MODE" = check ]; then
-  echo "Installed: ${INSTALLED:-–}   Newest on GitHub: $VERSION"
+  echo "Installed: ${INSTALLED:-–}   Newest on GitHub: $LABEL"
+  [ "$PRE" = 1 ] && echo "Pre-releases are included (switch under System → Updates)."
   if newer "$VERSION" "$INSTALLED"; then echo "Update available:  hatchtower update"; else echo "Hatchtower is up to date."; fi
   exit 0
 fi
@@ -115,7 +160,7 @@ fi
 [ -n "$PKG_URL" ] && [ -n "$SUM_URL" ] || fail "Release $VERSION is missing the package or the checksum."
 
 # --- Herunterladen und prüfen ------------------------------------------------------
-say "Downloading Hatchtower $VERSION"
+say "Downloading Hatchtower $LABEL"
 curl -fsSL -H "Accept: application/octet-stream" "${AUTH[@]}" "$PKG_URL" -o "$WORK/$PKG" \
   || fail "Downloading the package failed."
 curl -fsSL -H "Accept: application/octet-stream" "${AUTH[@]}" "$SUM_URL" -o "$WORK/$PKG.sha256" \
@@ -128,7 +173,7 @@ DIR="$WORK/hatchtower-$VERSION"
 [ -f "$DIR/installer/install.sh" ] || fail "The package does not contain Hatchtower."
 
 if [ "$MODE" = update ]; then
-  echo "Installed: $INSTALLED  →  new: $VERSION"
+  echo "Installed: $INSTALLED  →  new: $LABEL"
   bash "$DIR/installer/install.sh" --update "$@"
 else
   bash "$DIR/installer/install.sh" "$@"

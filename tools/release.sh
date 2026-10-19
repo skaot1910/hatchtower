@@ -3,11 +3,17 @@
 #  Hatchtower – neue Version auf GitHub veröffentlichen (Git Bash auf dem Entwickler-PC)
 #
 #  Ablauf:
-#    1. Version in app/hatchtower/__init__.py erhöhen und in CHANGELOG.md beschreiben
+#    1. Version in VERSION und app/hatchtower/__init__.py erhöhen und in CHANGELOG.md beschreiben
 #    2. Änderungen committen
-#    3. bash tools/release.sh          (normales Release, wird allen als Update angeboten)
-#       bash tools/release.sh --pre    (Testversion: GitHub-Prerelease, wird nicht automatisch angeboten;
-#                                       installieren mit HATCHTOWER_VERSION=<version> hatchtower update)
+#    3. bash tools/release.sh          normales Release (z. B. 0.38.0), wird allen als Update angeboten
+#
+#  Vorab-Version (Pre-Release): Versionsnummer mit -pre.N oder -rc.N, z. B. 0.38.0-pre.1 – wird an der
+#  Nummer erkannt (bash tools/release.sh --pre bricht zusätzlich ab, falls sie fehlt). Auf GitHub als
+#  "Pre-release" markiert, nie als "Latest"; angeboten nur Servern mit dem Schalter "Vorab-Versionen
+#  erhalten" (System → Updates). Reihenfolge: 0.38.0-pre.1 < 0.38.0-pre.2 < 0.38.0-rc.1 < 0.38.0, die finale
+#  Version überholt also alle Vorab-Versionen. Gezielt installieren: HATCHTOWER_VERSION=0.38.0-pre.1 hatchtower update
+#  CHANGELOG: eigener Abschnitt "## 0.38.0-pre.1"; beim finalen Release die Vorab-Abschnitte zu "## 0.38.0"
+#  zusammenfassen (die Release-Beschreibung kommt nur aus dem Abschnitt der jeweiligen Version).
 #
 #  Das Skript prüft den Stand, lädt die Commits hoch und wartet, bis die CI (Tests, Lint) für genau
 #  diesen Stand grün ist – sonst wird nichts veröffentlicht. Dann setzt es den Tag v<version>,
@@ -19,9 +25,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 REPO="${HATCHTOWER_REPO:-skaot1910/hatchtower}"
-PRE=0
+WANT_PRE=0
 case "${1:-}" in
-  --pre) PRE=1;;
+  --pre) WANT_PRE=1;;
   "") ;;
   *) echo "Unbekannte Option: $1 (erlaubt: --pre)"; exit 1;;
 esac
@@ -37,6 +43,12 @@ VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/hatchtower/__init__.py)"
 [ -n "$VERSION" ] || fail "Version nicht gefunden."
 TAG="v$VERSION"
 [ "$(tr -d '\r\n' < VERSION)" = "$VERSION" ] || fail "VERSION-Datei passt nicht zu __init__.py ($VERSION)."
+# Only X.Y.Z or X.Y.Z-pre.N / X.Y.Z-rc.N – exactly what the update check orders (pre < rc < final)
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(pre|rc)\.[0-9]+)?$ ]] \
+  || fail "Version $VERSION hat nicht die Form 0.38.0, 0.38.0-pre.1 oder 0.38.0-rc.1."
+PRE=0; [[ "$VERSION" == *-* ]] && PRE=1
+# A pre-release under a final number would block the tag of the real release later
+[ "$WANT_PRE" = 1 ] && [ "$PRE" = 0 ] && fail "--pre braucht eine Vorab-Nummer wie $VERSION-pre.1."
 # Veröffentlicht wird genau der Stand von main (geht auch aus einer separaten Arbeitskopie/Worktree)
 [ "$(git rev-parse HEAD)" = "$(git rev-parse main)" ] || fail "Der ausgecheckte Stand ist nicht main – bitte main veröffentlichen."
 [ -z "$(git status --porcelain)" ] || fail "Es gibt nicht committete Änderungen. Erst committen."
@@ -45,7 +57,8 @@ TAG="v$VERSION"
 NOTES="$(py - "$VERSION" <<'PY'
 import re, sys
 text = open("CHANGELOG.md", encoding="utf-8").read()
-m = re.search(r"^## " + re.escape(sys.argv[1]) + r"\b.*?$\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+# not \b: "## 0.38.0" must not match the heading "## 0.38.0-pre.1"
+m = re.search(r"^## " + re.escape(sys.argv[1]) + r"(?=[ \t]|$).*?$\n(.*?)(?=^## |\Z)", text, re.M | re.S)
 print(m.group(1).strip() if m else "")
 PY
 )"
@@ -109,7 +122,7 @@ git archive --format=tar --prefix="hatchtower-$VERSION/" "$TAG" | gzip -n -9 > "
 echo "    $(cat "dist/$PKG.sha256")"
 
 say "GitHub-Release anlegen"
-BODY="$(py -c 'import json,sys; pre = sys.argv[3] == "1"; print(json.dumps({"tag_name": sys.argv[1], "name": "Hatchtower " + sys.argv[2] + (" (Testversion)" if pre else ""), "body": sys.stdin.read(), "draft": False, "prerelease": pre, "make_latest": "false" if pre else "true"}))' "$TAG" "$VERSION" "$PRE" <<< "$NOTES")"
+BODY="$(py -c 'import json,sys; pre = sys.argv[3] == "1"; print(json.dumps({"tag_name": sys.argv[1], "name": "Hatchtower " + sys.argv[2] + (" (pre-release)" if pre else ""), "body": sys.stdin.read(), "draft": False, "prerelease": pre, "make_latest": "false" if pre else "true"}))' "$TAG" "$VERSION" "$PRE" <<< "$NOTES")"
 code=$(gh_api -o dist/release.json -w '%{http_code}' -X POST "https://api.github.com/repos/$REPO/releases" -d "$BODY")
 if [ "$code" = "422" ]; then
   say "Release gibt es schon – Dateien werden ersetzt"
@@ -134,6 +147,12 @@ upload "dist/$PKG"
 upload "dist/$PKG.sha256"
 rm -f dist/release.json
 
-printf '\n\033[1;32mHatchtower %s ist veröffentlicht.\033[0m\n' "$VERSION"
-echo "  https://github.com/$REPO/releases/tag/$TAG"
-echo "  Auf dem Server aktualisieren:  hatchtower update"
+if [ "$PRE" = 1 ]; then
+  printf '\n\033[1;32mVorab-Version %s ist veröffentlicht (GitHub: Pre-release).\033[0m\n' "$VERSION"
+  echo "  https://github.com/$REPO/releases/tag/$TAG"
+  echo "  Angeboten nur mit \"Vorab-Versionen erhalten\" (System → Updates), dann:  hatchtower update"
+else
+  printf '\n\033[1;32mHatchtower %s ist veröffentlicht.\033[0m\n' "$VERSION"
+  echo "  https://github.com/$REPO/releases/tag/$TAG"
+  echo "  Auf dem Server aktualisieren:  hatchtower update"
+fi

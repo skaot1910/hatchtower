@@ -272,6 +272,7 @@ Grundregeln:
 | POST | `/admin/data/import` | Formular | Daten importieren und ersetzen (Passwort nötig) |
 | GET | `/admin/updates` | – | System → Updates |
 | POST | `/admin/system/update-check` | Formular | Nach Updates suchen |
+| POST | `/admin/system/update-channel` | Formular | Vorab-Versionen ein/aus |
 | POST | `/admin/system/update` | Formular | Update starten |
 | GET | `/admin/system/update` | – | Update-Fortschritt |
 | GET | `/api/system/update-status` | – | Update-Status |

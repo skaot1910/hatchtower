@@ -1603,6 +1603,19 @@ async def admin_update_check(request: Request):
     return back("/admin/updates", "Hatchtower ist aktuell.")
 
 
+@app.post("/admin/system/update-channel")
+async def admin_update_channel(request: Request, prereleases: str = Form("")):
+    owner = require_owner(request)
+    await check_csrf(request)
+    on = prereleases == "1"
+    upd = app.state.updates
+    upd.set_prereleases(on, owner.id)
+    owner_audit(request, owner, "system.update_channel", detail={"vorab": on})
+    if on and upd.available and upd.latest_is_prerelease:
+        return back("/admin/updates", i18n.t("Vorab-Versionen sind an. Vorab-Version {v} ist verfügbar.", v=upd.latest))
+    return back("/admin/updates", "Vorab-Versionen sind an." if on else "Vorab-Versionen sind aus.")
+
+
 @app.post("/admin/system/update")
 async def admin_update_start(request: Request):
     from . import updates
