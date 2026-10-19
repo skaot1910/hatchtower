@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.37.2 – 2026-10-19
+
+- Create server: short, collapsible guide with the essentials – where to find eggs (pelican-eggs/steamcmd,
+  pelican-eggs/games-standalone, pterodactyl/game-eggs), values to check, panel owner vs. Hatchtower users, ports,
+  opening them (router at home, firewall on a VPS) and the public address for players (fixed IP/domain or DynDNS)
+- Installed web app (Android): the manifest now has a fixed URL, an app ID and PNG icons (including a maskable one),
+  so Chrome can install it as a real app and keep it updated; its colours follow the instance's default theme. The
+  bar behind the gesture navigation should now be dark. Uninstall and reinstall the app once to pick this up
+
 ## 0.37.1 – 2026-10-19
 
 - Footer on every page (login included): "Hatchtower" links to the GitHub repository

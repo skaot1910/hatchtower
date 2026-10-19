@@ -12,7 +12,7 @@
   {# Colour of the phone browser's own bars (address bar); without it some browsers use white #}
   <meta name="theme-color" content="{{ '#efebe9' if theme == 'hell' else '#141215' }}">
   {# Installed app (Android): the manifest colours the splash screen and the window behind the gesture bar #}
-  <link rel="manifest" href="/manifest.webmanifest?theme={{ theme }}">
+  <link rel="manifest" href="/manifest.webmanifest">
   <meta name="color-scheme" content="{{ 'light' if theme == 'hell' else 'dark' }}">
   <meta name="timezone" content="{{ settings.timezone }}">
   {% if csrf %}<meta name="csrf-token" content="{{ csrf }}">{% endif %}

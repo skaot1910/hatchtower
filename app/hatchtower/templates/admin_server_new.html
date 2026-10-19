@@ -12,6 +12,8 @@
 {{ ad.unavailable(reason, true) }}
 {% if error %}<div class="alert" role="alert">{{ _("{panel} antwortet nicht wie erwartet: {grund}", grund=error) }}</div>{% endif %}
 
+{% include "_server_guide.html" %}
+
 <section class="card">
   <h2 class="card-h">{{ _("1. Node und Egg") }}</h2>
   <form method="get" action="/admin/servers/new" class="form">

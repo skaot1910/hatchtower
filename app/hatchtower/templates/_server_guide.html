@@ -1,0 +1,21 @@
+{# Short checklist on the "Create server" page: where to get eggs, values to check, ports and the address for players #}
+<details class="card server-guide">
+  <summary>{{ _("Kurzanleitung: Was beim Anlegen wichtig ist") }}</summary>
+  <dl>
+    <dt>{{ _("Egg") }}</dt>
+    <dd>{{ _("Fehlt dein Spiel in der Auswahl, importiere das Egg zuerst in {panel}. Fertige Eggs gibt es hier:") }}
+      <a href="https://github.com/pelican-eggs/steamcmd" target="_blank" rel="noopener noreferrer">pelican-eggs/steamcmd</a>,
+      <a href="https://github.com/pelican-eggs/games-standalone" target="_blank" rel="noopener noreferrer">pelican-eggs/games-standalone</a>,
+      <a href="https://github.com/pterodactyl/game-eggs" target="_blank" rel="noopener noreferrer">pterodactyl/game-eggs</a></dd>
+    <dt>{{ _("Werte") }}</dt>
+    <dd>{{ _("RAM und Speicherplatz nach der README des Eggs wählen, Backups mindestens 2 (bei 0 sind keine möglich). Pflicht-Startvariablen ausfüllen, z. B. EULA oder Serverpasswort.") }}</dd>
+    <dt>{{ _("Besitzer") }}</dt>
+    <dd>{{ _("Nur der Besitzer in {panel}. Wer den Server in Hatchtower sieht und steuert, legst du danach unter Benutzer fest.") }}</dd>
+    <dt>{{ _("Ports") }}</dt>
+    <dd>{{ _("Jeder Server braucht eigene Ports über 1024, die auf dem Node angelegt sind. Am einfachsten ist der Standardport des Spiels; Query- oder RCON-Ports unter „Weitere Ports“ dazunehmen.") }} <a href="/admin/ports">{{ _("Ports der Nodes verwalten") }}</a></dd>
+    <dt>{{ _("Ports öffnen|Freigabe") }}</dt>
+    <dd>{{ _("Die Ports müssen von außen erreichbar sein, meist UDP, im Zweifel TCP und UDP. Zu Hause: im Router an den Node weiterleiten (z. B. FRITZ!Box: Internet → Freigaben → Portfreigaben). Auf einem VPS: in der Firewall öffnen, also auf dem Server (z. B. ufw) und, falls vorhanden, in der Firewall des Anbieters.") }}</dd>
+    <dt>{{ _("Adresse") }}</dt>
+    <dd>{{ _("Trag unter System → Netzwerk die öffentliche Adresse ein, dann zeigt die Übersicht jedem Spieler die richtige Adresse. Auf einem VPS ist das die feste IP oder eine Domain, die darauf zeigt. Zu Hause ändert sich die IP meist regelmäßig, nimm dort einen DynDNS-Namen (z. B. MyFRITZ!, DuckDNS).") }} <a href="/admin/network">{{ _("Zum Netzwerk") }}</a></dd>
+  </dl>
+</details>

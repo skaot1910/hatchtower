@@ -22,7 +22,7 @@ from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from . import (APP_NAME, __version__, accounts, audit, db, extras, i18n, legal, logarchive, mailer, notify, retention,
-               security, setup, statusfeed, transfer)
+               security, setup, statusfeed, themes, transfer)
 from .main import (BACKUP_SUFFIX, LoginRequired, announce_new_user, app, apply_connection, back, check_csrf,
                    check_csrf_header, clean_path,
                    current_user, file_action, get_server_or_deny, ip_of, is_https, load_brand,
@@ -206,18 +206,21 @@ def discord_status_view(feed) -> tuple[str, list[dict], set[str], str, str]:
     return title, servers, fields, link, f"{base}/" if base else ""
 
 
-# Colours of the installed app per theme: theme = status bar, background = splash screen and the window
-# behind Android's gesture bar (white without a manifest). Same values as the theme-color meta in base.html.
+# Installed app (Android): Chrome paints the bar behind the gesture navigation with the manifest's theme_color
+# (white without one) and only updates it from the same manifest URL. Manifests are fetched without cookies, so the
+# URL stays fixed and the colours follow the instance's default theme. Same values as the theme-color meta in base.html.
 MANIFEST_COLOURS = {"hell": ("#efebe9", "#f5f3f2"), "nacht": ("#141215", "#101012")}
 
 
 @app.get("/manifest.webmanifest")
-async def web_manifest(theme: str = ""):
+async def web_manifest():
+    theme = themes.valid(db.get_setting("default_theme")) or themes.DEFAULT
     theme_colour, background = MANIFEST_COLOURS.get(theme, MANIFEST_COLOURS["nacht"])
     brand = load_brand()
-    body = {"name": brand["name"], "short_name": brand["name"][:30], "start_url": "/", "scope": "/",
-            "display": "standalone", "theme_color": theme_colour, "background_color": background,
-            "icons": [{"src": f"/static/favicon.svg?v={__version__}", "type": "image/svg+xml", "sizes": "any"}]}
+    icons = [{"src": f"/static/{name}.png?v={__version__}", "type": "image/png", "sizes": "512x512", "purpose": purpose}
+             for name, purpose in (("icon-512", "any"), ("icon-maskable-512", "maskable"))]
+    body = {"id": "/", "name": brand["name"], "short_name": brand["name"][:30], "start_url": "/", "scope": "/",
+            "display": "standalone", "theme_color": theme_colour, "background_color": background, "icons": icons}
     return JSONResponse(body, media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})
 
 

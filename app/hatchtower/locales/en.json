@@ -2392,7 +2392,21 @@
   "Erscheinen in der Übersicht (mit „Rechte prüfen“ und „Erledigt“) und in der Glocke, damit du nachsehen kannst, ob Rechte vergeben werden müssen. Webhooks und E-Mail stellst du unten bei den Ereignissen ein.": "Shown in the overview (with “Check permissions” and “Done”) and in the bell, so you can check whether permissions need to be assigned. Webhooks and e-mail are set up below with their events.",
   "Hinweise speichern": "Save notices",
   "Hinweise gespeichert": "Notices saved",
-  "Neuen Benutzer als erledigt markiert": "Marked new user as done"
+  "Neuen Benutzer als erledigt markiert": "Marked new user as done",
+  "Name": "Name",
+  "CPU": "CPU",
+  "Ports der Nodes verwalten": "Manage node ports",
+  "Kurzanleitung: Was beim Anlegen wichtig ist": "Quick guide: what matters when creating a server",
+  "Fehlt dein Spiel in der Auswahl, importiere das Egg zuerst in {panel}. Fertige Eggs gibt es hier:": "If your game is missing from the list, import its egg into {panel} first. Ready-made eggs are available here:",
+  "Werte": "Values",
+  "RAM und Speicherplatz nach der README des Eggs wählen, Backups mindestens 2 (bei 0 sind keine möglich). Pflicht-Startvariablen ausfüllen, z. B. EULA oder Serverpasswort.": "Choose RAM and disk space according to the egg's README, backups at least 2 (with 0 none are possible). Fill in required startup variables, e.g. EULA or server password.",
+  "Besitzer": "Owner",
+  "Nur der Besitzer in {panel}. Wer den Server in Hatchtower sieht und steuert, legst du danach unter Benutzer fest.": "Only the owner in {panel}. Who sees and controls the server in Hatchtower is set afterwards under Users.",
+  "Jeder Server braucht eigene Ports über 1024, die auf dem Node angelegt sind. Am einfachsten ist der Standardport des Spiels; Query- oder RCON-Ports unter „Weitere Ports“ dazunehmen.": "Every server needs its own ports above 1024 that exist on the node. The game's default port is easiest; add query or RCON ports under \"Additional ports\".",
+  "Router": "Router",
+  "Ports öffnen|Freigabe": "Opening ports",
+  "Die Ports müssen von außen erreichbar sein, meist UDP, im Zweifel TCP und UDP. Zu Hause: im Router an den Node weiterleiten (z. B. FRITZ!Box: Internet → Freigaben → Portfreigaben). Auf einem VPS: in der Firewall öffnen, also auf dem Server (z. B. ufw) und, falls vorhanden, in der Firewall des Anbieters.": "The ports must be reachable from outside, usually UDP, if in doubt TCP and UDP. At home: forward them in the router to the node (e.g. FRITZ!Box: Internet → Permit Access → Port Sharing). On a VPS: open them in the firewall, i.e. on the server (e.g. ufw) and, if there is one, in the provider's firewall.",
+  "Trag unter System → Netzwerk die öffentliche Adresse ein, dann zeigt die Übersicht jedem Spieler die richtige Adresse. Auf einem VPS ist das die feste IP oder eine Domain, die darauf zeigt. Zu Hause ändert sich die IP meist regelmäßig, nimm dort einen DynDNS-Namen (z. B. MyFRITZ!, DuckDNS).": "Enter the public address under System → Network, then the overview shows every player the right address. On a VPS that is its fixed IP or a domain pointing to it. At home the IP usually changes regularly, so use a DynDNS name there (e.g. MyFRITZ!, DuckDNS)."
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",
