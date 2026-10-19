@@ -3,6 +3,13 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.37.0 – 2026-10-19
+
+- Owners are told when someone registers through an invitation link, like with new servers: a notice in the
+  overview shows which permissions the invitation gave (with "Check permissions" and "Done"), plus an entry in the
+  bell. New event "New user registered" for webhooks and e-mail; webhooks that report new servers get it as well
+- System → Notifications → Notices for owners: switch the notices about new servers and new users on or off
+
 ## 0.36.0 – 2026-10-19
 
 - New **Players** tab on the server page: shows whether anyone is online and how that was detected. Three sources

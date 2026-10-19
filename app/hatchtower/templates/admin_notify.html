@@ -81,6 +81,18 @@
   </details>
 </section>
 
+<section class="card">
+  <h2 class="card-h">{{ _("Hinweise für Owner") }}</h2>
+  <form method="post" action="/admin/notify/owner" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <p class="faint small">{{ _("Erscheinen in der Übersicht (mit „Rechte prüfen“ und „Erledigt“) und in der Glocke, damit du nachsehen kannst, ob Rechte vergeben werden müssen. Webhooks und E-Mail stellst du unten bei den Ereignissen ein.") }}</p>
+    <div class="toggle-list">
+      {% for key, (label, on) in owner_notices.items() %}<label class="check"><input type="checkbox" name="notice__{{ key }}" value="1" {% if on %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
+    </div>
+    <button class="btn btn-primary" type="submit">{{ _("Hinweise speichern") }}</button>
+  </form>
+</section>
+
 <div class="two-col">
   <section class="card">
     <h2 class="card-h">{{ _("Schwellenwerte") }}</h2>

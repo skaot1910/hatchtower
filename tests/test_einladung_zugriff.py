@@ -86,3 +86,31 @@ def test_steuerfehler_ohne_technik_fuer_benutzer():
     assert "HTTP 409" in main.power_error_text(busy, technical=True)
     down = main.power_error_text(PteroError("Wings nicht erreichbar: ConnectError"), technical=False)
     assert "ConnectError" not in down and "Owner" in down
+
+
+def test_registrierung_meldet_sich_beim_owner(world):
+    owner = world.client(world.ids["olga"])
+    owner.post("/admin/groups/starter", data={"csrf": owner.csrf})
+    uid = _accept(world, _invite(owner, access_group=str(_groups()["Spieler"]), access_server=["srv-a"]), "neuling")
+    page = owner.get("/").text
+    assert "Neuer Benutzer: neuling" in page and "Rechte für 1 Server" in page
+    assert f'href="/admin/users/{uid}"' in page
+    with db.connect() as con:
+        bell = con.execute("SELECT detail FROM inbox WHERE event = 'new_user'").fetchall()
+    assert len(bell) == 1 and "neuling" in bell[0]["detail"]
+    assert "Neuer Benutzer" not in world.client(uid).get("/").text          # only owners see it
+    owner.post(f"/admin/users/{uid}/reviewed", data={"csrf": owner.csrf})
+    assert "Neuer Benutzer: neuling" not in owner.get("/").text
+    assert world.audit("user.reviewed")
+
+
+def test_hinweise_lassen_sich_abschalten(world):
+    owner = world.client(world.ids["olga"])
+    assert owner.post("/admin/notify/owner", data={"csrf": owner.csrf, "notice__new_server": "1"}).status_code == 303
+    assert db.get_setting("owner_notice_new_user") == "0" and db.get_setting("owner_notice_new_server") == "1"
+    _accept(world, _invite(owner), "still")
+    assert "Neuer Benutzer: still" not in owner.get("/").text
+    with db.connect() as con:
+        assert not con.execute("SELECT 1 FROM inbox WHERE event = 'new_user'").fetchone()
+    owner.post("/admin/notify/owner", data={"csrf": owner.csrf, "notice__new_user": "1"})
+    assert "Neuer Benutzer: still" in owner.get("/").text                    # pending, shown again when on

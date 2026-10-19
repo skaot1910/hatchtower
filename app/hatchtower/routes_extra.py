@@ -23,7 +23,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 
 from . import (APP_NAME, __version__, accounts, audit, db, extras, i18n, legal, logarchive, mailer, notify, retention,
                security, setup, statusfeed, transfer)
-from .main import (BACKUP_SUFFIX, LoginRequired, app, apply_connection, back, check_csrf, check_csrf_header, clean_path,
+from .main import (BACKUP_SUFFIX, LoginRequired, announce_new_user, app, apply_connection, back, check_csrf,
+                   check_csrf_header, clean_path,
                    current_user, file_action, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
 from .panels import PANELS
@@ -824,6 +825,7 @@ async def invite_accept(request: Request, token: str, username: str = Form(""), 
                  detail={"role": role, **info, **({"zugriff": granted} if granted else {})})
     if accounts.finish_invite(token):
         audit.record("invite.used_up", user_id=user_id, username=username, ip=ip_of(request), detail=info)
+    announce_new_user(user_id, username, role, granted)
     target = "/"
     if email and ready:
         if await send_verify_mail(request, user_id, username, email) is None:
@@ -977,6 +979,7 @@ async def admin_notify(request: Request):
         subscribers = con.execute("SELECT username FROM users WHERE notify_email = 1 AND email_verified = 1"
                                   " AND is_active = 1 ORDER BY username").fetchall()
     return render(request, "admin_notify.html", events=notify.EVENTS, hooks=hooks, servers=present_servers(),
+                  owner_notices={k: (v, notify.owner_notice(k)) for k, v in notify.OWNER_NOTICES.items()},
                   limits=notify.thresholds(), subscribers=[r["username"] for r in subscribers],
                   mail_ready=mail_config().ready)
 
@@ -999,6 +1002,20 @@ async def admin_notify_save(request: Request, disk_pct: str = Form("90"), ram_pc
     db.set_setting("notify_cpu_minutes", numbers["cpu_minutes"], owner.id)
     owner_audit(request, owner, "settings.notify", detail=numbers)
     return back(NOTIFY, "Schwellenwerte gespeichert")
+
+
+@app.post("/admin/notify/owner")
+async def admin_notify_owner(request: Request):
+    """Which notices owners get in the overview and the bell (new servers, new users)."""
+    owner = require_owner(request)
+    await check_csrf(request)
+    form = await request.form()
+    chosen = {}
+    for key in notify.OWNER_NOTICES:
+        chosen[key] = "1" if form.get(f"notice__{key}") else "0"
+        db.set_setting(f"owner_notice_{key}", chosen[key], owner.id)
+    owner_audit(request, owner, "settings.notify", detail={"hinweise": chosen})
+    return back(NOTIFY, "Hinweise gespeichert")
 
 
 def webhook_form(form, hook=None) -> tuple[dict | None, str | None]:

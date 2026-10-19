@@ -43,6 +43,19 @@
 </div>
 {% endfor %}
 
+{% for n in (new_users if not simple_view else []) %}
+<div class="new-server new-user" role="note">
+  <div>
+    <strong>{{ _("Neuer Benutzer: {name}", name=n.username) }}</strong> <span class="faint small">{{ _("registriert am {date} über einen Einladungslink", date=n.created) }}</span>
+    <div class="small muted">{% if n.owner %}{{ _("Rolle: Owner") }}{% elif n.all_servers %}{{ _("Hat aus der Einladung Zugriff auf alle Server.") }}{% elif n.servers %}{{ _("Hat aus der Einladung Rechte für {n} Server.", n=n.servers) }}{% else %}{{ _("Hat noch keine Rechte und sieht keinen Server.") }}{% endif %}</div>
+  </div>
+  <div class="new-server-actions">
+    <a class="chip chip-sm" href="/admin/users/{{ n.id }}">{{ _("Rechte prüfen") }}</a>
+    <form method="post" action="/admin/users/{{ n.id }}/reviewed"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-ghost" type="submit">{{ _("Erledigt") }}</button></form>
+  </div>
+</div>
+{% endfor %}
+
 {% if not servers %}
 <div class="empty">
   <h2>{{ _("Noch keine Server sichtbar") }}</h2>

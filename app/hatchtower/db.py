@@ -624,6 +624,12 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX presence_log_server ON presence_log (identifier, id);
     """,
+    # 33: notice for owners when someone registers through an invitation link (like new servers);
+    #     webhooks that report new servers also report new users
+    """
+    ALTER TABLE users ADD COLUMN review_pending INTEGER NOT NULL DEFAULT 0;
+    UPDATE notify_webhooks SET events = events || ',new_user' WHERE ',' || events || ',' LIKE '%,new_server,%';
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

@@ -32,6 +32,7 @@ EVENTS = {
     "panel_down": ("{panel} nicht erreichbar", "error"),
     "panel_up": ("{panel} wieder erreichbar", "ok"),
     "new_server": ("Neuer Server erkannt", "info"),
+    "new_user": ("Neuer Benutzer registriert", "info"),
     "backup_failed": ("Backup fehlgeschlagen", "error"),
     "backup_partial": ("Backup mit Fehlern", "warn"),
     "statusfeed_failed": ("Discord-Serverstatus wird nicht aktualisiert", "error"),
@@ -41,7 +42,8 @@ EVENTS = {
 }
 # Events from notify.emit that also go into the inbox, with their audience
 FROM_NOTIFY = {"crash": "server", "restarted": "server", "restart_failed": "server", "schedule_failed": "server",
-               "panel_down": "owner", "panel_up": "owner", "new_server": "owner"}
+               "panel_down": "owner", "panel_up": "owner", "new_server": "owner",
+               "new_user": "owner"}
 AUDIENCES = ("owner", "server", "users")
 
 
@@ -67,6 +69,9 @@ def add(event: str, audience: str, identifier: str | None = None, detail: str = 
 
 def from_notify(event: str, identifier: str | None, detail: str) -> None:
     audience = FROM_NOTIFY.get(event)
+    # owner notices that were switched off under System → Notifications
+    if event in ("new_server", "new_user") and db.get_setting(f"owner_notice_{event}", "1") == "0":
+        return
     if audience:
         add(event, audience, identifier, detail)
 

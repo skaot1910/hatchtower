@@ -1113,6 +1113,7 @@ async def dashboard(request: Request, als: int | None = None):
     down = app.state.monitor.down_since
     return render(request, "dashboard.html", servers=servers, preview=preview,
                   new_servers=pending_reviews() if user.is_owner and not preview else [],
+                  new_users=pending_users() if user.is_owner and not preview else [],
                   fmt_down_since=fmt_dt(down, settings.timezone) if down else None)
 
 
@@ -2153,7 +2154,45 @@ def announce_new_servers(idents: list[str]) -> None:
             " Absturz sind für ihn noch aus.", name=name, wer=who))
 
 
+def announce_new_user(user_id: int, username: str, role: str, granted) -> None:
+    """Someone registered through an invitation link: notice in the overview, bell, webhook/e-mail (owners)."""
+    with db.connect() as con:
+        con.execute("UPDATE users SET review_pending = 1 WHERE id = ?", (user_id,))
+    i18n.use_default()
+    if role == "owner":
+        what = i18n.t("Rolle: Owner")
+    elif granted:
+        what = i18n.t("Rechte aus der Einladung: {list}",
+                      list="; ".join(f"{i18n.t(k)}: {v}" for k, v in granted.items()))
+    else:
+        what = i18n.t("Noch keine Rechte – bitte unter Benutzer vergeben.")
+    notify.emit(vault, "new_user", None, i18n.t("„{name}“ hat sich über einen Einladungslink registriert. {what}",
+                                                name=username, what=what))
+
+
+def pending_users() -> list[dict]:
+    """Users who registered through an invitation and were not looked at yet (owner notice)."""
+    if not notify.owner_notice("new_user"):
+        return []
+    with db.connect() as con:
+        rows = con.execute("SELECT id, username, role, created_at FROM users WHERE review_pending = 1"
+                           " ORDER BY created_at").fetchall()
+        result = []
+        for r in rows:
+            servers = con.execute(
+                "SELECT COUNT(*) FROM (SELECT identifier FROM user_server_permissions WHERE user_id = ?"
+                " UNION SELECT identifier FROM user_server_groups WHERE user_id = ?)",
+                (r["id"], r["id"])).fetchone()[0] if r["role"] != "owner" else 0
+            default = con.execute("SELECT 1 FROM user_default_access WHERE user_id = ?", (r["id"],)).fetchone()
+            result.append({"id": r["id"], "username": r["username"], "owner": r["role"] == "owner",
+                           "servers": servers, "all_servers": bool(default),
+                           "created": fmt_dt(r["created_at"], settings.timezone)})
+    return result
+
+
 def pending_reviews() -> list[dict]:
+    if not notify.owner_notice("new_server"):
+        return []
     with db.connect() as con:
         rows = con.execute("SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg FROM servers s"
                            " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
@@ -2173,6 +2212,20 @@ async def admin_server_reviewed(request: Request, ident: str):
                               (ident,)).rowcount
     if changed:
         audit.record("server.reviewed", user_id=owner.id, username=owner.username, ip=ip_of(request), server=ident)
+    return back("/")
+
+
+@app.post("/admin/users/{user_id}/reviewed")
+async def admin_user_reviewed(request: Request, user_id: int):
+    owner = require_owner(request)
+    await check_csrf(request)
+    with db.connect() as con:
+        row = con.execute("SELECT username FROM users WHERE id = ? AND review_pending = 1", (user_id,)).fetchone()
+        if row:
+            con.execute("UPDATE users SET review_pending = 0 WHERE id = ?", (user_id,))
+    if row:
+        audit.record("user.reviewed", user_id=owner.id, username=owner.username, ip=ip_of(request),
+                     detail=row["username"])
     return back("/")
 
 

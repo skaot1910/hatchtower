@@ -225,6 +225,8 @@ Grundregeln:
 | POST | `/admin/users/email-policy` | Formular | Benutzer ohne E-Mail-Adresse erlauben |
 | POST | `/admin/users/{user_id}/delete` | Formular | Benutzer löschen |
 | POST | `/admin/servers/{ident}/reviewed` | Formular | Hinweis auf neuen Server als erledigt markieren |
+| POST | `/admin/users/{user_id}/reviewed` | Formular | Hinweis auf neuen Benutzer als erledigt markieren |
+| POST | `/admin/notify/owner` | Formular | Hinweise für Owner ein- und ausschalten |
 | GET | `/admin/groups` | – | Rechtegruppen |
 | POST | `/admin/groups` | Formular | Rechtegruppe speichern |
 | POST | `/admin/groups/starter` | Formular | Vorschlagsgruppen anlegen |

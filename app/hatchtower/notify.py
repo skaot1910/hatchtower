@@ -30,22 +30,29 @@ EVENTS = {
     "panel_down": "{panel} nicht erreichbar",
     "panel_up": "{panel} wieder erreichbar",
     "new_server": "Neuer Server erkannt",
+    "new_user": "Neuer Benutzer registriert",
     "backup_failed": "Backup fehlgeschlagen",
     "backup_ok": "Backup erfolgreich",
 }
 # Verwaltungsmeldungen: E-Mail nur an Owner
-PANEL_EVENTS = {"panel_down", "panel_up", "new_server", "backup_failed", "backup_ok"}
+PANEL_EVENTS = {"panel_down", "panel_up", "new_server", "new_user", "backup_failed", "backup_ok"}
+# Notices for owners in the overview and the bell; each can be switched off (System → Notifications)
+OWNER_NOTICES = {"new_server": "Neue Server", "new_user": "Neue Benutzer (Registrierung über Einladungslink)"}
+
+
+def owner_notice(event: str) -> bool:
+    return db.get_setting(f"owner_notice_{event}", "1") != "0"
 
 
 def events_for(is_owner: bool) -> dict[str, str]:
     """Ereignisse, zu denen dieser Benutzer überhaupt E-Mails bekommen kann (Konto-Seite)."""
     return {k: v for k, v in EVENTS.items() if is_owner or k not in PANEL_EVENTS}
-COOLDOWN = {"disk": 6 * 3600, "ram": 3600, "cpu": 3600, "panel_down": 0, "panel_up": 0, "new_server": 0,
+COOLDOWN = {"disk": 6 * 3600, "ram": 3600, "cpu": 3600, "panel_down": 0, "panel_up": 0, "new_server": 0, "new_user": 0,
             "backup_failed": 0, "backup_ok": 0}
 DEFAULT_COOLDOWN = 120
 COLORS = {"crash": 0xE11D48, "restart_failed": 0xE11D48, "restarted": 0x10B981, "disk": 0xF59E0B,
           "ram": 0xF59E0B, "cpu": 0xF59E0B, "schedule_failed": 0xF59E0B, "panel_down": 0xE11D48,
-          "panel_up": 0x10B981, "new_server": 0x8B5CF6, "backup_failed": 0xE11D48, "backup_ok": 0x10B981,
+          "panel_up": 0x10B981, "new_server": 0x8B5CF6, "new_user": 0x8B5CF6, "backup_failed": 0xE11D48, "backup_ok": 0x10B981,
           "test": 0x8B5CF6}
 WEBHOOK_TYPES = ("discord", "generic")
 SECRET_KEY = ""      # setzt main.py; signiert die Abmeldelinks in den E-Mails
@@ -83,7 +90,7 @@ def hook_wants(hook, event: str, ident: str | None) -> bool:
         return False
     servers = hook_servers(hook)
     # Meldungen ohne Server (Panel) und „Neuer Server“ gehen an jeden Webhook mit dem Ereignis
-    return not servers or not ident or event == "new_server" or ident in servers
+    return not servers or not ident or event in ("new_server", "new_user") or ident in servers
 
 
 def _cooldown_ok(key: str, seconds: int) -> bool:

@@ -49,6 +49,7 @@ ACTION_LABELS = {
     "automation.settings": "Absturz-Neustart geändert",
     "server.new": "Neuer Server erkannt",
     "server.reviewed": "Neuen Server als erledigt markiert",
+    "user.reviewed": "Neuen Benutzer als erledigt markiert",
     "automation.crash": "Absturz erkannt",
     "schedule.create": "Zeitplan angelegt",
     "schedule.update": "Zeitplan geändert",
