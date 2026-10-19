@@ -1822,7 +1822,14 @@
     });
   }
 
+  // Installable app on Android: Chrome wants a service worker (only over HTTPS or on localhost)
+  function startServiceWorker() {
+    if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(function () {});
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
+    startServiceWorker();
     startAnnouncements();
     startFavorites();
     startBulk();

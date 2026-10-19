@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.38.1-pre.1 – 2026-10-20
+
+- Installed web app (Android): Hatchtower now has a small service worker (`/sw.js`). Chrome on Android only offers
+  "Install app" with a worker that handles page loads; without it there was at most a home screen shortcut. Nothing
+  is cached – if the server cannot be reached, the installed app shows a short note instead of Chrome's error page
+- The manifest is now requested with cookies, so installing also works behind a reverse proxy with its own login
+- Note: installing as an app needs HTTPS (or localhost) – over plain `http://` with an IP address, Chrome never
+  offers it
+
 ## 0.38.0 – 2026-10-19
 
 - Pre-releases: new switch "Receive pre-releases" under System → Updates. When it is on, the update check and

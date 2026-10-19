@@ -226,6 +226,13 @@ async def web_manifest():
     return JSONResponse(body, media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/sw.js")
+async def service_worker():
+    # Served from the root so its scope covers the whole site (a worker under /static/ would only control /static/)
+    return FileResponse(Path(__file__).parent / "static" / "sw.js", media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/status.json")
 async def status_json(request: Request):
     if not status_enabled():
