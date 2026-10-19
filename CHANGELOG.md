@@ -3,6 +3,16 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.38.1-pre.2 – 2026-10-20
+
+- Audit log: the user filter suggests every current account plus everything else that can appear in the user
+  column (internal actors like System or Automation, deleted accounts, failed logins, entries without a user)
+- Audit log: search by IP address – part of an address is enough, e.g. `192.168.`
+- Audit log: the action filter is sorted alphabetically and searchable – type a keyword and every action whose name
+  contains it is suggested and matched
+- Registration through an invitation link is now listed as "User created via invitation" (it was logged before, but
+  only as "Invitation accepted"); CSV/TXT export uses the same filters
+
 ## 0.38.1-pre.1 – 2026-10-20
 
 - Installed web app (Android): Hatchtower now has a small service worker (`/sw.js`). Chrome on Android only offers

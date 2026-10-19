@@ -4,17 +4,17 @@
 <div class="page-head">
   <div><h1>{{ _("Audit-Log") }}</h1><p class="muted">{{ _("{n} Einträge · nur anhängbar, nicht änderbar", n=total) }} · {{ _("wird nach {n} Tagen gelöscht", n=retention_days) }} (<a href="/admin/data">{{ _("ändern") }}</a>)</p></div>
   <div class="head-tools">
-    <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=csv&{{ export_query }}">{{ _("Export als CSV") }}</a>
-    <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=txt&{{ export_query }}">{{ _("Export als TXT") }}</a>
+    <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=csv&amp;{{ filter_query }}">{{ _("Export als CSV") }}</a>
+    <a class="btn btn-ghost btn-sm" href="/admin/audit/export?format=txt&amp;{{ filter_query }}">{{ _("Export als TXT") }}</a>
   </div>
 </div>
 
 <form method="get" class="filters">
-  <select name="action" aria-label="{{ _("Aktion") }}">
-    <option value="">{{ _("Alle Aktionen") }}</option>
-    {% for key, label in actions.items() %}<option value="{{ key }}" {% if key == f_action %}selected{% endif %}>{{ label }}</option>{% endfor %}
-  </select>
-  <input name="username" value="{{ f_username }}" placeholder="{{ _("Spalte|Benutzer") }}" aria-label="{{ _("Spalte|Benutzer") }}">
+  <input name="action" value="{{ f_action }}" list="audit-actions" autocomplete="off" placeholder="{{ _("Aktion oder Stichwort") }}" aria-label="{{ _("Aktion") }}">
+  <datalist id="audit-actions">{% for label in actions %}<option value="{{ label }}"></option>{% endfor %}</datalist>
+  <input name="username" value="{{ f_username }}" list="audit-users" autocomplete="off" placeholder="{{ _("Spalte|Benutzer") }}" aria-label="{{ _("Spalte|Benutzer") }}">
+  <datalist id="audit-users">{% for name, hint in user_choices %}<option value="{{ name }}"{% if hint %} label="{{ hint }}"{% endif %}></option>{% endfor %}</datalist>
+  <input name="ip" value="{{ f_ip }}" class="mono" autocomplete="off" placeholder="{{ _("IP-Adresse (Teil genügt)") }}" aria-label="{{ _("IP-Adresse") }}">
   <select name="server" aria-label="{{ _("Server") }}">
     <option value="">{{ _("Alle Server") }}</option>
     {% for ident, name in servers.items() %}<option value="{{ ident }}" {% if ident == f_server %}selected{% endif %}>{{ name }}</option>{% endfor %}
@@ -45,9 +45,9 @@
 
 {% if pages > 1 %}
 <nav class="pager">
-  {% if page > 1 %}<a class="chip chip-sm" href="?page={{ page - 1 }}&action={{ f_action|urlencode }}&username={{ f_username|urlencode }}&server={{ f_server|urlencode }}">{{ _("← Neuer") }}</a>{% endif %}
+  {% if page > 1 %}<a class="chip chip-sm" href="?page={{ page - 1 }}&amp;{{ filter_query }}">{{ _("← Neuer") }}</a>{% endif %}
   <span class="faint small">{{ _("Seite {page} von {pages}", page=page, pages=pages) }}</span>
-  {% if page < pages %}<a class="chip chip-sm" href="?page={{ page + 1 }}&action={{ f_action|urlencode }}&username={{ f_username|urlencode }}&server={{ f_server|urlencode }}">{{ _("Älter →") }}</a>{% endif %}
+  {% if page < pages %}<a class="chip chip-sm" href="?page={{ page + 1 }}&amp;{{ filter_query }}">{{ _("Älter →") }}</a>{% endif %}
 </nav>
 {% endif %}
 {% endblock %}

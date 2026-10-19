@@ -78,7 +78,7 @@ ACTION_LABELS = {
     "group.delete": "Rechtegruppe gelöscht",
     "user.invite": "Einladung erstellt",
     "user.invite_revoke": "Einladung zurückgezogen",
-    "invite.accept": "Einladung angenommen",
+    "invite.accept": "Benutzer per Einladung angelegt",
     "invite.used_up": "Einladung aufgebraucht",
     "invite.expire": "Einladung abgelaufen",
     "user.export": "Benutzerdaten exportiert",
@@ -140,18 +140,64 @@ def record(
         log.exception("Audit-Eintrag konnte nicht geschrieben werden: %s", action)
 
 
-def query(limit: int = 100, offset: int = 0, action: str | None = None, username: str | None = None,
-          server: str | None = None) -> tuple[list, int]:
+# Filter value for entries without a user (e.g. requests before login)
+NO_USER = "–"
+# Names the application itself writes into the user column
+INTERNAL_ACTORS = ("System", "Automation", "Backup", "Monitoring", "Konsole")
+
+
+def user_choices() -> list[tuple[str, str]]:
+    """Suggestions for the user filter: current accounts first, then internal actors, then every other
+    name the log contains (deleted accounts, failed logins), last „no user“. Pairs of (value, hint)."""
+    with db.connect() as con:
+        accounts = [r["username"] for r in con.execute("SELECT username FROM users ORDER BY username COLLATE NOCASE")]
+        logged = [r["username"] for r in con.execute(
+            "SELECT DISTINCT username FROM audit_log WHERE username IS NOT NULL AND username != ''"
+            " ORDER BY username COLLATE NOCASE LIMIT 500")]
+        anonymous = con.execute("SELECT 1 FROM audit_log WHERE username IS NULL OR username = '' LIMIT 1").fetchone()
+    known = {name.lower() for name in accounts}
+    choices = [(name, "") for name in accounts]
+    choices += [(name, "Intern") for name in INTERNAL_ACTORS if name in logged]
+    known |= {name.lower() for name in INTERNAL_ACTORS}
+    choices += [(name, "Kein Konto (gelöscht oder fehlgeschlagene Anmeldung)")
+                for name in logged if name.lower() not in known]
+    if anonymous:
+        choices.append((NO_USER, "Ohne Benutzer"))
+    return choices
+
+
+def match_actions(text: str, translate) -> list[str]:
+    """Actions for the action filter: an action key, an exact label, or every action whose label (in German
+    or the current language) or key contains the text. Empty list when nothing fits."""
+    text = text.strip().casefold()
+    if text in ACTION_LABELS:
+        return [text]
+    labels = {key: (label.casefold(), translate(label).casefold()) for key, label in ACTION_LABELS.items()}
+    exact = [key for key, names in labels.items() if text in names]
+    return exact or [key for key, names in labels.items() if any(text in n for n in names) or text in key]
+
+
+def query(limit: int = 100, offset: int = 0, action: str | list[str] | None = None, username: str | None = None,
+          server: str | None = None, ip: str | None = None) -> tuple[list, int]:
     where, params = [], []
-    if action:
+    if isinstance(action, list):
+        where.append(f"action IN ({','.join('?' * len(action))})" if action else "0")
+        params.extend(action)
+    elif action:
         where.append("action = ?")
         params.append(action)
-    if username:
+    if username == NO_USER:
+        where.append("(username IS NULL OR username = '')")
+    elif username:
         where.append("username = ? COLLATE NOCASE")
         params.append(username)
     if server:
         where.append("server = ?")
         params.append(server)
+    if ip:
+        # part of an address is enough, e.g. "192.168."
+        where.append("ip LIKE ? ESCAPE '\\'")
+        params.append("%" + ip.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     with db.connect() as con:
         total = con.execute(f"SELECT COUNT(*) FROM audit_log {clause}", params).fetchone()[0]

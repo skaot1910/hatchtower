@@ -2396,11 +2396,14 @@ async def admin_user_delete(request: Request, user_id: int):
 
 
 @app.get("/admin/audit", response_class=HTMLResponse)
-async def admin_audit(request: Request, page: int = 1, action: str = "", username: str = "", server: str = ""):
+async def admin_audit(request: Request, page: int = 1, action: str = "", username: str = "", server: str = "",
+                      ip: str = ""):
     require_owner(request)
     page = max(1, page)
-    rows, total = audit.query(limit=50, offset=(page - 1) * 50, action=action or None,
-                              username=username or None, server=server or None)
+    action, username, ip = action.strip()[:100], username.strip()[:64], ip.strip()[:64]
+    rows, total = audit.query(limit=50, offset=(page - 1) * 50,
+                              action=audit.match_actions(action, i18n.t) if action else None,
+                              username=username or None, server=server or None, ip=ip or None)
     names = server_names()
     entries = [{
         "ts": fmt_dt(r["ts"], settings.timezone, seconds=True),
@@ -2410,9 +2413,13 @@ async def admin_audit(request: Request, page: int = 1, action: str = "", usernam
         "detail": r["detail"] or "", "result": r["result"],
     } for r in rows]
     return render(request, "admin_audit.html", entries=entries, page=page, pages=max(1, -(-total // 50)),
-                  total=total, actions={k: i18n.t(v) for k, v in audit.ACTION_LABELS.items()}, f_action=action, f_username=username,
-                  f_server=server, servers=names, retention_days=retention.audit_days(),
-                  export_query=f"action={quote(action)}&username={quote(username)}&server={quote(server)}")
+                  total=total, actions=sorted({i18n.t(v) for v in audit.ACTION_LABELS.values()}, key=str.casefold),
+                  f_action=i18n.t(audit.ACTION_LABELS[action]) if action in audit.ACTION_LABELS else action,
+                  f_username=username,
+                  f_server=server, f_ip=ip, servers=names, retention_days=retention.audit_days(),
+                  user_choices=[(name, i18n.t(hint) if hint else "") for name, hint in audit.user_choices()],
+                  filter_query=f"action={quote(action)}&username={quote(username)}&server={quote(server)}"
+                               f"&ip={quote(ip)}")
 
 
 def require_automation(request: Request) -> tuple[UserContext, dict[str, str]]:

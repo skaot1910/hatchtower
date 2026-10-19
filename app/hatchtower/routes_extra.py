@@ -1503,9 +1503,11 @@ def csv_cell(value) -> str:
 
 @app.get("/admin/audit/export")
 async def admin_audit_export(request: Request, format: str = "csv", action: str = "", username: str = "",
-                             server: str = ""):
+                             server: str = "", ip: str = ""):
     owner = require_owner(request)
-    rows, _ = audit.query(limit=1_000_000, action=action or None, username=username or None, server=server or None)
+    action, username, ip = action.strip()[:100], username.strip()[:64], ip.strip()[:64]
+    rows, _ = audit.query(limit=1_000_000, action=audit.match_actions(action, i18n.t) if action else None, username=username or None, server=server or None,
+                          ip=ip or None)
     names = server_names()
     header = [i18n.t("Zeit"), i18n.t("Spalte|Benutzer"), "IP", i18n.t("Aktion"), i18n.t("Server"), i18n.t("Details"),
               i18n.t("Ergebnis")]
