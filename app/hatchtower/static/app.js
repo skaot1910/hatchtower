@@ -212,7 +212,12 @@
         if (msg.type === "line") addLine(msg.text, msg.source === "console output" ? "" : "sys");
         else if (msg.type === "stats") document.dispatchEvent(new CustomEvent("hatchtower:stats", { detail: msg }));
         else if (msg.type === "status") addLine("[Hatchtower] " + tr("Status laut {panel}: {state}", { state: msg.state }), "sys");
-        else if (msg.type === "error") { addLine("[Hatchtower] " + msg.text, "err"); stateEl.textContent = tr("getrennt"); }
+        else if (msg.type === "error") {
+          addLine("[Hatchtower] " + msg.text, "err");
+          stateEl.textContent = tr("getrennt");
+          // Wings refuses the connection: retrying does not help until the configuration changes
+          if (msg.fatal) es.close();
+        }
       };
       es.onerror = function () {
         es.close();

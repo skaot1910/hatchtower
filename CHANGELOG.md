@@ -3,22 +3,24 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
-## 0.38.1-pre.4 – 2026-10-20
+## 0.38.1 – 2026-10-21
 
-- Login page language: always English until a different language is picked on the login page itself; that choice
-  is remembered per browser. The browser's language setting is no longer used
-- Switching the language while signed in only changes the account's language and no longer overwrites the login
-  page's choice (before, both shared one cookie, so the login page seemed to forget its language)
-- The default language under Appearance now only applies to users who haven't chosen a language themselves
-
-## 0.38.1-pre.3 – 2026-10-20
-
-- Home screen on iPhone/iPad: Hatchtower now has an Apple touch icon, so "Add to Home Screen" in Safari (and in
-  Chrome/Edge since iPadOS 16.4) shows the Hatchtower logo instead of a screenshot or a plain letter. The name
-  under the icon is the instance's name, the status bar follows the light/dark theme
-
-## 0.38.1-pre.2 – 2026-10-20
-
+- Console: fixed "Connection to Wings interrupted" when the panel address in Hatchtower differs from the one Wings
+  knows (e.g. LAN IP in Hatchtower, domain behind a reverse proxy in the panel). Wings only accepts the console
+  connection from the address under `remote` in its config.yml. Hatchtower now also tries the panel's own address
+  (APP_URL, taken from the console token) and http/https variants, and remembers what works per node – no change on
+  the panel or Wings needed
+- If Wings still refuses the console (HTTP 403), the console says so and names the `allowed_origins` entry to add
+  instead of reconnecting endlessly; "Wings not reachable" is now reported separately from "refused"
+- Connection check (web interface and `hatchtower selftest`) now opens a real console connection to a sample server
+  and shows whether Wings accepts it; before, this case showed everything green
+- Console archive: retries only every 10 minutes while Wings refuses the connection (saves API requests)
+- Installed web app (Android): Hatchtower now has a small service worker (`/sw.js`). Chrome on Android only offers
+  "Install app" with a worker that handles page loads; without it there was at most a home screen shortcut. Nothing
+  is cached – if the server cannot be reached, the installed app shows a short note instead of Chrome's error page
+- The manifest is now requested with cookies, so installing also works behind a reverse proxy with its own login
+- Note: installing as an app needs HTTPS (or localhost) – over plain `http://` with an IP address, Chrome never
+  offers it
 - Audit log: the user filter suggests every current account plus everything else that can appear in the user
   column (internal actors like System or Automation, deleted accounts, failed logins, entries without a user)
 - Audit log: search by IP address – part of an address is enough, e.g. `192.168.`
@@ -26,15 +28,14 @@ when publishing (`tools/release.sh`).
   contains it is suggested and matched
 - Registration through an invitation link is now listed as "User created via invitation" (it was logged before, but
   only as "Invitation accepted"); CSV/TXT export uses the same filters
-
-## 0.38.1-pre.1 – 2026-10-20
-
-- Installed web app (Android): Hatchtower now has a small service worker (`/sw.js`). Chrome on Android only offers
-  "Install app" with a worker that handles page loads; without it there was at most a home screen shortcut. Nothing
-  is cached – if the server cannot be reached, the installed app shows a short note instead of Chrome's error page
-- The manifest is now requested with cookies, so installing also works behind a reverse proxy with its own login
-- Note: installing as an app needs HTTPS (or localhost) – over plain `http://` with an IP address, Chrome never
-  offers it
+- Home screen on iPhone/iPad: Hatchtower now has an Apple touch icon, so "Add to Home Screen" in Safari (and in
+  Chrome/Edge since iPadOS 16.4) shows the Hatchtower logo instead of a screenshot or a plain letter. The name
+  under the icon is the instance's name, the status bar follows the light/dark theme
+- Login page language: always English until a different language is picked on the login page itself; that choice
+  is remembered per browser. The browser's language setting is no longer used
+- Switching the language while signed in only changes the account's language and no longer overwrites the login
+  page's choice (before, both shared one cookie, so the login page seemed to forget its language)
+- The default language under Appearance now only applies to users who haven't chosen a language themselves
 
 ## 0.38.0 – 2026-10-19
 

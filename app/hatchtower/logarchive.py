@@ -125,6 +125,7 @@ class LogArchive:
         delay = 5
         while True:
             buffer: list[str] = []
+            rejected = False
             connected = last_flush = time.monotonic()
             # Direkt nach dem Verbinden schickt Wings den Log-Verlauf erneut: nur dann Doppelte überspringen
             fresh = lambda: time.monotonic() - connected < 6  # noqa: E731
@@ -138,6 +139,8 @@ class LogArchive:
                             self.on_status(ident)
                         self._last_state[ident] = item["state"]
                     elif item["type"] == "error":
+                        # Wings refuses the connection (wrong Origin): retry rarely, every attempt costs an API call
+                        rejected = bool(item.get("fatal"))
                         break
                     if buffer and (len(buffer) >= 50 or time.monotonic() - last_flush > 2):
                         self._store(ident, buffer, fresh())
@@ -153,7 +156,7 @@ class LogArchive:
                 log.exception("Konsolen-Archiv %s", ident)
             if buffer:
                 self._store(ident, buffer, fresh())
-            await asyncio.sleep(delay)
+            await asyncio.sleep(600 if rejected else delay)
             delay = min(delay * 2, 120)
 
 

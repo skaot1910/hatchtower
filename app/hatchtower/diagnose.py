@@ -35,6 +35,7 @@ from . import setup
 from .i18n import Msg
 from .panels import PANELS, Panel
 from .ptero import PteroClient, PteroError
+from . import wings
 
 log = logging.getLogger("hatchtower.diagnose")
 
@@ -684,8 +685,40 @@ async def check_wings(report: Report, cand: Candidate, client: PteroClient, tran
         else:
             any_ok = True
             report.add("wings", OK, Msg("Wings auf „{name}“ ist erreichbar ({target}).", name=name, target=target))
+    sample = report.facts.get("sample")
+    if transport is None and sample and any_ok and report.caps.get("console"):
+        await check_console_socket(report, client, sample)
     if nodes:
         report.caps["wings"] = False if any_bad and not any_ok else (True if any_ok else None)
+
+
+async def check_console_socket(report: Report, client: PteroClient, sample: str) -> None:
+    """Real websocket handshake with the sample server: Wings compares the Origin with `remote` in its config.yml,
+    which the HTTP check above cannot see."""
+    try:
+        origin = await wings.probe(client, sample)
+    except wings.WingsRejected as exc:
+        if exc.status != 403:
+            report.add("wings", WARNING, Msg("Die Konsole lässt sich nicht verbinden (HTTP {code}).", code=exc.status),
+                       Msg("Die Konsole bleibt leer."), Msg("Geprüft am Server {ident}.", ident=sample))
+            return
+        url = client.settings.pterodactyl_url
+        report.add("wings", WARNING, Msg("Wings lehnt die Konsole ab (HTTP 403)."),
+                   Msg("Wings nimmt die Verbindung nur an, wenn sie von der Panel-Adresse kommt, die in seiner "
+                       "config.yml unter „remote“ steht. Hatchtower hat {url} und die Adresse aus dem Panel "
+                       "probiert, beide passen nicht.", url=url),
+                   Msg("Die Konsole und das Konsolen-Archiv bleiben leer. Geprüft am Server {ident}.", ident=sample),
+                   [Msg("In /etc/pterodactyl/config.yml von Wings ergänzen: allowed_origins: [\"{url}\"], danach "
+                        "Wings neu starten.", url=url),
+                    Msg("Oder in Hatchtower als Panel-Adresse genau den Wert von „remote“ aus dieser Datei eintragen.")])
+        return
+    except PteroError:
+        return                                  # unreachable Wings is already reported above
+    if origin != client.settings.pterodactyl_url:
+        report.add("wings", OK, Msg("Konsole verbindet sich (Wings erwartet die Panel-Adresse {origin}).",
+                                    origin=origin))
+    else:
+        report.add("wings", OK, Msg("Konsole verbindet sich."))
 
 
 # -- Gesamtablauf ------------------------------------------------------------------------
