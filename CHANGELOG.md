@@ -3,6 +3,12 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.38.1-pre.3 – 2026-10-20
+
+- Home screen on iPhone/iPad: Hatchtower now has an Apple touch icon, so "Add to Home Screen" in Safari (and in
+  Chrome/Edge since iPadOS 16.4) shows the Hatchtower logo instead of a screenshot or a plain letter. The name
+  under the icon is the instance's name, the status bar follows the light/dark theme
+
 ## 0.38.1-pre.2 – 2026-10-20
 
 - Audit log: the user filter suggests every current account plus everything else that can appear in the user
