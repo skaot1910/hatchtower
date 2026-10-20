@@ -46,6 +46,7 @@ templates = Jinja2Templates(directory=str(BASE / "templates"))
 templates.env.globals.update(app_name=APP_NAME, version=__version__, settings=settings, _=i18n.t,
                              languages=i18n.LANGUAGES, all_themes=themes.THEMES)
 LANG_COOKIE = "hatchtower_lang"
+PUBLIC_LANGUAGE = "en"   # login page and other public pages until a language is chosen there
 # Cache-Parameter für CSS/JS, ohne die Versionsnummer öffentlich zu zeigen
 templates.env.filters["hash_version"] = lambda v: __import__("hashlib").sha256(
     f"{v}:{settings.secret_key}".encode()).hexdigest()[:10]
@@ -245,11 +246,9 @@ def body_problem(request: Request) -> Response | None:
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
-    # Sprache: Auswahl im Cookie, sonst Browser, sonst Standard aus dem System.
-    # Angemeldete Benutzer überschreiben das in current_user() mit ihrer gespeicherten Wahl.
-    i18n.set_language(i18n.valid(request.cookies.get(LANG_COOKIE))
-                      or i18n.from_accept_language(request.headers.get("accept-language"))
-                      or i18n.valid(db.get_setting("default_language")))
+    # Language for pages without login: the choice made there (cookie), otherwise English.
+    # Signed-in users get their own choice (or the system default) in current_user().
+    i18n.set_language(i18n.valid(request.cookies.get(LANG_COOKIE)) or PUBLIC_LANGUAGE)
     note_forwarded(request)
     response = body_problem(request) or await call_next(request)
     response.headers["Content-Security-Policy"] = CSP
@@ -283,8 +282,7 @@ def current_user(request: Request) -> UserContext:
         grants=load_grants(row["user_id"]), theme=row["theme"], language=row["language"],
         view_mode=row["view_mode"], view_locked=bool(row["view_locked"]),
     )
-    if i18n.valid(row["language"]):
-        i18n.set_language(row["language"])
+    i18n.set_language(i18n.valid(row["language"]) or i18n.valid(db.get_setting("default_language")) or i18n.current())
     request.state.user = user
     return user
 
@@ -1063,18 +1061,19 @@ async def switch_view(request: Request, mode: str, next: str = "/"):
 
 @app.get("/lang/{code}")
 async def switch_language(request: Request, code: str, next: str = "/"):
-    """Sprache umschalten. Angemeldete Benutzer: im Konto gespeichert, sonst im Cookie."""
+    """Switch language. Signed in: stored in the account only; otherwise in the cookie for the login page."""
     lang = i18n.valid(code)
     target = next if next.startswith("/") and not next.startswith("//") and "\\" not in next else "/"
     response = RedirectResponse(target, status_code=303)
     if lang is None:
         return response
-    response.set_cookie(LANG_COOKIE, lang, max_age=365 * 24 * 3600, httponly=True, samesite="lax",
-                        secure=is_https(request))
     row = security.load_session(request.cookies.get(security.SESSION_COOKIE), settings)
     if row is not None:
         with db.connect() as con:
             con.execute("UPDATE users SET language = ? WHERE id = ?", (lang, row["user_id"]))
+    else:
+        response.set_cookie(LANG_COOKIE, lang, max_age=365 * 24 * 3600, httponly=True, samesite="lax",
+                            secure=is_https(request))
     return response
 
 
@@ -1919,10 +1918,7 @@ async def account_language(request: Request, language: str = Form("")):
     with db.connect() as con:
         con.execute("UPDATE users SET language = ? WHERE id = ?", (chosen, user.id))
     i18n.set_language(chosen)
-    response = back("/account", i18n.t("Sprache: {name}", name=i18n.LANGUAGES[chosen]))
-    response.set_cookie(LANG_COOKIE, chosen, max_age=365 * 24 * 3600, httponly=True, samesite="lax",
-                        secure=is_https(request))
-    return response
+    return back("/account", i18n.t("Sprache: {name}", name=i18n.LANGUAGES[chosen]))
 
 
 @app.post("/account/password")

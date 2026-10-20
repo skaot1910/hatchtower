@@ -425,7 +425,7 @@
   "Sprache: {name}": "Language: {name}",
   "Stand:": "As of:",
   "Standard-Theme (für neue Benutzer und die Login-Seite)": "Default theme (for new users and the login page)",
-  "Standardsprache (für die Login-Seite und Benutzer ohne eigene Wahl)": "Default language (for the login page and users without their own choice)",
+  "Standardsprache (für Benutzer ohne eigene Wahl)": "Default language (for users without their own choice)",
   "Starten": "Start",
   "Startpasswort": "Initial password",
   "Status laut {panel}": "Status according to {panel}",

@@ -105,14 +105,6 @@ def browser_catalog() -> dict[str, str]:
     return _js_catalogs.get(_current.get(), {})
 
 
-def from_accept_language(header: str | None) -> str | None:
-    """Bevorzugte Sprache aus dem Accept-Language-Header des Browsers."""
-    for part in (header or "").split(","):
-        code = part.split(";")[0].strip().lower()[:2]
-        if valid(code):
-            return code
-    return None
-
 
 # -- Zahlen und Datum -----------------------------------------------------------
 

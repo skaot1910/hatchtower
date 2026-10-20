@@ -86,7 +86,7 @@ Wir setzen ausschließlich technisch notwendige Cookies (§ 25 Abs. 2 TDDDG), ei
 
 - hatchtower_session: hält dich angemeldet (endet mit der Abmeldung, spätestens nach 12 Stunden)
 - hatchtower_prelogin: Schutz des Anmeldeformulars (15 Minuten)
-- hatchtower_lang: gewählte Sprache (1 Jahr)
+- hatchtower_lang: auf der Login-Seite gewählte Sprache (1 Jahr)
 
 ## 6. Konsolen-Archiv
 
@@ -137,7 +137,7 @@ We only use technically necessary cookies (§ 25 (2) TDDDG); no consent is requi
 
 - hatchtower_session: keeps you logged in (ends when you log out, at the latest after 12 hours)
 - hatchtower_prelogin: protects the login form (15 minutes)
-- hatchtower_lang: chosen language (1 year)
+- hatchtower_lang: language chosen on the login page (1 year)
 
 ## 6. Console archive
 

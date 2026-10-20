@@ -3,6 +3,14 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.38.1-pre.4 – 2026-10-20
+
+- Login page language: always English until a different language is picked on the login page itself; that choice
+  is remembered per browser. The browser's language setting is no longer used
+- Switching the language while signed in only changes the account's language and no longer overwrites the login
+  page's choice (before, both shared one cookie, so the login page seemed to forget its language)
+- The default language under Appearance now only applies to users who haven't chosen a language themselves
+
 ## 0.38.1-pre.3 – 2026-10-20
 
 - Home screen on iPhone/iPad: Hatchtower now has an Apple touch icon, so "Add to Home Screen" in Safari (and in

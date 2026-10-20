@@ -51,7 +51,7 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/login", "public", "Anmeldeseite"),
     R("POST", "/login", "public", "Anmelden", csrf="prelogin",
       form={"username": "olga", "password": PASSWORD}),
-    R("GET", "/lang/{code}", "public", "Sprache umschalten (angemeldet: im Konto gespeichert)"),
+    R("GET", "/lang/{code}", "public", "Sprache umschalten (angemeldet: im Konto, sonst Cookie der Login-Seite)"),
     R("GET", "/status", "public", "Öffentliche Statusseite (abschaltbar)"),
     R("GET", "/manifest.webmanifest", "public", "Web-App-Manifest (Farben und Symbol der installierten App)"),
     R("GET", "/sw.js", "public", "Service Worker (installierbare App)"),

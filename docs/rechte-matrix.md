@@ -50,7 +50,7 @@ Grundregeln:
 |---|---|---|---|
 | GET | `/login` | – | Anmeldeseite |
 | POST | `/login` | Vorab-Token | Anmelden |
-| GET | `/lang/{code}` | – | Sprache umschalten (angemeldet: im Konto gespeichert) |
+| GET | `/lang/{code}` | – | Sprache umschalten (angemeldet: im Konto, sonst Cookie der Login-Seite) |
 | GET | `/status` | – | Öffentliche Statusseite (abschaltbar) |
 | GET | `/manifest.webmanifest` | – | Web-App-Manifest (Farben und Symbol der installierten App) |
 | GET | `/sw.js` | – | Service Worker (installierbare App) |
