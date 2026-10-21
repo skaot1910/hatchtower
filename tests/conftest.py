@@ -296,6 +296,10 @@ def world(monkeypatch, tmp_path) -> World:
         jid = con.execute("INSERT INTO backup_jobs (name, target_id, created_by, created_at) VALUES ('Welt', ?, 1, ?)",
                           (tid, db.utcnow())).lastrowid
         con.execute("INSERT INTO backup_job_items (job_id, identifier, path) VALUES (?, 'srv-a', '/')", (jid,))
+        # Direct-download job (no target): reads the live server, needs backups.direct
+        djid = con.execute("INSERT INTO backup_jobs (name, target_id, created_by, created_at) VALUES ('Live', NULL, 1, ?)",
+                           (db.utcnow(),)).lastrowid
+        con.execute("INSERT INTO backup_job_items (job_id, identifier, path) VALUES (?, 'srv-a', '/world')", (djid,))
         rid = con.execute("INSERT INTO backup_runs (batch, job_id, job_name, identifier, server_name, target_id, kind,"
                           " file, size, status, queued_at, finished_at) VALUES ('b1', ?, 'Welt', 'srv-a', 'Server srv-a',"
                           " ?, 'target', 'Welt/Server_srv-a/alt.zip', 22, 'ok', ?, ?)",
@@ -318,7 +322,7 @@ def world(monkeypatch, tmp_path) -> World:
     invite = accounts.create("invite", data={"role": "user"}, created_by=1)
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
-        "job_id": str(jid), "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
+        "job_id": str(jid), "direct_job_id": str(djid), "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
         "token_hash": accounts._hash(invite), "kind": "login", "page": "impressum", "key": "hell", "mode": "simple", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,

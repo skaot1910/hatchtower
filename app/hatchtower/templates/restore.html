@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Backup wiederherstellen") }} · {{ brand.name }}{% endblock %}
 {% block content %}
-<a class="backlink" href="/admin/backups">← {{ _("Backups") }}</a>
+<a class="backlink" href="/admin/backups/stored">← {{ _("Gespeicherte Backups") }}</a>
 <div class="page-head">
   <div><h1>{{ _("Backup wiederherstellen") }}</h1>
     <p class="muted">{{ _("{server} · Backup „{job}“ vom {zeit}", server=server, job=run.job_name, zeit=at) }}{% if size %} · {{ size }}{% endif %}{% if run.files %} · {{ _("{n} Dateien", n=run.files) }}{% endif %}</p></div>

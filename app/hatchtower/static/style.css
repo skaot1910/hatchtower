@@ -94,7 +94,10 @@ body {
   color: var(--text);
   font: 15px/1.55 var(--font);
   overflow-wrap: break-word;  /* long names, addresses and paths wrap instead of widening the page */
+  /* dvh: on iPad/iPhone Safari 100vh is the height with the toolbars hidden, i.e. more than is visible,
+     so every page could be scrolled a bit and the bottom of the sidebar was out of view */
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   /* viewport-fit=cover: keep content clear of the phone's gesture bar and of notches in landscape */
@@ -381,8 +384,10 @@ a.file-link:hover { color: var(--accent-text); }
 .checks li.bad .check-icon { color: var(--red); }
 
 /* Anmeldung */
-.login-page .container { display: grid; place-items: center; }
-.login-wrap { width: 100%; max-width: 400px; margin-top: 8vh; }
+/* Top-aligned rather than centred: with the on-screen keyboard open, Safari on iPad scrolled a centred form
+   too far down (the password field ended up at the upper edge). Near the top it stays visible. */
+.login-page .container { display: grid; place-items: start center; }
+.login-wrap { width: 100%; max-width: 400px; margin-top: clamp(16px, 10vh, 96px); }
 .login-card { background: var(--card); border: 1px solid var(--line-2); border-radius: var(--radius-lg); padding: 32px; box-shadow: var(--shadow-pop); }
 .login-head { text-align: center; display: grid; gap: 10px; justify-items: center; margin-bottom: 22px; }
 .login-head h1 { font-size: 20px; }
@@ -1195,6 +1200,9 @@ a.file-link:hover { color: var(--accent-text); }
 .backup-status-error { color: var(--red-fg); }
 .backup-status-cancelled { color: var(--muted); }
 .backup-detail { max-width: 46ch; overflow-wrap: anywhere; }
+.backup-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 4px 0 14px; }
+.backup-kinds > div { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--subtle); }
+.backup-kinds ul { margin: 6px 0 0; padding-left: 18px; }
 .selection-backup { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .selection-backup select { padding: 5px 8px; font-size: 13px; max-width: 220px; }
 .weekdays-inline { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -1374,7 +1382,7 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
 .has-shell > .container, .has-shell > .footer { grid-column: 2; }
 .sidebar {
   grid-column: 1; grid-row: 1 / -1; position: sticky; top: 0; z-index: 10;
-  height: 100vh; display: flex; flex-direction: column; overflow-y: auto;
+  height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow-y: auto;
   background: var(--side-bg); border-right: 1px solid var(--line);
 }
 .sidebar-top { display: flex; align-items: center; gap: 10px; padding: 20px 18px 16px; }

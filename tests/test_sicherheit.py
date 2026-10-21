@@ -175,7 +175,7 @@ def crash_setting(ident: str):
 def test_absturz_neustart_braucht_startrecht(world):
     uid = world.user("planer", grants={"srv-a": {"automation.manage"}})
     c = world.client(uid)
-    page = c.get("/admin/automation").text
+    page = c.get("/admin/automation/crash").text
     assert re.search(r'name="crash__srv-a"[^>]*disabled', page)
     c.post("/admin/automation/crash", data={"csrf": c.csrf, "crash__srv-a": "1"})
     assert crash_setting("srv-a") is None

@@ -6,6 +6,7 @@
 </div>
 {% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Automationen werden gespeichert, aber nicht ausgeführt.") }}</div>{% endif %}
 
+{% if tab == "/admin/automation/crash" %}
 <div class="two-col">
   <section class="card">
     <h2 class="card-h">{{ _("Neustart bei Absturz") }}</h2>
@@ -31,12 +32,33 @@
     {% else %}<p class="faint">{{ _("Noch keine Abstürze erkannt.") }}</p>{% endif %}
   </section>
 </div>
+{% endif %}
 
+{% if tab == "/admin/automation" %}
 <section class="card">
   <div class="group-head">
     <h2 class="card-h">{{ _("Zeitpläne") }}</h2>
     <p class="faint small">{{ _("Zeiten in {zone} ({offset})", zone=settings.timezone, offset=tz_offset) }}{% if user.is_owner %} · <a href="/admin/appearance#sprache-zeit">{{ _("ändern") }}</a>{% endif %}</p>
   </div>
+  {% if schedules_total > 1 %}
+  <form method="get" action="/admin/automation" class="filters list-filter">
+    <label class="sr-only" for="f-q">{{ _("Name") }}</label>
+    <input type="search" id="f-q" name="q" value="{{ filter.q }}" maxlength="80" placeholder="{{ _("Name enthält …") }}">
+    {% if filter_servers|length > 1 %}
+    <label class="sr-only" for="f-server">{{ _("Server") }}</label>
+    <select id="f-server" name="server"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in filter_servers %}<option value="{{ ident }}" {% if ident == filter.server %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+    {% endif %}
+    {% if filter_actions|length > 1 %}
+    <label class="sr-only" for="f-action">{{ _("Aktion") }}</label>
+    <select id="f-action" name="action"><option value="">{{ _("Alle Aktionen") }}</option>{% for key, label in filter_actions %}<option value="{{ key }}" {% if key == filter.action %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    {% endif %}
+    <label class="sr-only" for="f-state">{{ _("Zustand") }}</label>
+    <select id="f-state" name="state"><option value="">{{ _("Aktive und pausierte") }}</option><option value="on" {% if filter.state == "on" %}selected{% endif %}>{{ _("Nur aktive") }}</option><option value="off" {% if filter.state == "off" %}selected{% endif %}>{{ _("Nur pausierte") }}</option></select>
+    <button class="btn btn-sm" type="submit">{{ _("Filtern") }}</button>
+    {% if filter.active %}<a class="btn btn-ghost btn-sm" href="/admin/automation">{{ _("Filter zurücksetzen") }}</a>{% endif %}
+    <span class="faint small list-count">{{ _("{n} von {total}", n=schedules|length, total=schedules_total) }}</span>
+  </form>
+  {% endif %}
   {% if schedules %}
   <div class="table-card">
   <table class="table stack-table">
@@ -61,10 +83,18 @@
     </tbody>
   </table>
   </div>
+  {% elif schedules_total %}<p class="faint">{{ _("Kein Zeitplan passt zum Filter.") }}</p>
   {% else %}<p class="faint">{{ _("Noch keine Zeitpläne.") }}</p>{% endif %}
+  <p class="small"><a href="/admin/automation/new">{{ _("Neuen Zeitplan anlegen") }}</a></p>
+</section>
+{% endif %}
 
-  <details class="legend" {% if not schedules %}open{% endif %}>
-    <summary>{{ _("Neuen Zeitplan anlegen") }}</summary>
+{% if tab == "/admin/automation/new" %}
+<section class="card">
+  <div class="group-head">
+    <h2 class="card-h">{{ _("Neuen Zeitplan anlegen") }}</h2>
+    <p class="faint small">{{ _("Zeiten in {zone} ({offset})", zone=settings.timezone, offset=tz_offset) }}{% if user.is_owner %} · <a href="/admin/appearance#sprache-zeit">{{ _("ändern") }}</a>{% endif %}</p>
+  </div>
     <form method="post" action="/admin/automation/schedules" class="form schedule-form" id="schedule-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="form-grid">
@@ -110,6 +140,6 @@
       <p class="faint small">{{ _("Einmalige Zeitpläne werden nach dem Ausführen automatisch pausiert.") }} {{ _("{platzhalter} wird durch die Minutenzahl ersetzt. Welcher Befehl Spielern eine Nachricht zeigt, hängt vom Spiel ab (z. B. „say …“ oder „broadcast …“). Verpasste Termine, etwa während eines Manager-Neustarts, werden nicht nachgeholt.", platzhalter="{minuten}") }}</p>
       <button class="btn btn-primary" type="submit">{{ _("Zeitplan anlegen") }}</button>
     </form>
-  </details>
 </section>
+{% endif %}
 {% endblock %}

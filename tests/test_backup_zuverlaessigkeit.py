@@ -419,7 +419,7 @@ def test_sammelaktion_nur_wenn_alle_backups_erlaubt_sind(renv):
     r = c.post("/admin/backups/runs/bulk", data={"csrf": c.csrf, "action": "delete", "run": [str(mine), str(other)]})
     assert r.status_code == 403
     assert backups_run(mine) is not None and backups_run(other) is not None        # auch das eigene bleibt
-    page = c.get("/admin/backups").text
+    page = c.get("/admin/backups/stored").text
     assert f'name="run" value="{mine}"' in page and f'name="run" value="{other}"' not in page
 
 

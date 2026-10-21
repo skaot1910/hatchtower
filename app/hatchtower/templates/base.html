@@ -108,7 +108,7 @@
   </div>
   {% endif %}
   {% if flash %}<div class="flash" role="status">{{ flash }}</div>{% endif %}
-  {% if section_tabs and user and user.is_owner %}{% include "_tabs.html" %}{% endif %}
+  {% if section_tabs and user and user.is_owner %}{% include "_tabs.html" %}{% elif page_tabs and user %}{% include "_page_tabs.html" %}{% endif %}
   {% block content %}{% endblock %}
 </main>
 <div class="toasts" id="toasts" aria-live="polite"></div>

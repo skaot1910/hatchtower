@@ -1,0 +1,21 @@
+{# The two kinds of backups side by side, shown where the target of a job is chosen #}
+{% macro kinds() %}
+<div class="backup-kinds">
+  <div>
+    <strong>{{ _("Gespeichertes Backup") }}</strong> <span class="faint small">{{ _("Job mit Ziel") }}</span>
+    <ul class="small muted">
+      <li>{{ _("wird auf einem Laufwerk oder Netzlaufwerk abgelegt") }}</li>
+      <li>{{ _("von Hand oder nach Zeitplan") }}</li>
+      <li>{{ _("bleibt als fester Stand erhalten: später herunterladen oder auf den Server zurückspielen") }}</li>
+    </ul>
+  </div>
+  <div>
+    <strong>{{ _("Direktdownload (live)") }}</strong> <span class="faint small">{{ _("Job ohne Ziel") }}</span>
+    <ul class="small muted">
+      <li>{{ _("holt den Stand von jetzt direkt vom laufenden Server") }}</li>
+      <li>{{ _("nur von Hand, landet sofort als ZIP auf deinem Gerät") }}</li>
+      <li>{{ _("gespeichert wird nichts – zurückspielen über Hatchtower geht damit nicht") }}</li>
+    </ul>
+  </div>
+</div>
+{% endmacro %}

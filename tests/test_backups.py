@@ -360,7 +360,7 @@ def test_smb_ziel_wird_vor_dem_speichern_geprueft(world, nas):
         row = con.execute("SELECT * FROM backup_targets WHERE kind = 'smb'").fetchone()
     assert row["smb_password_enc"] and "Geheim-123" not in row["smb_password_enc"]
     assert main.vault.decrypt(row["smb_password_enc"]) == "Geheim-123"
-    assert "Geheim-123" not in c.get("/admin/backups").text
+    assert "Geheim-123" not in c.get("/admin/backups/targets").text
     # Bearbeiten ohne Passwort behält das gespeicherte
     r = c.post(f"/admin/backups/targets/{row['id']}", data=smb_form(c, name="NAS 2", smb_password=""))
     assert "gespeichert" in r.headers["location"]
@@ -385,7 +385,7 @@ def test_backup_auf_smb_und_wieder_herunterladen(env, nas):
     assert len(stored) == 1 and not list((nas / "hatchtower").rglob("*.part"))      # Aufbewahrung: nur 1
     r = c.get(f"/admin/backups/runs/{last['id']}/download")
     assert r.status_code == 200 and "world/level.dat" in zipfile.ZipFile(io.BytesIO(r.content)).namelist()
-    assert r"\\nas.test\backup\hatchtower" in c.get("/admin/backups").text
+    assert r"\\nas.test\backup\hatchtower" in c.get("/admin/backups/targets").text
 
 
 def test_letzte_pruefung_wird_gemerkt(world, nas):
@@ -405,5 +405,5 @@ def test_letzte_pruefung_wird_gemerkt(world, nas):
     with db.connect() as con:
         smb = con.execute("SELECT * FROM backup_targets WHERE id = ?", (smb["id"],)).fetchone()
     assert smb["check_ok"] == 0 and "Passwort falsch" in smb["check_error"] and smb["check_free"] == 10 ** 12
-    page = c.get("/admin/backups").text
+    page = c.get("/admin/backups/targets").text
     assert "Letzte Prüfung" in page and "fehlgeschlagen: " in page and "Schreiben und Löschen klappt" in page

@@ -1,0 +1,4 @@
+{# Tabs of a page that non-owners use too (Backups, Automation): only the tabs this user may open #}
+<nav class="subnav" aria-label="{{ _(page_tabs_label) }}">
+  {% for href, label in page_tabs %}<a href="{{ href }}" class="{% if href == page_tab %}active{% endif %}">{{ _(label) }}</a>{% endfor %}
+</nav>

@@ -1,18 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ job.name }} · {{ _("Backups") }} · {{ brand.name }}{% endblock %}
 {% block content %}
-<a class="backlink" href="/admin/backups">← {{ _("Backups") }}</a>
+{% import "_backup_kinds.html" as bk %}
+{% from "_file_icons.html" import icon_folder, icon_file, icon_up %}
+<a class="backlink" href="/admin/backups">← {{ _("Jobs") }}</a>
 <div class="page-head">
   <div><h1>{{ job.name }}</h1><p class="muted">{{ _("Backup-Job") }}{% if job.last_result %} · {{ _("zuletzt: {ergebnis}", ergebnis=job.last_result) }}{% endif %}</p></div>
-  {% if can_run and not active %}
+  {% if (can_run or can_fetch) and not active %}
   <div class="row-actions">
-    {% if job.target_id %}
+    {% if can_run %}
     <form method="post" action="/admin/backups/jobs/{{ job.id }}/run"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="job"><button class="btn btn-primary btn-sm" type="submit">{{ _("Jetzt ausführen") }}</button></form>
     {% endif %}
-    <form method="post" action="/admin/backups/jobs/{{ job.id }}/download" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn {% if job.target_id %}btn-ghost{% else %}btn-primary{% endif %} btn-sm" type="submit">{{ _("Jetzt ausführen und herunterladen") if job.target_id else _("Starten und herunterladen") }}</button></form>
+    {% if can_fetch %}
+    <form method="post" action="/admin/backups/jobs/{{ job.id }}/download" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn {% if can_run %}btn-ghost{% else %}btn-primary{% endif %} btn-sm" type="submit">{{ _("Jetzt ausführen und herunterladen") if job.target_id else _("Starten und herunterladen") }}</button></form>
+    {% endif %}
   </div>
   {% endif %}
 </div>
+{% if not job.target_id %}<p class="faint small">{{ _("Direktdownload-Job: liest den aktuellen Stand direkt vom laufenden Server und lädt ihn als ZIP herunter, gespeichert wird nichts. Ausführen darf ihn, wer für alle Server darin das Recht „Direktdownload aus dem Livesystem“ hat.") }}</p>{% endif %}
 {% if active %}<div class="flash">{{ _("Dieser Job läuft gerade. Den Fortschritt siehst du in der Backup-Übersicht.") }}</div>{% endif %}
 
 <div class="two-col">
@@ -40,6 +45,8 @@
       <p class="faint">{{ _("Noch nichts ausgewählt.") }}</p>
       {% endfor %}
       {% if servers %}
+      <details class="legend backup-manual">
+      <summary class="small">{{ _("Pfad von Hand eingeben") }}</summary>
       <form method="post" action="/admin/backups/jobs/{{ job.id }}/items" class="form backup-add">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <div class="form-grid">
@@ -52,7 +59,8 @@
         </div>
         <button class="btn btn-ghost btn-sm" type="submit">{{ _("Hinzufügen") }}</button>
       </form>
-      <p class="faint small">{{ _("Einfacher: im Datei-Explorer des Servers Dateien und Ordner ankreuzen und „Zu Backup-Job hinzufügen“ wählen. Im ZIP liegen die Dateien mit ihrem Pfad ab dem Serverordner, so lassen sie sich woanders wieder einspielen.") }}</p>
+      </details>
+      <p class="faint small">{{ _("Dateien und Ordner wählst du am einfachsten unten unter „Dateien auswählen“. Im ZIP liegen die Dateien mit ihrem Pfad ab dem Serverordner, so lassen sie sich woanders wieder einspielen.") }}</p>
       {% endif %}
     {% endif %}
   </section>
@@ -65,11 +73,15 @@
         <label>{{ _("Name") }}<input name="name" required maxlength="80" value="{{ job.name }}"></label>
         <label>{{ _("Ziel") }}
           <select name="target_id" id="job-target">
-            <option value="">{{ _("Direktdownload im Browser (nur von Hand)") }}</option>
+            <option value="">{{ _("Direktdownload aus dem Livesystem (nur von Hand, wird nicht gespeichert)") }}</option>
             {% for t in targets %}<option value="{{ t.id }}" {% if job.target_id == t.id %}selected{% endif %}>{{ t.name }} ({{ t.path }})</option>{% endfor %}
           </select>
         </label>
       </div>
+      <details class="legend">
+        <summary class="small">{{ _("Gespeichertes Backup oder Direktdownload – was ist der Unterschied?") }}</summary>
+        {{ bk.kinds() }}
+      </details>
       {% if user.is_owner %}
       <label class="check"><input type="checkbox" name="all_servers" value="1" {% if job.all_servers %}checked{% endif %}> {{ _("Alle Server, auch künftige – jeweils komplett (die Auswahl links gilt dann nicht)") }}</label>
       {% endif %}
@@ -126,6 +138,67 @@
     </form>
   </section>
 </div>
+
+{% if browse or browse_choices %}
+<section class="card job-browser" id="dateien">
+  <h2 class="card-h">{{ _("Dateien auswählen") }}</h2>
+  <form method="get" action="/admin/backups/jobs/{{ job.id }}#dateien" class="filters list-filter">
+    <label class="sr-only" for="browse-server">{{ _("Server") }}</label>
+    <select id="browse-server" name="server">
+      {% if not browse %}<option value="">{{ _("Server wählen …") }}</option>{% endif %}
+      {% for ident, name in browse_choices %}<option value="{{ ident }}" {% if browse and browse.ident == ident %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-sm" type="submit">{{ _("Öffnen") }}</button>
+  </form>
+  {% if browse %}
+  {% set b = browse %}
+  <nav class="crumbs" aria-label="{{ _("Pfad") }}">
+    <a href="{{ b.root }}">{{ b.name }}</a>
+    {% for name, url in b.crumbs %}<span>/</span><a href="{{ url }}">{{ name }}</a>{% endfor %}
+  </nav>
+  {% if b.error %}<div class="alert">{{ _(b.error) }}</div>{% endif %}
+  {% if b.covered %}
+  <p class="flash">{{ _("Dieser Ordner ist schon komplett im Job (über „{pfad}“).", pfad=_("ganzer Server") if b.covered == "/" else b.covered) }}</p>
+  {% else %}
+  <form method="post" action="/admin/backups/jobs/{{ job.id }}/items" id="job-browse-form" class="selection-bar job-browse-bar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="identifier" value="{{ b.ident }}">
+    <input type="hidden" name="dir" value="{{ b.dir }}">
+    <span id="job-browse-count">{{ _("0 ausgewählt") }}</span>
+    <button class="btn btn-primary btn-sm" type="submit" id="job-browse-add">{{ _("Ausgewählte hinzufügen") }}</button>
+    <button class="btn btn-ghost btn-sm" type="submit" name="whole" value="1">{{ _("Ganzen Server hinzufügen") if b.dir == "/" else _("Diesen Ordner komplett hinzufügen") }}</button>
+  </form>
+  {% endif %}
+  <div class="table-card">
+    <table class="table files-table stack-table">
+      <thead><tr>{% if not b.covered %}<th class="sel"><input type="checkbox" id="job-browse-all" aria-label="{{ _("Alle auswählen") }}"></th>{% endif %}<th>{{ _("Name") }}</th><th class="num">{{ _("Größe") }}</th><th>{{ _("Geändert") }}</th></tr></thead>
+      <tbody>
+        {% if b.parent %}
+        <tr>{% if not b.covered %}<td class="sel"></td>{% endif %}<td colspan="3"><a href="{{ b.parent }}" class="file-link">{{ icon_up() }} <span>{{ _("Zurück zu übergeordnetem Ordner") }}</span></a></td></tr>
+        {% endif %}
+        {% for f in b.files %}
+        <tr class="{{ 'is-file' if f.is_file else 'is-dir' }}">
+          {% if not b.covered %}<td class="sel">{% if f.in_job %}<span class="badge badge-ok" title="{{ _("Schon im Job") }}">✓</span>{% else %}<input type="checkbox" name="names" value="{{ f.name }}" form="job-browse-form" aria-label="{{ _("{name} auswählen", name=f.name) }}">{% endif %}</td>{% endif %}
+          <td>
+            {% if f.is_file %}<span class="file-link">{{ icon_file() }} <span>{{ f.name }}</span></span>
+            {% else %}<a href="{{ b.url(f.path) }}" class="file-link folder-link">{{ icon_folder() }} <span>{{ f.name }}</span></a>{% endif %}
+            {% if f.in_job %} <span class="badge badge-ok">{{ _("im Job") }}</span>{% endif %}
+          </td>
+          <td class="num faint col-size" data-label="{{ _("Größe") }}">{{ f.size_text if f.is_file else _('Ordner') }}</td>
+          <td class="faint" data-label="{{ _("Geändert") }}">{{ f.modified_text }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="faint">{{ _("Dieser Ordner ist leer.") }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="faint small">{{ _("Ordner anklicken zum Öffnen, Dateien und Ordner ankreuzen und „Ausgewählte hinzufügen“ wählen. Ein Ordner wird mit allem Inhalt gesichert, auch mit Dateien, die später dazukommen.") }}</p>
+  {% else %}
+  <p class="faint">{{ _("Server wählen, um seine Dateien und Ordner zu sehen und für das Backup auszuwählen.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
 
 <section class="card">
   <h2 class="card-h">{{ _("Job löschen") }}</h2>

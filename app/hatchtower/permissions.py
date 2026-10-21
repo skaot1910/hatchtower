@@ -65,23 +65,42 @@ PERMISSIONS: tuple[Permission, ...] = (
                "Zeitpläne für diesen Server anlegen, pausieren und löschen und den Neustart nach Absturz ein- oder"
                " ausschalten. Als Aktion stehen nur die Steuerrechte zur Verfügung, die der Benutzer selbst hat.",
                write=True, requires=("server.view",)),
+    # Two kinds of backups: stored ones (on a backup target: drive in the container or network share) and the
+    # direct download, which reads the current files from the live server and never stores anything
     Permission("backups.view", "Backups sehen", "Backups",
-               "Backup-Jobs mit diesem Server, laufende Backups mit Fortschritt und gespeicherte Backups sehen.",
+               "Die Seite Backups öffnen: Backup-Jobs mit diesem Server und laufende Vorgänge mit Fortschritt sehen.",
                requires=("server.view",)),
-    Permission("backups.run", "Backups starten und herunterladen", "Backups",
-               "Backup-Jobs von Hand starten, laufende abbrechen und gespeicherte Backups herunterladen. Ein"
-               " Backup enthält die Dateien des Servers. Jobs, die den Server stoppen, nur mit den Steuerrechten dazu.",
-               requires=("server.view", "backups.view"),
+    Permission("backups.list", "Gespeicherte Backups sehen", "Backups",
+               "Die auf dem Backup-Ziel (Laufwerk oder Netzlaufwerk) gespeicherten Backups sehen – die"
+               " Wiederherstellungspunkte mit Datum, Größe und Prüfergebnis – und die bisherigen Wiederherstellungen."
+               " Herunterladen oder zurückspielen geht damit noch nicht.",
+               requires=("server.view", "backups.view")),
+    Permission("backups.download", "Gespeicherte Backups herunterladen", "Backups",
+               "Gespeicherte Backups als ZIP auf das eigene Gerät laden, z. B. um einen Spielstand offline"
+               " weiterzuspielen. Startet, stoppt und ändert nichts.",
+               requires=("server.view", "backups.view", "backups.list"),
                note="Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“."),
-    Permission("backups.restore", "Backups wiederherstellen", "Backups",
+    Permission("backups.run", "Backups starten", "Backups",
+               "Backup-Jobs mit Ziel von Hand starten (es entsteht ein neues gespeichertes Backup), laufende abbrechen"
+               " und gespeicherte Backups prüfen. Zusammen mit „Gespeicherte Backups herunterladen“ auch: ausführen"
+               " und gleich herunterladen. Jobs, die den Server stoppen, nur mit den Steuerrechten dazu.",
+               requires=("server.view", "backups.view", "backups.list")),
+    Permission("backups.restore", "Gespeicherte Backups wiederherstellen", "Backups",
                "Ein gespeichertes Backup auf den Server zurückspielen – in einen eigenen Ordner oder an den"
                " ursprünglichen Ort, wobei gleichnamige Dateien ersetzt werden. Server vorher stoppen nur mit den"
-               " Steuerrechten dazu.", write=True, requires=("server.view", "backups.view", "backups.run"),
+               " Steuerrechten dazu.", write=True, requires=("server.view", "backups.view", "backups.list"),
                note="Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“."),
     Permission("backups.manage", "Backup-Jobs verwalten", "Backups",
-               "Backup-Jobs anlegen, ändern und löschen und im Datei-Explorer Dateien und Ordner hinzufügen."
-               " Jobs mit mehreren Servern nur, wenn das Recht für alle gilt; Stoppen vor dem Backup nur mit"
-               " den Steuerrechten dazu.", requires=("server.view", "backups.view", "sftp.view")),
+               "Backup-Jobs und Direktdownload-Jobs anlegen, ändern und löschen, dabei Dateien und Ordner auswählen,"
+               " und gespeicherte Backups löschen. Jobs mit mehreren Servern nur, wenn das Recht für alle gilt;"
+               " Stoppen vor dem Backup nur mit den Steuerrechten dazu.",
+               requires=("server.view", "backups.view", "backups.list", "sftp.view")),
+    Permission("backups.direct", "Direktdownload aus dem Livesystem", "Direktdownload",
+               "Direktdownload-Jobs (Jobs ohne Backup-Ziel) für diesen Server ausführen: Hatchtower liest den"
+               " aktuellen Stand der Dateien direkt vom laufenden Server und lädt ihn als ZIP auf das eigene Gerät."
+               " Gespeichert wird dabei nichts. Den Job legt ein Owner oder wer Backup-Jobs verwalten darf an; Jobs,"
+               " die den Server vorher stoppen, nur mit den Steuerrechten dazu.", requires=("server.view", "backups.view"),
+               note="Gibt Zugriff auf alle Dateien, die der Job enthält – auch ohne die Rechte unter „Dateien“."),
     # Server administration in the panel: only with the optional admin key (write access)
     Permission("admin.view", "Panel-Einstellungen sehen", "Administration",
                "Name, Ressourcen, Ports und Startparameter des Servers so sehen, wie sie im Panel eingestellt sind.",
@@ -177,7 +196,8 @@ class UserContext:
 # Welche Steuerrechte ein Backup-Job braucht, der den Server vorher stoppt
 BACKUP_STOP_NEEDS = {"none": (), "stop": ("power.stop",), "restart": ("power.stop", "power.start")}
 
-GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien", "Automationen", "Backups", "Administration")
+GROUP_ORDER = ("Allgemein", "Steuerung", "Konsole", "Dateien", "Automationen", "Backups", "Direktdownload",
+               "Administration")
 
 
 def grouped_permissions() -> list[tuple[str, list[Permission]]]:

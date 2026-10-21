@@ -33,11 +33,14 @@ Grundregeln:
 | `sftp.rename` | Umbenennen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/move`<br>`POST /servers/{ident}/files/rename` |  |
 | `sftp.create_directory` | Ordner anlegen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/mkdir` |  |
 | `sftp.delete` | Löschen | ✎ | `server.view`, `sftp.view` | `POST /servers/{ident}/files/delete-many`<br>`POST /servers/{ident}/files/delete` |  |
-| `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |  |
-| `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups`<br>`GET /api/backups/status` |  |
-| `backups.run` | Backups starten und herunterladen |  | `server.view`, `backups.view` | `GET /admin/backups/runs/{run_id}/download`<br>`POST /admin/backups/jobs/{job_id}/download`<br>`POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` | Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“. |
-| `backups.restore` | Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.run` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` | Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“. |
-| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/bulk`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |  |
+| `automation.manage` | Automationen verwalten | ✎ | `server.view` | `GET /admin/automation/crash`<br>`GET /admin/automation/new`<br>`GET /admin/automation`<br>`POST /admin/automation/crash`<br>`POST /admin/automation/schedules/{sched_id}/delete`<br>`POST /admin/automation/schedules/{sched_id}/toggle`<br>`POST /admin/automation/schedules` |  |
+| `backups.view` | Backups sehen |  | `server.view` | `GET /admin/backups/downloads`<br>`GET /admin/backups`<br>`GET /api/backups/status` |  |
+| `backups.list` | Gespeicherte Backups sehen |  | `server.view`, `backups.view` | `GET /admin/backups/restores`<br>`GET /admin/backups/stored` |  |
+| `backups.download` | Gespeicherte Backups herunterladen |  | `server.view`, `backups.view`, `backups.list` | `GET /admin/backups/runs/{run_id}/download` | Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“. |
+| `backups.run` | Backups starten |  | `server.view`, `backups.view`, `backups.list` | `POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` |  |
+| `backups.restore` | Gespeicherte Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.list` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` | Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“. |
+| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `backups.list`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`GET /admin/backups/new`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/bulk`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |  |
+| `backups.direct` | Direktdownload aus dem Livesystem |  | `server.view`, `backups.view` | `POST /admin/backups/jobs/{job_id}/download` | Gibt Zugriff auf alle Dateien, die der Job enthält – auch ohne die Rechte unter „Dateien“. |
 | `admin.view` | Panel-Einstellungen sehen |  | `server.view` | `GET /servers/{ident}/admin` | Startvariablen können Passwörter oder Zugangsschlüssel enthalten. |
 | `admin.details` | Name und Beschreibung | ✎ | `server.view`, `admin.view` | `POST /servers/{ident}/admin/details` |  |
 | `admin.build` | Ressourcen und Ports | ✎ | `server.view`, `admin.view` | `POST /servers/{ident}/admin/build`<br>`POST /servers/{ident}/admin/ports` | Kann dem Server mehr Leistung geben, als der Node hat, und freie Ports des Nodes belegen. |
@@ -158,6 +161,8 @@ Grundregeln:
 | Methode | Pfad | Recht | CSRF | Pterodactyl | Zweck |
 |---|---|---|---|---|---|
 | GET | `/admin/automation` | `automation.manage` | – | liest | Automationen (nur Server mit dem Recht) |
+| GET | `/admin/automation/new` | `automation.manage` | – | liest | Automationen: Reiter „Neuer Zeitplan“ |
+| GET | `/admin/automation/crash` | `automation.manage` | – | liest | Automationen: Neustart bei Absturz und letzte Abstürze |
 | POST | `/admin/automation/crash` | `automation.manage` | Formular | liest | Neustart bei Absturz |
 | POST | `/admin/automation/schedules` | `automation.manage` | Formular | liest | Zeitplan anlegen (Aktion braucht das passende Steuerrecht) |
 | POST | `/admin/automation/schedules/{sched_id}/toggle` | `automation.manage` | Formular | liest | Zeitplan pausieren/aktivieren |
@@ -167,17 +172,21 @@ Grundregeln:
 
 | Methode | Pfad | Recht | CSRF | Pterodactyl | Zweck |
 |---|---|---|---|---|---|
-| GET | `/admin/backups` | `backups.view` | – | liest | Backups: Jobs, laufende und gespeicherte Backups (nur Server mit dem Recht) |
+| GET | `/admin/backups` | `backups.view` | – | liest | Backups: Jobs und laufende Vorgänge (nur Server mit dem Recht) |
+| GET | `/admin/backups/new` | `backups.manage` | – | liest | Backups: Reiter „Neuer Job“ |
+| GET | `/admin/backups/stored` | `backups.list` | – | liest | Backups: gespeicherte Backups (nur Server mit dem Recht) |
+| GET | `/admin/backups/downloads` | `backups.view` | – | liest | Backups: Direktdownload-Jobs zum Herunterladen und Download-Verlauf (Inhalt nur mit den Rechten dazu) |
+| GET | `/admin/backups/restores` | `backups.list` | – | liest | Backups: bisherige Wiederherstellungen |
 | GET | `/api/backups/status` | `backups.view` | – | liest | Fortschritt laufender Backups |
 | POST | `/admin/backups/jobs` | `backups.manage` | Formular | liest | Backup-Job anlegen |
-| GET | `/admin/backups/jobs/{job_id}` | `backups.manage` | – | liest | Backup-Job bearbeiten (Recht für alle Server des Jobs) |
+| GET | `/admin/backups/jobs/{job_id}` | `backups.manage` | – | liest | Backup-Job bearbeiten (Recht für alle Server des Jobs), mit Dateibrowser (zusätzlich „Dateien ansehen“) |
 | POST | `/admin/backups/jobs/{job_id}` | `backups.manage` | Formular | liest | Backup-Job speichern (Stoppen nur mit den Steuerrechten) |
 | POST | `/admin/backups/jobs/{job_id}/delete` | `backups.manage` | Formular | liest | Backup-Job löschen |
-| POST | `/admin/backups/jobs/{job_id}/items` | `backups.manage` | Formular | liest | Server/Pfad hinzufügen (Recht für diesen Server) |
+| POST | `/admin/backups/jobs/{job_id}/items` | `backups.manage` | Formular | liest | Server/Pfad oder im Dateibrowser angekreuzte Einträge hinzufügen (Recht für diesen Server) |
 | POST | `/admin/backups/jobs/{job_id}/items/remove` | `backups.manage` | Formular | liest | Server/Pfad entfernen |
 | POST | `/admin/backups/jobs/{job_id}/run` | `backups.run` | Formular | liest | Backup-Job in die Warteschlange stellen |
-| POST | `/admin/backups/jobs/{job_id}/download` | `backups.run` | Formular | liest | Backup-Job ausführen und direkt herunterladen |
-| GET | `/admin/backups/runs/{run_id}/download` | `backups.run` | – | liest | Gespeichertes Backup herunterladen |
+| POST | `/admin/backups/jobs/{job_id}/download` | `backups.direct` | Formular | liest | Direktdownload-Job ausführen: aktuellen Stand vom Server als ZIP laden (Job mit Ziel: „Backups starten“ und „Gespeicherte Backups herunterladen“) |
+| GET | `/admin/backups/runs/{run_id}/download` | `backups.download` | – | liest | Gespeichertes Backup herunterladen |
 | POST | `/api/backups/runs/{run_id}/cancel` | `backups.run` | Header | liest | Laufendes Backup abbrechen |
 | POST | `/admin/backups/runs/{run_id}/verify` | `backups.run` | Formular | liest | Gespeichertes Backup vollständig lesen und alle Prüfsummen prüfen (ändert nichts) |
 | GET | `/admin/backups/runs/{run_id}/restore` | `backups.restore` | – | liest | Wiederherstellen: Erklärung und Auswahl |
@@ -235,6 +244,7 @@ Grundregeln:
 | POST | `/admin/groups/{group_id}/delete` | Formular | Rechtegruppe löschen |
 | GET | `/admin/audit` | – | Audit-Log |
 | GET | `/admin/audit/export` | – | Audit-Log als CSV/TXT |
+| GET | `/admin/backups/targets` | – | Backups: Backup-Ziele |
 | POST | `/admin/backups/targets` | Formular | Backup-Ziel anlegen (Laufwerk im Container oder SMB-Freigabe) |
 | POST | `/admin/backups/targets/{target_id}` | Formular | Backup-Ziel ändern (SMB: Verbindung wird geprüft) |
 | POST | `/admin/backups/targets/{target_id}/test` | Formular | Backup-Ziel testen |

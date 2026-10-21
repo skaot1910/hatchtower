@@ -630,6 +630,21 @@ MIGRATIONS: list[str] = [
     ALTER TABLE users ADD COLUMN review_pending INTEGER NOT NULL DEFAULT 0;
     UPDATE notify_webhooks SET events = events || ',new_user' WHERE ',' || events || ',' LIKE '%,new_server,%';
     """,
+    # 34: finer backup permissions. Whoever saw backups keeps seeing the stored ones (backups.list); whoever could
+    #     start backups keeps downloading stored backups and the direct ZIP download (both were part of backups.run)
+    """
+    INSERT OR IGNORE INTO perm_group_items (group_id, permission)
+        SELECT group_id, 'backups.list' FROM perm_group_items WHERE permission = 'backups.view';
+    INSERT OR IGNORE INTO user_server_permissions (user_id, identifier, permission)
+        SELECT user_id, identifier, 'backups.list' FROM user_server_permissions WHERE permission = 'backups.view';
+    INSERT OR IGNORE INTO perm_group_items (group_id, permission)
+        SELECT group_id, k.key FROM perm_group_items, (SELECT 'backups.download' AS key UNION SELECT 'backups.direct') k
+        WHERE permission = 'backups.run';
+    INSERT OR IGNORE INTO user_server_permissions (user_id, identifier, permission)
+        SELECT user_id, identifier, k.key FROM user_server_permissions,
+               (SELECT 'backups.download' AS key UNION SELECT 'backups.direct') k
+        WHERE permission = 'backups.run';
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

@@ -2,12 +2,15 @@
 {% macro pager(p) %}<nav class="pager" aria-label="{{ _("Seiten") }}">{% if p.prev %}<a class="btn btn-ghost btn-sm" href="{{ p.prev }}">{{ _("‹ Zurück") }}</a>{% else %}<span class="btn btn-ghost btn-sm" aria-disabled="true">{{ _("‹ Zurück") }}</span>{% endif %}<span class="small muted">{{ _("Seite {n} von {total}", n=p.page, total=p.pages) }}</span>{% if p.next %}<a class="btn btn-ghost btn-sm" href="{{ p.next }}">{{ _("Weiter ›") }}</a>{% else %}<span class="btn btn-ghost btn-sm" aria-disabled="true">{{ _("Weiter ›") }}</span>{% endif %}</nav>{% endmacro %}
 {% block title %}{{ _("Backups") }} · {{ brand.name }}{% endblock %}
 {% block content %}
+{% import "_backup_kinds.html" as bk %}
 <div class="page-head">
   <div><h1>{{ _("Backups") }}</h1><p class="muted">{{ _("Hatchtower liest die Dateien über {panel} und legt sie als ZIP ab – eine Datei pro Server und Lauf. Mehrere Backups laufen nacheinander.") }}</p></div>
 </div>
+{% if tab == "/admin/backups" %}
 <details class="legend backup-help">
   <summary>{{ _("So funktionieren Backups") }}</summary>
   <ol class="small muted">
+    <li>{{ _("Es gibt zwei Arten: Gespeicherte Backups landen auf einem Backup-Ziel (Laufwerk oder Netzlaufwerk) und lassen sich später herunterladen oder zurückspielen. Ein Direktdownload liest den aktuellen Stand direkt vom laufenden Server und lädt ihn sofort als ZIP herunter – gespeichert wird dabei nichts.") }}</li>
     <li>{{ _("Ein Backup-Job legt fest, was gesichert wird (ganzer Server oder einzelne Ordner), wohin (Backup-Ziel) und wann (von Hand oder nach Zeitplan).") }}</li>
     <li>{{ _("Jeder Lauf erzeugt pro Server eine ZIP-Datei auf dem Ziel. Danach liest Hatchtower die Datei noch einmal komplett und prüft jede enthaltene Datei („geprüft“). Erst dann gilt das Backup als fertig.") }}</li>
     <li>{{ _("„Mit Fehlern“ heißt: Einzelne Dateien fehlen oder sind unvollständig – welche, steht in der Zeile und in FEHLER.txt im ZIP.") }}</li>
@@ -15,6 +18,7 @@
     <li>{{ _("Die Aufbewahrung löscht alte Backups automatisch. Das neueste vollständige Backup bleibt dabei immer erhalten.") }}</li>
   </ol>
 </details>
+{% endif %}
 {% if settings.read_only %}<div class="alert">{{ _("Der Manager ist im Read-Only-Modus. Backups laufen trotzdem, nur Jobs, die den Server vorher stoppen, schlagen fehl.") }}</div>{% endif %}
 
 {% if finished %}
@@ -23,14 +27,16 @@
 </section>
 {% endif %}
 
-<section class="card" id="backup-active" data-status="/api/backups/status">
+{# Running operations: always on the jobs tab, on the other tabs only while something runs #}
+{% set compact = tab != "/admin/backups" %}
+<section class="card" id="backup-active" data-status="/api/backups/status"{% if compact %} data-compact{% if not active %} hidden{% endif %}{% endif %}>
   <h2 class="card-h">{{ _("Laufende Vorgänge") }}</h2>
   <script type="application/json" id="backup-active-data">{{ active|tojson }}</script>
   <div id="backup-active-list" class="backup-active-list"></div>
   <p class="faint" id="backup-active-empty" {% if active %}hidden{% endif %}>{{ _("Gerade läuft kein Backup, keine Prüfung und keine Wiederherstellung.") }}</p>
 </section>
 
-{% if user.is_owner %}
+{% if tab == "/admin/backups/targets" %}
 <section class="card" id="ziele">
   <h2 class="card-h">{{ _("Backup-Ziele") }}</h2>
   <p class="faint small">{{ _("Wohin automatische Backups geschrieben werden: ein Laufwerk im Hatchtower-Container oder eine SMB-Freigabe im Netz. Nur Owner sehen und ändern die Ziele.") }}</p>
@@ -122,8 +128,26 @@
 </section>
 {% endif %}
 
-<section class="card">
+{% if tab == "/admin/backups" %}
+<section class="card" id="jobs">
   <h2 class="card-h">{{ _("Backup-Jobs") }}</h2>
+  {% if jobs_total > 1 %}
+  <form method="get" action="/admin/backups" class="filters list-filter">
+    <label class="sr-only" for="f-jq">{{ _("Name") }}</label>
+    <input type="search" id="f-jq" name="jq" value="{{ job_filter.q }}" maxlength="80" placeholder="{{ _("Name enthält …") }}">
+    {% if job_servers %}
+    <label class="sr-only" for="f-jserver">{{ _("Server") }}</label>
+    <select id="f-jserver" name="jserver"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in job_servers %}<option value="{{ ident }}" {% if ident == job_filter.server %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+    {% endif %}
+    {% if job_targets|length > 1 %}
+    <label class="sr-only" for="f-jtarget">{{ _("Ziel") }}</label>
+    <select id="f-jtarget" name="jtarget"><option value="">{{ _("Alle Ziele") }}</option>{% for key, label in job_targets %}<option value="{{ key }}" {% if key == job_filter.target %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    {% endif %}
+    <button class="btn btn-sm" type="submit">{{ _("Filtern") }}</button>
+    {% if job_filter.active %}<a class="btn btn-ghost btn-sm" href="{{ jobs_reset }}">{{ _("Filter zurücksetzen") }}</a>{% endif %}
+    <span class="faint small list-count">{{ _("{n} von {total}", n=jobs|length, total=jobs_total) }}</span>
+  </form>
+  {% endif %}
   {% if jobs %}
   <div class="table-card">
   <table class="table stack-table">
@@ -139,11 +163,13 @@
         <td class="faint small" data-label="{{ _("Zuletzt") }}">{{ x.j.last_result or '–' }}</td>
         <td class="num row-actions">
           {% if x.can_edit %}<a class="chip chip-sm" href="/admin/backups/jobs/{{ x.j.id }}">{{ _("Bearbeiten") }}</a>{% endif %}
-          {% if x.can_run and not x.active %}
-            {% if x.j.target_id %}
+          {% if not x.active %}
+            {% if x.can_run %}
             <form method="post" action="/admin/backups/jobs/{{ x.j.id }}/run"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm" type="submit">{{ _("Jetzt ausführen") }}</button></form>
             {% endif %}
-            <form method="post" action="/admin/backups/jobs/{{ x.j.id }}/download" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm {% if x.j.target_id %}chip-ghost{% endif %}" type="submit">{{ _("Jetzt ausführen und herunterladen") if x.j.target_id else _("Starten und herunterladen") }}</button></form>
+            {% if x.can_fetch %}
+            <form method="post" action="/admin/backups/jobs/{{ x.j.id }}/download" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm {% if x.can_run %}chip-ghost{% endif %}" type="submit" title="{{ _("Liest den aktuellen Stand direkt vom Server und lädt ihn als ZIP herunter. Wird nicht gespeichert.") if not x.j.target_id else "" }}">{{ _("Jetzt ausführen und herunterladen") if x.j.target_id else _("Starten und herunterladen") }}</button></form>
+            {% endif %}
           {% endif %}
         </td>
       </tr>
@@ -151,34 +177,48 @@
     </tbody>
   </table>
   </div>
+  {% elif jobs_total %}<p class="faint">{{ _("Kein Backup-Job passt zum Filter.") }}</p>
   {% else %}<p class="faint">{{ _("Noch keine Backup-Jobs.") }}</p>{% endif %}
 
-  {% if can_create %}
-  <details class="legend" {% if not jobs %}open{% endif %}>
-    <summary>{{ _("Neuen Backup-Job anlegen") }}</summary>
+  {% if direct_gaps %}<p class="alert small">{{ _("Direktdownload ist für dich freigegeben bei: {servers}. Dafür gibt es aber noch keinen Direktdownload-Job – bitte einen Owner, einen anzulegen.", servers=direct_gaps|join(", ")) }}</p>{% endif %}
+  {% if owner_direct_gaps %}<div class="alert small">{{ _("Diese Benutzer haben das Recht „Direktdownload aus dem Livesystem“, aber keinen Direktdownload-Job, den sie damit ausführen können. Lege einen Job ohne Ziel mit dem Server an:") }}<ul>{% for g in owner_direct_gaps %}<li>{{ g }}</li>{% endfor %}</ul></div>{% endif %}
+
+  {% if can_create %}<p class="small"><a href="/admin/backups/new">{{ _("Neuen Backup-Job anlegen") }}</a></p>{% endif %}
+</section>
+{% endif %}
+
+{% if tab == "/admin/backups/new" %}
+<section class="card">
+  <h2 class="card-h">{{ _("Neuen Backup-Job anlegen") }}</h2>
+    {{ bk.kinds() }}
+    {% if targets %}
+    <p class="small">{{ _("Für gespeicherte Backups stehen diese Backup-Ziele bereit: {ziele}.", ziele=targets|map(attribute="name")|join(", ")) }}{% if user.is_owner %} <a href="/admin/backups/targets">{{ _("Backup-Ziele verwalten") }}</a>{% else %} {{ _("Weitere Ziele legt ein Owner an.") }}{% endif %}</p>
+    {% else %}
+    <div class="alert small">{{ _("Es gibt noch kein Backup-Ziel. Ohne Ziel geht nur ein Direktdownload – für gespeicherte Backups (auch nach Zeitplan) braucht es zuerst ein Ziel, also ein Laufwerk oder eine Netzwerkfreigabe.") }}{% if user.is_owner %} <a href="/admin/backups/targets">{{ _("Backup-Ziel anlegen") }}</a>{% else %} {{ _("Ein Owner kann eins anlegen.") }}{% endif %}</div>
+    {% endif %}
     <form method="post" action="/admin/backups/jobs" class="form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="form-grid">
         <label>{{ _("Name") }}<input name="name" required maxlength="80" placeholder="{{ _("Spielstände nachts") }}"></label>
         <label>{{ _("Ziel") }}
           <select name="target_id">
-            <option value="">{{ _("Direktdownload im Browser (nur von Hand)") }}</option>
+            <option value="">{{ _("Direktdownload aus dem Livesystem (nur von Hand, wird nicht gespeichert)") }}</option>
             {% for t in targets %}<option value="{{ t.id }}">{{ t.name }} ({{ t.path }})</option>{% endfor %}
           </select>
         </label>
       </div>
-      <p class="faint small">{{ _("Danach wählst du Server, Ordner und Dateien, Zeitplan und ob der Server vorher gestoppt wird. Dateien und Ordner kannst du auch direkt im Datei-Explorer eines Servers auswählen und zu einem Job hinzufügen.") }}{% if not targets %} {{ _("Für automatische Backups legt ein Owner zuerst ein Backup-Ziel an.") }}{% endif %}</p>
+      <p class="faint small">{{ _("Danach wählst du Server, Ordner und Dateien, Zeitplan und ob der Server vorher gestoppt wird. Dateien und Ordner kannst du auch direkt im Datei-Explorer eines Servers auswählen und zu einem Job hinzufügen.") }}</p>
       <button class="btn btn-primary" type="submit">{{ _("Anlegen") }}</button>
     </form>
-  </details>
-  {% endif %}
 </section>
+{% endif %}
 
+{% if tab == "/admin/backups/stored" %}
 <section class="card" id="gespeichert">
-  <h2 class="card-h">{{ _("Gespeicherte und letzte Backups") }}</h2>
+  <h2 class="card-h">{{ _("Gespeicherte Backups") }}</h2>
+  <p class="faint small">{{ _("Ein gespeichertes Backup ist ein fester Stand von einem bestimmten Zeitpunkt, abgelegt auf dem Backup-Ziel (Laufwerk oder Netzlaufwerk). Es bleibt erhalten, auch wenn sich der Server danach ändert – deshalb lässt es sich herunterladen oder zurückspielen.") }}{% if ("/admin/backups/downloads", "Downloads") in page_tabs %} {{ _("Den Stand von jetzt holst du dagegen unter „Downloads“ direkt vom Server.") }}{% endif %}</p>
   {% if runs_total %}
-  <form method="get" action="/admin/backups#gespeichert" class="filters list-filter">
-    {% for k, v in keep_restore_filter %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <form method="get" action="/admin/backups/stored" class="filters list-filter">
     <label class="sr-only" for="f-server">{{ _("Server") }}</label>
     <select id="f-server" name="server"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in run_servers %}<option value="{{ ident }}" {% if ident == run_filter.server %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
     <label class="sr-only" for="f-job">{{ _("Job") }}</label>
@@ -236,16 +276,86 @@
   {% elif runs_total %}<p class="faint">{{ _("Kein Backup passt zum Filter.") }}</p>
   {% else %}<p class="faint">{{ _("Noch keine Backups gelaufen.") }}</p>{% endif %}
 </section>
+{% endif %}
 
-{% if restores_total %}
+{% if tab == "/admin/backups/downloads" %}
+{% if can_direct or fetchable %}
+<section class="card" id="direkt">
+  <h2 class="card-h">{{ _("Direkt herunterladen") }}</h2>
+  <p class="faint small">{{ _("Ein Direktdownload holt den Stand von jetzt direkt vom laufenden Server und lädt ihn als ZIP auf dein Gerät. Gespeichert wird dabei nichts – willst du später darauf zurückgreifen, heb die Datei selbst auf.") }}{% if ("/admin/backups/stored", "Gespeicherte Backups") in page_tabs %} {{ _("Ältere Stände, die Hatchtower aufbewahrt, findest du unter „Gespeicherte Backups“.") }}{% endif %}</p>
+  {% if fetchable %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Job") }}</th><th>{{ _("Server") }}</th><th>{{ _("Inhalt") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for x in fetchable %}
+      <tr>
+        <td><strong>{{ x.j.name }}</strong>{% if x.j.stop_mode != 'none' %}<div class="faint small">{{ x.stop }}</div>{% endif %}</td>
+        <td data-label="{{ _("Server") }}">{{ x.servers|join(", ") or "–" }}</td>
+        <td data-label="{{ _("Inhalt") }}" class="small">{% if x.j.all_servers %}{{ _("jeweils komplett") }}{% else %}{% for p in x.paths[:4] %}<span class="mono">{{ _("ganzer Server") if p == "/" else p }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% if x.paths|length > 4 %} {{ _("und {n} weitere", n=x.paths|length - 4) }}{% endif %}{% endif %}</td>
+        <td class="num row-actions">
+          {% if x.active %}<span class="badge badge-ok">{{ _("läuft") }}</span>
+          {% elif x.problems %}<span class="faint small" title="{{ x.problems|join(", ") }}">{{ _("Job stoppt den Server – dafür fehlen dir die Steuerrechte") }}</span>
+          {% else %}<form method="post" action="/admin/backups/jobs/{{ x.j.id }}/download" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary btn-sm" type="submit">{{ _("Jetzt herunterladen") }}</button></form>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="faint">{{ _("Gerade gibt es keinen Direktdownload-Job, den du ausführen darfst.") }}</p>{% endif %}
+  {% if gaps %}<p class="alert small">{{ _("Direktdownload ist für dich freigegeben bei: {servers}. Dafür gibt es aber noch keinen Direktdownload-Job – bitte einen Owner, einen anzulegen.", servers=gaps|join(", ")) }}</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="card" id="verlauf">
+  <h2 class="card-h">{{ _("Download-Verlauf") }}</h2>
+  <p class="faint small">{{ _("Wer wann was heruntergeladen hat: Direktdownloads aus dem Livesystem und gespeicherte Backups. Gespeicherte Backups reichen so weit zurück, wie das Audit-Log aufbewahrt wird.") }}</p>
+  {% if history_total %}
+  <form method="get" action="/admin/backups/downloads" class="filters list-filter">
+    <label class="sr-only" for="f-kind">{{ _("Art") }}</label>
+    <select id="f-kind" name="kind"><option value="">{{ _("Alle Arten") }}</option>{% for key, label in download_kinds %}<option value="{{ key }}" {% if key == download_filter.kind %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    {% if download_servers|length > 1 %}
+    <label class="sr-only" for="f-dserver">{{ _("Server") }}</label>
+    <select id="f-dserver" name="server"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in download_servers %}<option value="{{ ident }}" {% if ident == download_filter.server %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+    {% endif %}
+    <button class="btn btn-sm" type="submit">{{ _("Filtern") }}</button>
+    {% if download_filter.active %}<a class="btn btn-ghost btn-sm" href="/admin/backups/downloads">{{ _("Filter zurücksetzen") }}</a>{% endif %}
+    <span class="faint small list-count">{{ _("{n} von {total}", n=history_count, total=history_total) }}</span>
+  </form>
+  {% if history %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Wann") }}</th><th>{{ _("Art") }}</th><th>{{ _("Job") }}</th><th>{{ _("Server") }}</th><th>{{ _("Wer") }}</th><th>{{ _("Ergebnis") }}</th></tr></thead>
+    <tbody>
+    {% for x in history %}
+      <tr>
+        <td class="nowrap faint small">{{ x.at }}</td>
+        <td data-label="{{ _("Art") }}"><span class="badge">{{ x.kind_label }}</span></td>
+        <td data-label="{{ _("Job") }}">{{ x.job or "–" }}{% if x.kind == "stored" and x.detail %}<div class="faint small mono">{{ x.detail }}</div>{% endif %}</td>
+        <td data-label="{{ _("Server") }}">{{ x.server }}</td>
+        <td data-label="{{ _("Wer") }}">{{ x.who }}</td>
+        <td data-label="{{ _("Ergebnis") }}"><span class="backup-status backup-status-{{ x.status }}">{{ x.status_label }}</span>{% if x.size_text %} <span class="faint small">{{ x.size_text }}</span>{% endif %}{% if x.kind == "live" and x.detail %}<div class="faint small backup-detail">{{ x.detail }}</div>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if history_pager %}{{ pager(history_pager) }}{% endif %}
+  {% else %}<p class="faint">{{ _("Kein Download passt zum Filter.") }}</p>{% endif %}
+  {% else %}<p class="faint">{{ _("Noch keine Downloads.") }}</p>{% endif %}
+</section>
+{% endif %}
+
+{% if tab == "/admin/backups/restores" %}
 <section class="card" id="wiederherstellungen">
   <h2 class="card-h">{{ _("Wiederherstellungen") }}</h2>
-  <form method="get" action="/admin/backups#wiederherstellungen" class="filters list-filter">
-    {% for k, v in keep_run_filter %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  {% if restores_total %}
+  <form method="get" action="/admin/backups/restores" class="filters list-filter">
     <label class="sr-only" for="f-rserver">{{ _("Server") }}</label>
-    <select id="f-rserver" name="rserver"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in restore_servers %}<option value="{{ ident }}" {% if ident == restore_filter.server %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+    <select id="f-rserver" name="server"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in restore_servers %}<option value="{{ ident }}" {% if ident == restore_filter.server %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
     <label class="sr-only" for="f-rstatus">{{ _("Ergebnis") }}</label>
-    <select id="f-rstatus" name="rstatus"><option value="">{{ _("Alle Ergebnisse") }}</option>{% for key, label in status_options %}<option value="{{ key }}" {% if key == restore_filter.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <select id="f-rstatus" name="status"><option value="">{{ _("Alle Ergebnisse") }}</option>{% for key, label in status_options %}<option value="{{ key }}" {% if key == restore_filter.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
     <button class="btn btn-sm" type="submit">{{ _("Filtern") }}</button>
     {% if restore_filter.active %}<a class="btn btn-ghost btn-sm" href="{{ restores_reset }}">{{ _("Filter zurücksetzen") }}</a>{% endif %}
     <span class="faint small list-count">{{ _("{n} von {total}", n=restores_count, total=restores_total) }}</span>
@@ -269,6 +379,7 @@
   </div>
   {% if restores_pager %}{{ pager(restores_pager) }}{% endif %}
   {% else %}<p class="faint">{{ _("Keine Wiederherstellung passt zum Filter.") }}</p>{% endif %}
+  {% else %}<p class="faint">{{ _("Noch keine Wiederherstellungen.") }}</p>{% endif %}
 </section>
 {% endif %}
 

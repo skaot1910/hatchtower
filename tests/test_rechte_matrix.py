@@ -674,7 +674,7 @@ def test_automationen_fuer_owner(world, route):
 def test_automationen_mit_recht_nur_fuer_eigene_server(world):
     uid = world.user("planer", grants={"srv-a": {"automation.manage", "power.restart"}, "srv-b": {"server.view"}})
     c = world.client(uid)
-    page = c.get("/admin/automation")
+    page = c.get("/admin/automation/new")
     assert page.status_code == 200 and "Server srv-a" in page.text and "Server srv-b" not in page.text
     form = {"csrf": c.csrf, "name": "Nachts", "time": "04:00", "weekdays": "1", "repeat": "weekly"}
     assert_ok(c.post("/admin/automation/schedules", data={**form, "identifier": "srv-a", "action": "restart"}))
@@ -832,7 +832,7 @@ def test_backup_job_mit_fremdem_server_bleibt_verborgen(world):
     uid = world.user("nachbar", grants={"srv-a": ALL})
     c = world.client(uid)
     page = c.get("/admin/backups")
-    assert page.status_code == 200 and "Welt" not in page.text.split("Gespeicherte und letzte Backups")[0]
+    assert page.status_code == 200 and "Welt" not in page.text.split('id="gespeichert"')[0]
     before = world.snapshot()
     assert_denied(world, c.get(f"/admin/backups/jobs/{jid}"), before, uid, "backups.manage")
     for action in ("run", "download", "delete"):

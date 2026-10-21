@@ -3,6 +3,31 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.39.0 – 2026-10-21
+
+- Backup permissions split by what they allow, so friends can e.g. download save games without being able to start,
+  stop or restore anything. Two kinds of backups are now told apart everywhere: stored backups (kept on a backup
+  target: drive or network share) and the direct download, which reads the current state from the live server and
+  stores nothing
+  - "Backups": see backups, see stored backups (restore points), download stored backups, start backups, restore
+    stored backups, manage backup jobs
+  - "Direct download": run direct-download jobs (jobs without a target) for this server
+  - Existing grants are carried over (database migration): whoever could see backups now also sees stored ones,
+    whoever could start backups now also downloads stored backups and runs direct downloads
+  - "Run and download now" on a job with a target needs "start backups" plus "download stored backups"
+  - Hints when the direct download right has no job to use it with, for the user and for owners
+- Backups page in tabs, showing only the tabs the user may open: backup targets (owners), jobs, new job, stored
+  backups, downloads, restores. Running operations show on every tab while something runs
+- Downloads tab: the direct-download jobs the user may run, with a button, and a download history of direct
+  downloads and downloaded stored backups (filter by kind and server; repeated requests from one download count once)
+- Backup jobs: file browser on the job page to tick files and folders (opens the job's server right away if it has
+  exactly one), filter for the job list (name, server, target), explanation of stored backup vs. direct download
+  where the target is chosen, list of available targets under "New job"
+- Automation page in tabs (schedules, new schedule, restart after crash); schedules can be filtered by name, server,
+  action and active/paused
+- iPad/iPhone: the sidebar fits the visible screen (the account menu at the bottom was cut off), and the login form
+  no longer jumps out of view when the keyboard opens
+
 ## 0.38.1 – 2026-10-21
 
 - Console: fixed "Connection to Wings interrupted" when the panel address in Hatchtower differs from the one Wings

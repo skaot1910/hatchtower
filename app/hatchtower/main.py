@@ -2442,22 +2442,31 @@ def own_schedule(request: Request, user: UserContext, sched_id: int):
     return row
 
 
-@app.get("/admin/automation", response_class=HTMLResponse)
-async def admin_automation(request: Request):
-    user, names = require_automation(request)
-    marks = ",".join("?" * len(names)) or "NULL"
-    idents = tuple(names)
+AUTOMATION_TABS = [("/admin/automation", "Zeitpläne"), ("/admin/automation/new", "Neuer Zeitplan"),
+                   ("/admin/automation/crash", "Neustart bei Absturz")]
+
+
+def automation_servers(names: dict) -> list:
     with db.connect() as con:
-        settings_rows = {r["identifier"]: r["crash_restart"] for r in con.execute("SELECT * FROM automation_settings")}
-        schedules = con.execute(f"SELECT * FROM schedules WHERE identifier IN ({marks}) ORDER BY time, name",
-                                idents).fetchall()
-        crashes = con.execute(f"SELECT * FROM crash_events WHERE identifier IN ({marks}) ORDER BY id DESC LIMIT 20",
-                              idents).fetchall()
-        servers = [s for s in con.execute(
+        return [s for s in con.execute(
             "SELECT s.identifier, s.name, COALESCE(m.game_name, s.egg) AS egg FROM servers s"
             " LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1"
             " ORDER BY s.name COLLATE NOCASE")
             if s["identifier"] in names]
+
+
+def render_automation(request: Request, tab: str, **context):
+    return render(request, "admin_automation.html", tab=tab, page_tabs=AUTOMATION_TABS, page_tab=tab,
+                  page_tabs_label="Automationen", tz_offset=setup.utc_offset_label(settings.timezone), **context)
+
+
+@app.get("/admin/automation", response_class=HTMLResponse)
+async def admin_automation(request: Request):
+    user, names = require_automation(request)
+    marks = ",".join("?" * len(names)) or "NULL"
+    with db.connect() as con:
+        schedules = con.execute(f"SELECT * FROM schedules WHERE identifier IN ({marks}) ORDER BY time, name",
+                                tuple(names)).fetchall()
     sched_view = [{
         "s": s, "server": names.get(s["identifier"], s["identifier"]), "when": automation.describe(s),
         "action": i18n.t(automation.ACTIONS.get(s["action"], s["action"])),
@@ -2465,17 +2474,50 @@ async def admin_automation(request: Request):
         "duration": automation.duration_text(s["duration_minutes"]) if s["action"] == "update" else "",
         "until": (fmt_dt(s["window_until"], settings.timezone) if s["window_until"] else ""),
     } for s in schedules]
-    crash_view = [{"server": names.get(c["identifier"], c["identifier"]),
-                   "at": fmt_dt(c["detected_at"], settings.timezone), "outcome": c["outcome"]} for c in crashes]
+    q = request.query_params
+    flt = {"q": q.get("q", "").strip(), "server": q.get("server", ""), "action": q.get("action", ""),
+           "state": q.get("state", "")}
+    shown = [x for x in sched_view
+             if (not flt["q"] or flt["q"].casefold() in x["s"]["name"].casefold())
+             and (not flt["server"] or x["s"]["identifier"] == flt["server"])
+             and (not flt["action"] or x["s"]["action"] == flt["action"])
+             and (not flt["state"] or bool(x["s"]["enabled"]) == (flt["state"] == "on"))]
+    return render_automation(request, "/admin/automation", schedules=shown, schedules_total=len(sched_view),
+                             filter={**flt, "active": any(flt.values())},
+                             filter_servers=sorted({(x["s"]["identifier"], x["server"]) for x in sched_view},
+                                                   key=lambda kv: kv[1].casefold()),
+                             filter_actions=sorted({(x["s"]["action"], x["action"]) for x in sched_view},
+                                                   key=lambda kv: kv[1].casefold()))
+
+
+@app.get("/admin/automation/new", response_class=HTMLResponse)
+async def admin_automation_new(request: Request):
+    user, names = require_automation(request)
+    servers = automation_servers(names)
     # Pro Server die Aktionen, die dieser Benutzer planen darf (blendet im Formular die übrigen aus)
     allowed_actions = {s["identifier"]: " ".join(a for a in automation.ACTIONS if user.schedule_allowed(s["identifier"], a))
                        for s in servers}
-    return render(request, "admin_automation.html", servers=servers, crash=settings_rows, schedules=sched_view,
-                  crashes=crash_view, weekdays=[i18n.t(d) for d in automation.WEEKDAYS],
-                  actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()}, allowed_actions=allowed_actions,
-                  crash_allowed={s["identifier"] for s in servers if crash_allowed(user, s["identifier"])},
-                  durations={m: automation.duration_text(m) for m in automation.DURATIONS},
-                  tz_offset=setup.utc_offset_label(settings.timezone))
+    return render_automation(request, "/admin/automation/new", servers=servers,
+                             weekdays=[i18n.t(d) for d in automation.WEEKDAYS],
+                             actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()},
+                             allowed_actions=allowed_actions,
+                             durations={m: automation.duration_text(m) for m in automation.DURATIONS})
+
+
+@app.get("/admin/automation/crash", response_class=HTMLResponse)
+async def admin_automation_crash_page(request: Request):
+    user, names = require_automation(request)
+    marks = ",".join("?" * len(names)) or "NULL"
+    with db.connect() as con:
+        settings_rows = {r["identifier"]: r["crash_restart"] for r in con.execute("SELECT * FROM automation_settings")}
+        crashes = con.execute(f"SELECT * FROM crash_events WHERE identifier IN ({marks}) ORDER BY id DESC LIMIT 20",
+                              tuple(names)).fetchall()
+    servers = automation_servers(names)
+    crash_view = [{"server": names.get(c["identifier"], c["identifier"]),
+                   "at": fmt_dt(c["detected_at"], settings.timezone), "outcome": c["outcome"]} for c in crashes]
+    return render_automation(request, "/admin/automation/crash", servers=servers, crash=settings_rows,
+                             crashes=crash_view,
+                             crash_allowed={s["identifier"] for s in servers if crash_allowed(user, s["identifier"])})
 
 
 @app.post("/admin/automation/crash")
@@ -2499,7 +2541,7 @@ async def admin_automation_crash(request: Request):
             )
     audit.record("automation.settings", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail={"crash_restart": sorted(known[i] for i in enabled if i in known)})
-    return back("/admin/automation", "Absturz-Neustart gespeichert")
+    return back("/admin/automation/crash", "Absturz-Neustart gespeichert")
 
 
 @app.post("/admin/automation/schedules")
@@ -2558,7 +2600,7 @@ async def admin_schedule_create(request: Request, identifier: str = Form(""), na
         else:
             warn = int(warn_minutes)
     if problems:
-        return back("/admin/automation", i18n.t("Bitte prüfen: {list}", list=", ".join(i18n.t(x) for x in problems)))
+        return back("/admin/automation/new", i18n.t("Bitte prüfen: {list}", list=", ".join(i18n.t(x) for x in problems)))
     with db.connect() as con:
         con.execute(
             "INSERT INTO schedules (identifier, name, action, command, weekdays, time, only_if_running,"

@@ -7,6 +7,7 @@ ebenso die Backup-Ziele (Ordner und Zugangsdaten).
 from __future__ import annotations
 
 import asyncio
+import json
 import posixpath
 import shutil
 from datetime import datetime
@@ -19,6 +20,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Streamin
 
 from . import audit, backups, db, i18n, security
 from .backups import BackupError, has, user_may
+from .ptero import PteroError
 from .main import (app, back, check_csrf, check_csrf_header, clean_path, current_user, deny, files_back,
                    get_server_or_deny, ip_of, render, require, require_owner, server_names, settings, valid_name,
                    vault)
@@ -26,6 +28,8 @@ from .views import fmt_dt, fmt_size
 
 MAX_ITEMS = 500
 MAX_EXCLUDES = 4000
+STORED = "/admin/backups/stored"
+TARGETS = "/admin/backups/targets"
 
 
 def manager() -> backups.BackupManager:
@@ -46,6 +50,44 @@ def own_job(request: Request, user, job_id: int, key: str):
         idents = backups.job_idents(job)
         deny(request, user, key, idents[0] if len(idents) == 1 else None)
     return job
+
+
+def fetch_keys(job) -> tuple[str, ...]:
+    """Rights for "run and download now". A direct-download job (no target) reads the live server and needs the
+    direct download right; for a job with a target it means starting a backup and downloading it."""
+    return ("backups.run", "backups.download") if job["target_id"] else ("backups.direct",)
+
+
+def may_fetch(user, job) -> bool:
+    return all(user_may(user, job, k) for k in fetch_keys(job))
+
+
+def direct_gaps(user, job_list: list[dict], names: dict) -> list[str]:
+    """Servers where this user has the direct download right but no direct-download job to use it with."""
+    if user.is_owner:
+        return []
+    usable = set()
+    for x in job_list:
+        if not x["j"]["target_id"] and x["can_fetch"] and x["idents"]:
+            usable |= x["idents"]
+    return sorted((names[i] for i in names if has(user, i, "backups.direct") and i not in usable), key=str.casefold)
+
+
+def owner_direct_gaps(job_rows, names: dict) -> list[str]:
+    """For owners: who has the direct download right on a server without a direct-download job they could use."""
+    from .permissions import load_grants
+    jobs = [set(backups.job_items(j["id"])) for j in job_rows if not j["target_id"] and not j["all_servers"]]
+    with db.connect() as con:
+        users = con.execute("SELECT id, username FROM users WHERE role != 'owner' AND is_active = 1"
+                            " ORDER BY username COLLATE NOCASE").fetchall()
+    gaps = []
+    for u in users:
+        direct = {i for i, keys in load_grants(u["id"]).items() if "backups.direct" in keys and i in names}
+        usable = set().union(*(idents for idents in jobs if idents and idents <= direct)) if jobs else set()
+        missing = sorted((names[i] for i in direct - usable), key=str.casefold)
+        if missing:
+            gaps.append(i18n.t("{user}: {servers}", user=u["username"], servers=", ".join(missing)))
+    return gaps
 
 
 def job_back(job_id: int, message: str | None = None):
@@ -89,17 +131,42 @@ def target_view(row) -> dict:
 
 # -- Übersicht ---------------------------------------------------------------------------
 
+BACKUP_TABS = (
+    # (address, label, who sees the tab)
+    # targets first: a stored backup needs one, so that is where setting up starts
+    ("/admin/backups/targets", "Backup-Ziele", lambda u: u.is_owner),
+    ("/admin/backups", "Jobs", lambda u: True),
+    ("/admin/backups/new", "Neuer Job", lambda u: u.can_any("backups.manage")),
+    ("/admin/backups/stored", "Gespeicherte Backups", lambda u: u.can_any("backups.list")),
+    ("/admin/backups/downloads", "Downloads", lambda u: u.can_any("backups.direct") or u.can_any("backups.download")),
+    ("/admin/backups/restores", "Wiederherstellungen", lambda u: u.can_any("backups.list")),
+)
+
+
+def backup_tabs(user) -> list[tuple[str, str]]:
+    return [(href, label) for href, label, visible in BACKUP_TABS if visible(user)]
+
+
+def render_backups(request: Request, user, tab: str, **context):
+    """One tab of the backups page. Running operations and results of finished ones show on every tab."""
+    return render(request, "backups.html", tab=tab, page_tabs=backup_tabs(user), page_tab=tab,
+                  page_tabs_label="Backups", active=active_for(user),
+                  finished=finished_results(user, request.query_params.get("done", "")), **context)
+
+
+def load_finished(kind_filter: str) -> list:
+    with db.connect() as con:
+        return con.execute(f"SELECT * FROM backup_runs WHERE status NOT IN ('queued', 'running') AND {kind_filter}"
+                           " ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
+
+
 @app.get("/admin/backups", response_class=HTMLResponse)
 async def backups_page(request: Request):
     user = require_backups(request)
     names = server_names()
-    targets = load_targets()
-    target_by_id = {t["id"]: t for t in targets}
+    target_by_id = {t["id"]: t for t in load_targets()}
     with db.connect() as con:
         jobs = con.execute("SELECT * FROM backup_jobs ORDER BY name COLLATE NOCASE").fetchall()
-        runs = con.execute("SELECT * FROM backup_runs WHERE status NOT IN ('queued', 'running')"
-                           " ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
-        restores = con.execute("SELECT * FROM backup_restores ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
     job_list = []
     for job in jobs:
         if not user_may(user, job, "backups.view"):
@@ -111,31 +178,58 @@ async def backups_page(request: Request):
             "j": job, "servers": servers,
             "paths": sum(len(p) for p in items.values()),
             "target": backups.target_label(target_by_id.get(job["target_id"])) if job["target_id"]
-            else i18n.t("Direktdownload"),
+            else i18n.t("Direktdownload (live)"),
             "when": backups.describe_schedule(job),
             "stop": i18n.t(backups.STOP_MODES.get(job["stop_mode"], "")),
             "can_edit": user_may(user, job, "backups.manage"),
-            "can_run": user_may(user, job, "backups.run") and not run_problems(user, job),
+            "can_run": bool(job["target_id"]) and user_may(user, job, "backups.run") and not run_problems(user, job),
+            "can_fetch": may_fetch(user, job) and not run_problems(user, job),
             "active": manager().job_active(job["id"]),
+            "idents": set(items) if not job["all_servers"] else None,
         })
+    q = request.query_params
+    job_filter = {"server": q.get("jserver", ""), "target": q.get("jtarget", ""), "q": q.get("jq", "").strip()}
+    job_servers = sorted({(i, names[i]) for x in job_list for i in (x["idents"] or ()) if i in names},
+                         key=lambda kv: kv[1].casefold())
+    job_targets = sorted({(str(x["j"]["target_id"] or "download"), x["target"]) for x in job_list},
+                         key=lambda kv: kv[1].casefold())
+    filtered_jobs = [x for x in job_list
+                     if (not job_filter["server"] or x["idents"] is None or job_filter["server"] in x["idents"])
+                     and (not job_filter["target"] or str(x["j"]["target_id"] or "download") == job_filter["target"])
+                     and (not job_filter["q"] or job_filter["q"].casefold() in x["j"]["name"].casefold())]
+    return render_backups(request, user, "/admin/backups", jobs=filtered_jobs, jobs_total=len(job_list),
+                          job_filter={**job_filter, "active": any(job_filter.values())}, job_servers=job_servers,
+                          job_targets=job_targets, can_create=user.can_any("backups.manage"),
+                          jobs_reset="/admin/backups", direct_gaps=direct_gaps(user, job_list, names),
+                          owner_direct_gaps=owner_direct_gaps(jobs, names) if user.is_owner else [])
+
+
+@app.get("/admin/backups/new", response_class=HTMLResponse)
+async def backups_new_page(request: Request):
+    user = require_backups(request, "backups.manage")
+    return render_backups(request, user, "/admin/backups/new", targets=load_targets())
+
+
+@app.get("/admin/backups/stored", response_class=HTMLResponse)
+async def backups_stored_page(request: Request):
+    user = require_backups(request, "backups.list")
+    names = server_names()
+    with db.connect() as con:
+        restores = con.execute("SELECT run_id, finished_at FROM backup_restores WHERE status = 'ok'"
+                               " ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
     restored = {}                      # zuletzt erfolgreich zurückgespielt, pro Backup
     for x in restores:
-        if x["status"] == "ok" and x["run_id"] and x["run_id"] not in restored:
+        if x["run_id"] and x["run_id"] not in restored:
             restored[x["run_id"]] = fmt_dt(x["finished_at"], settings.timezone)
     q = request.query_params
-    visible_runs = [r for r in runs if has(user, r["identifier"], "backups.view")]
-    visible_restores = [x for x in restores if x["status"] != "running" and has(user, x["identifier"], "backups.view")]
+    visible_runs = [r for r in load_finished("kind = 'target'") if has(user, r["identifier"], "backups.list")]
     run_filter = {"server": q.get("server", ""), "job": q.get("job", ""), "status": q.get("status", "")}
-    restore_filter = {"server": q.get("rserver", ""), "status": q.get("rstatus", "")}
     filtered_runs = [r for r in visible_runs
                      if (not run_filter["server"] or r["identifier"] == run_filter["server"])
                      and (not run_filter["job"] or r["job_name"] == run_filter["job"])
                      and (not run_filter["status"] or r["status"] == run_filter["status"])]
-    filtered_restores = [x for x in visible_restores
-                         if (not restore_filter["server"] or x["identifier"] == restore_filter["server"])
-                         and (not restore_filter["status"] or x["status"] == restore_filter["status"])]
-    run_page, runs_pager = paginate(filtered_runs, q, "page", "gespeichert")
-    restore_page, restores_pager = paginate(filtered_restores, q, "rpage", "wiederherstellungen")
+    base = "/admin/backups/stored"
+    run_page, runs_pager = paginate(filtered_runs, q, "page", base)
     run_list = [{
         "r": r, "at": fmt_dt(r["finished_at"] or r["queued_at"], settings.timezone),
         "status": i18n.t(backups.STATUS_LABELS.get(r["status"], r["status"])),
@@ -143,58 +237,158 @@ async def backups_page(request: Request):
         "data": fmt_size(r["data_bytes"]) if r["data_bytes"] else "",
         "verified": fmt_dt(r["verified_at"], settings.timezone) if r["verified_at"] else None,
         "restored": restored.get(r["id"]),
-        "can_download": bool(r["file"]) and has(user, r["identifier"], "backups.run"),
-        "can_verify": bool(r["file"]) and r["kind"] == "target" and has(user, r["identifier"], "backups.run"),
-        "can_restore": bool(r["file"]) and r["kind"] == "target" and user.can(r["identifier"], "backups.restore"),
+        "can_download": bool(r["file"]) and has(user, r["identifier"], "backups.download"),
+        "can_verify": bool(r["file"]) and has(user, r["identifier"], "backups.run"),
+        "can_restore": bool(r["file"]) and user.can(r["identifier"], "backups.restore"),
         "can_delete": bool(r["file"]) and has(user, r["identifier"], "backups.manage"),
     } for r in run_page]
     for x in run_list:                 # Auswahlkästchen nur, wo eine Sammelaktion möglich ist
         x["can_select"] = x["can_delete"] or x["can_verify"]
+    return render_backups(request, user, base, runs=run_list, runs_total=len(visible_runs),
+                          runs_count=len(filtered_runs), runs_pager=runs_pager,
+                          run_filter={**run_filter, "active": any(run_filter.values())},
+                          run_servers=server_choices(visible_runs, names),
+                          run_jobs=sorted({r["job_name"] for r in visible_runs if r["job_name"]}, key=str.casefold),
+                          status_options=status_options(), runs_reset=base)
+
+
+DOWNLOAD_KINDS = {"live": "Direktdownload (live)", "stored": "Gespeichertes Backup"}
+REPEAT_SECONDS = 120     # Safari fetches one download in several requests: count them once
+
+
+def download_history(user) -> list[dict]:
+    """Every download, newest first: direct downloads from the live server (backup runs) and downloads of stored
+    backups (audit log, so it reaches back as far as the audit log is kept). Only servers with the right."""
+    rows = []
+    for r in load_finished("kind = 'download'"):
+        if has(user, r["identifier"], "backups.direct") or has(user, r["identifier"], "backups.download"):
+            rows.append({"ts": r["finished_at"] or r["queued_at"], "kind": "live", "job": r["job_name"],
+                         "ident": r["identifier"], "server": r["server_name"] or r["identifier"],
+                         "who": r["started_name"] or "–", "status": r["status"],
+                         "size": r["size"] or r["data_bytes"], "detail": r["detail"] or ""})
+    with db.connect() as con:
+        audit_rows = con.execute("SELECT ts, username, server, detail FROM audit_log WHERE action = 'backup.file_download'"
+                                 " AND result = 'ok' ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
+    names = server_names()
+    last: dict[tuple, datetime] = {}
+    for a in audit_rows:
+        if not a["server"] or not has(user, a["server"], "backups.download"):
+            continue
+        try:
+            info = json.loads(a["detail"] or "{}")
+            at = datetime.fromisoformat(a["ts"])
+        except ValueError:
+            continue
+        key = (a["username"], info.get("datei"))
+        if key in last and (last[key] - at).total_seconds() < REPEAT_SECONDS:
+            continue
+        last[key] = at
+        rows.append({"ts": a["ts"], "kind": "stored", "job": info.get("job") or "", "ident": a["server"],
+                     "server": names.get(a["server"], a["server"]), "who": a["username"] or "–", "status": "ok",
+                     "size": None, "detail": posixpath.basename(info.get("datei") or "")})
+    rows.sort(key=lambda x: x["ts"] or "", reverse=True)
+    return rows
+
+
+@app.get("/admin/backups/downloads", response_class=HTMLResponse)
+async def backups_downloads_page(request: Request):
+    """What this user can download from the live server right now, and the history of all downloads."""
+    user = require_backups(request)
+    names = server_names()
+    base = "/admin/backups/downloads"
+    with db.connect() as con:
+        direct_jobs = con.execute("SELECT * FROM backup_jobs WHERE target_id IS NULL ORDER BY name COLLATE NOCASE").fetchall()
+    fetchable = []
+    for job in direct_jobs:
+        if not user_may(user, job, "backups.direct"):
+            continue
+        items = backups.job_items(job["id"])
+        fetchable.append({"j": job, "active": manager().job_active(job["id"]), "problems": run_problems(user, job),
+                          "servers": [i18n.t("Alle Server, auch künftige")] if job["all_servers"]
+                          else [names.get(i, i) for i in items],
+                          "paths": [p for paths in items.values() for p in paths],
+                          "stop": i18n.t(backups.STOP_MODES.get(job["stop_mode"], ""))})
+    q = request.query_params
+    history = download_history(user)
+    flt = {"kind": q.get("kind", ""), "server": q.get("server", "")}
+    shown = [x for x in history if (not flt["kind"] or x["kind"] == flt["kind"])
+             and (not flt["server"] or x["ident"] == flt["server"])]
+    page, pager = paginate(shown, q, "page", base)
+    for x in page:
+        x["at"] = fmt_dt(x["ts"], settings.timezone)
+        x["kind_label"] = i18n.t(DOWNLOAD_KINDS[x["kind"]])
+        x["status_label"] = i18n.t(backups.STATUS_LABELS.get(x["status"], x["status"]))
+        x["size_text"] = fmt_size(x["size"]) if x["size"] else ""
+    servers = sorted({(x["ident"], x["server"]) for x in history}, key=lambda kv: kv[1].casefold())
+    return render_backups(request, user, base, fetchable=fetchable, can_direct=user.can_any("backups.direct"),
+                          gaps=direct_gaps_for(user, fetchable, names), history=page, history_total=len(history),
+                          history_count=len(shown), history_pager=pager, download_filter={**flt, "active": any(flt.values())},
+                          download_servers=servers, download_kinds=[(k, i18n.t(v)) for k, v in DOWNLOAD_KINDS.items()])
+
+
+def direct_gaps_for(user, fetchable: list[dict], names: dict) -> list[str]:
+    usable = {i for x in fetchable for i in backups.job_items(x["j"]["id"])}
+    if user.is_owner:
+        return []
+    return sorted((names[i] for i in names if has(user, i, "backups.direct") and i not in usable), key=str.casefold)
+
+
+@app.get("/admin/backups/restores", response_class=HTMLResponse)
+async def backups_restores_page(request: Request):
+    user = require_backups(request, "backups.list")
+    names = server_names()
+    with db.connect() as con:
+        restores = con.execute("SELECT * FROM backup_restores ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
+    q = request.query_params
+    visible = [x for x in restores if x["status"] != "running" and has(user, x["identifier"], "backups.list")]
+    restore_filter = {"server": q.get("server", ""), "status": q.get("status", "")}
+    filtered = [x for x in visible
+                if (not restore_filter["server"] or x["identifier"] == restore_filter["server"])
+                and (not restore_filter["status"] or x["status"] == restore_filter["status"])]
+    base = "/admin/backups/restores"
+    page, pager = paginate(filtered, q, "page", base)
     restore_list = [{
         "x": x, "at": fmt_dt(x["finished_at"] or x["started_at"], settings.timezone),
         "backup_at": fmt_dt(x["backup_at"], settings.timezone) if x["backup_at"] else "",
         "status": i18n.t(backups.STATUS_LABELS.get(x["status"], x["status"])),
-    } for x in restore_page]
-    owner_data = {}
-    if user.is_owner:
-        uid, gid = backups.service_ids()
-        mounts = backups.list_mounts()
-        for m in mounts:
-            m["free_text"] = fmt_size(m["free"]) if m["free"] is not None else ""
-        owner_data = {"targets_view": [target_view(t) for t in targets], "mounts": mounts,
-                      "data_dir": str(settings.data_dir / "backups"), "host_uid": 100000 + (uid or 0),
-                      "host_gid": 100000 + (gid or 0)}
-    run_keys, restore_keys = ("server", "job", "status"), ("rserver", "rstatus")
-    return render(request, "backups.html", jobs=job_list, runs=run_list, targets=targets, restores=restore_list,
-                  active=active_for(user), finished=finished_results(user, request.query_params.get("done", "")),
-                  can_create=user.can_any("backups.manage"),
-                  runs_total=len(visible_runs), runs_count=len(filtered_runs), runs_pager=runs_pager,
-                  restores_total=len(visible_restores), restores_count=len(filtered_restores), restores_pager=restores_pager,
-                  run_filter={**run_filter, "active": any(run_filter.values())},
-                  restore_filter={**restore_filter, "active": any(restore_filter.values())},
-                  run_servers=server_choices(visible_runs, names), restore_servers=server_choices(visible_restores, names),
-                  run_jobs=sorted({r["job_name"] for r in visible_runs if r["job_name"]}, key=str.casefold),
-                  status_options=[(k, i18n.t(backups.STATUS_LABELS[k])) for k in ("ok", "partial", "error", "cancelled", "denied")],
-                  keep_run_filter=[(k, q[k]) for k in run_keys if q.get(k)],
-                  keep_restore_filter=[(k, q[k]) for k in restore_keys if q.get(k)],
-                  runs_reset=list_url(q, drop=run_keys + ("page",), anchor="gespeichert"),
-                  restores_reset=list_url(q, drop=restore_keys + ("rpage",), anchor="wiederherstellungen"),
-                  **owner_data)
+    } for x in page]
+    return render_backups(request, user, base, restores=restore_list, restores_total=len(visible),
+                          restores_count=len(filtered), restores_pager=pager,
+                          restore_filter={**restore_filter, "active": any(restore_filter.values())},
+                          restore_servers=server_choices(visible, names), status_options=status_options(),
+                          restores_reset=base)
+
+
+@app.get("/admin/backups/targets", response_class=HTMLResponse)
+async def backups_targets_page(request: Request):
+    user = require_owner(request)
+    targets = load_targets()
+    uid, gid = backups.service_ids()
+    mounts = backups.list_mounts()
+    for m in mounts:
+        m["free_text"] = fmt_size(m["free"]) if m["free"] is not None else ""
+    return render_backups(request, user, "/admin/backups/targets", targets_view=[target_view(t) for t in targets],
+                          mounts=mounts, data_dir=str(settings.data_dir / "backups"),
+                          host_uid=100000 + (uid or 0), host_gid=100000 + (gid or 0))
+
+
+def status_options() -> list[tuple[str, str]]:
+    return [(k, i18n.t(backups.STATUS_LABELS[k])) for k in ("ok", "partial", "error", "cancelled", "denied")]
 
 
 HISTORY_MAX = 2000      # finished backups and restores read for the list (newest first)
 PAGE_SIZE = 10
 
 
-def list_url(q, drop=(), anchor="", **set_) -> str:
-    """The backups page URL with the current filters, minus `drop`, plus `set_`."""
+def list_url(base: str, q, drop=(), **set_) -> str:
+    """A backups tab URL with the current filters, minus `drop`, plus `set_`."""
     params = {k: v for k, v in q.items() if k not in drop and k != "done" and v}
     params.update({k: str(v) for k, v in set_.items()})
     query = "&".join(f"{quote(k)}={quote(v)}" for k, v in params.items())
-    return "/admin/backups" + (f"?{query}" if query else "") + (f"#{anchor}" if anchor else "")
+    return base + (f"?{query}" if query else "")
 
 
-def paginate(rows: list, q, key: str, anchor: str) -> tuple[list, dict | None]:
+def paginate(rows: list, q, key: str, base: str) -> tuple[list, dict | None]:
     """One page of `rows` (PAGE_SIZE each) and the links for the pager, or None for a single page."""
     pages = max(1, -(-len(rows) // PAGE_SIZE))
     try:
@@ -205,8 +399,8 @@ def paginate(rows: list, q, key: str, anchor: str) -> tuple[list, dict | None]:
     if pages == 1:
         return chunk, None
     return chunk, {"page": page, "pages": pages,
-                   "prev": list_url(q, anchor=anchor, **{key: page - 1}) if page > 1 else None,
-                   "next": list_url(q, anchor=anchor, **{key: page + 1}) if page < pages else None}
+                   "prev": list_url(base, q, **{key: page - 1}) if page > 1 else None,
+                   "next": list_url(base, q, **{key: page + 1}) if page < pages else None}
 
 
 def server_choices(rows, names: dict) -> list[tuple[str, str]]:
@@ -280,8 +474,13 @@ def active_for(user) -> list[dict]:
         elif a["kind"] == "restore":
             a["can_cancel"] = user.can(a["ident"], "backups.restore")
         else:
-            a["can_cancel"] = has(user, a["ident"], "backups.run")
+            a["can_cancel"] = may_cancel(user, a["ident"], a["kind"])
     return active
+
+
+def may_cancel(user, ident: str, kind: str) -> bool:
+    """Cancelling a backup: backups.run, or for a direct download the right to start one."""
+    return has(user, ident, "backups.run") or (kind == "download" and has(user, ident, "backups.direct"))
 
 
 # -- Jobs ------------------------------------------------------------------------------------
@@ -309,7 +508,7 @@ async def backup_job_create(request: Request, name: str = Form(""), target_id: s
     name = " ".join(name.split())
     ok, tid = valid_target(target_id)
     if not name or len(name) > 80 or not ok:
-        return back("/admin/backups", "Bitte Name (1–80 Zeichen) und Ziel angeben")
+        return back("/admin/backups/new", "Bitte Name (1–80 Zeichen) und Ziel angeben")
     job_id = create_job(user, name, tid)
     audit_user(request, user, "backup.job.create", detail={"job": name, "ziel": tid or "download"})
     return job_back(job_id, "Backup-Job angelegt. Jetzt Server und Ordner hinzufügen.")
@@ -326,14 +525,58 @@ async def backup_job_page(request: Request, job_id: int):
     item_view = [{"ident": i, "server": names.get(i, i18n.t("{ident} (gelöscht)", ident=i)), "paths": paths}
                  for i, paths in sorted(items.items(), key=lambda kv: names.get(kv[0], kv[0]).lower())]
     addable = {i: n for i, n in names.items() if has(user, i, "backups.manage")}
-    return render(request, "backup_job.html", job=job, items=item_view, targets=load_targets(),
+    browser = await job_browser(request, user, job, items, addable)
+    return render(request, "backup_job.html", page_tabs=backup_tabs(user), page_tab="/admin/backups",
+                  page_tabs_label="Backups", job=job, items=item_view, targets=load_targets(),
                   servers=sorted(addable.items(), key=lambda kv: kv[1].lower()),
                   weekdays=[i18n.t(d) for d in backups.WEEKDAYS],
                   stop_modes={k: i18n.t(v) for k, v in backups.STOP_MODES.items()},
                   notify_modes={k: i18n.t(v) for k, v in backups.NOTIFY_MODES.items()},
                   keep_counts=backups.KEEP_COUNTS, keep_days=backups.KEEP_DAYS,
-                  can_run=user_may(user, job, "backups.run") and not run_problems(user, job),
-                  active=manager().job_active(job_id))
+                  can_run=bool(job["target_id"]) and user_may(user, job, "backups.run") and not run_problems(user, job),
+                  can_fetch=may_fetch(user, job) and not run_problems(user, job),
+                  active=manager().job_active(job_id), **browser)
+
+
+def browser_url(job_id: int, ident: str, directory: str = "/") -> str:
+    return f"/admin/backups/jobs/{job_id}?server={quote(ident)}&dir={quote(directory)}#dateien"
+
+
+async def job_browser(request: Request, user, job, items: dict, addable: dict) -> dict:
+    """File browser on the job page: the job's server if it has exactly one, otherwise the one picked above it."""
+    if job["all_servers"]:
+        return {"browse": None}
+    choices = {i: n for i, n in addable.items() if has(user, i, "sftp.view")}
+    q = request.query_params
+    ident = q.get("server", "")
+    if not ident and len(items) == 1:
+        ident = next(iter(items))
+    if ident not in choices:
+        return {"browse": None, "browse_choices": sorted(choices.items(), key=lambda kv: kv[1].lower())}
+    directory = clean_path(q.get("dir", "/"))
+    error = None
+    try:
+        files = await app.state.ptero.list_files(ident, directory)
+    except PteroError as exc:
+        files, error = [], str(exc)
+    audit_user(request, user, "files.list", server=ident, detail=directory, result="ok" if error is None else "error")
+    chosen = items.get(ident, [])
+    covered = next((p for p in chosen if p == "/" or directory == p or directory.startswith(p.rstrip("/") + "/")), None)
+    for f in files:
+        f["path"] = posixpath.join(directory, f["name"])
+        f["size_text"] = fmt_size(f["size"]) if f["is_file"] else ""
+        f["modified_text"] = fmt_dt(f["modified_at"], settings.timezone)
+        f["in_job"] = f["path"] in chosen
+    crumbs, acc = [], ""
+    for part in [p for p in directory.split("/") if p]:
+        acc += "/" + part
+        crumbs.append((part, browser_url(job["id"], ident, acc)))
+    return {"browse": {"ident": ident, "name": choices[ident], "dir": directory, "files": files, "error": error,
+                       "crumbs": crumbs, "root": browser_url(job["id"], ident),
+                       "parent": browser_url(job["id"], ident, posixpath.dirname(directory)) if directory != "/" else None,
+                       "url": lambda path: browser_url(job["id"], ident, path),
+                       "covered": covered, "dir_in_job": directory in chosen},
+            "browse_choices": sorted(choices.items(), key=lambda kv: kv[1].lower())}
 
 
 def _int_choice(value: str, choices) -> tuple[bool, int | None]:
@@ -453,20 +696,31 @@ def add_items(user, job, ident: str, paths: list[str]) -> str | None:
 
 
 @app.post("/admin/backups/jobs/{job_id}/items")
-async def backup_job_item_add(request: Request, job_id: int, identifier: str = Form(""), path: str = Form("/")):
+async def backup_job_item_add(request: Request, job_id: int, identifier: str = Form(""), path: str = Form("/"),
+                              dir: str = Form(""), whole: str = Form("")):
+    """Adds a path typed in by hand, or (from the file browser) the ticked entries of folder `dir` or, with
+    `whole`, the folder itself."""
     user = require_backups(request, "backups.manage")
     await check_csrf(request)
     job = own_job(request, user, job_id, "backups.manage")
     if job is None:
         return back("/admin/backups")
-    path = clean_path(path)
     if identifier not in server_names() or not has(user, identifier, "backups.manage"):
         deny(request, user, "backups.manage", identifier or None)
-    error = add_items(user, job, identifier, [path])
+    if dir:
+        directory = clean_path(dir)
+        names = [n for n in (await request.form()).getlist("names") if isinstance(n, str) and valid_name(n)]
+        paths = [directory] if whole else [posixpath.join(directory, n) for n in names]
+        page = browser_url(job_id, identifier, directory)
+        if not paths:
+            return back(page, "Nichts ausgewählt")
+    else:
+        paths, page = [clean_path(path)], f"/admin/backups/jobs/{job_id}"
+    error = add_items(user, job, identifier, paths)
     if error:
-        return job_back(job_id, error)
-    audit_user(request, user, "backup.job.update", server=identifier, detail={"job": job["name"], "hinzu": [path]})
-    return job_back(job_id, "Hinzugefügt")
+        return back(page, error)
+    audit_user(request, user, "backup.job.update", server=identifier, detail={"job": job["name"], "hinzu": paths})
+    return back(page, "Hinzugefügt" if len(paths) == 1 else i18n.t("{n} Einträge hinzugefügt", n=len(paths)))
 
 
 @app.post("/admin/backups/jobs/{job_id}/items/remove")
@@ -514,13 +768,20 @@ async def backup_job_run(request: Request, job_id: int, next: str = Form("")):
 
 @app.post("/admin/backups/jobs/{job_id}/download")
 async def backup_job_download(request: Request, job_id: int):
-    user = require_backups(request, "backups.run")
+    """Runs a job now and streams the ZIP to the browser (read from the live server, nothing is stored)."""
+    user = require_backups(request)
     await check_csrf(request)
-    job, problem = runnable(request, user, job_id)
+    job = backups.load_job(job_id)
     if job is None:
         return back("/admin/backups")
+    for key in fetch_keys(job):
+        if not user_may(user, job, key):
+            idents = backups.job_idents(job)
+            deny(request, user, key, idents[0] if len(idents) == 1 else None)
+    problem = run_problems(user, job)
     if problem:
-        return back("/admin/backups", problem)
+        return back("/admin/backups", i18n.t("Der Job stoppt den Server vorher, dafür fehlt dir: {list}",
+                                             list=", ".join(problem[:5])))
     try:
         states = manager().begin_download(job, user.id, user.username)
     except BackupError as exc:
@@ -545,23 +806,23 @@ def load_run(run_id: int):
 
 @app.get("/admin/backups/runs/{run_id}/download")
 async def backup_run_download(request: Request, run_id: int):
-    user = require_backups(request, "backups.run")
+    user = require_backups(request, "backups.download")
     run = load_run(run_id)
     if run is None:
-        return back("/admin/backups")
-    if not has(user, run["identifier"], "backups.run"):
-        deny(request, user, "backups.run", run["identifier"])
+        return back(STORED)
+    if not has(user, run["identifier"], "backups.download"):
+        deny(request, user, "backups.download", run["identifier"])
     target = backups.load_target(run["target_id"])
     if not run["file"] or target is None:
-        return back("/admin/backups", "Diese Backup-Datei gibt es nicht mehr.")
+        return back(STORED, "Diese Backup-Datei gibt es nicht mehr.")
     try:
         found = await asyncio.to_thread(target.exists, run["file"])
     except BackupError as exc:
         target.close()
-        return back("/admin/backups", str(exc))
+        return back(STORED, str(exc))
     if not found:
         target.close()
-        return back("/admin/backups", "Diese Backup-Datei gibt es nicht mehr.")
+        return back(STORED, "Diese Backup-Datei gibt es nicht mehr.")
     audit_user(request, user, "backup.file_download", server=run["identifier"],
                detail={"job": run["job_name"], "datei": run["file"]})
     stem = posixpath.basename(run["file"]).rsplit(".", 1)[0]
@@ -580,12 +841,12 @@ async def backup_run_download(request: Request, run_id: int):
 
 @app.post("/api/backups/runs/{run_id}/cancel")
 async def backup_run_cancel(request: Request, run_id: int):
-    user = require_backups(request, "backups.run")
+    user = require_backups(request)
     check_csrf_header(request)
     run = load_run(run_id)
     if run is None:
         return JSONResponse({"error": i18n.t("Diesen Lauf gibt es nicht.")}, status_code=404)
-    if not has(user, run["identifier"], "backups.run"):
+    if not may_cancel(user, run["identifier"], run["kind"]):
         deny(request, user, "backups.run", run["identifier"])
     rs = manager().runs.get(run_id)
     if rs is None or not manager().cancel(run_id):
@@ -601,14 +862,14 @@ async def backup_run_verify(request: Request, run_id: int):
     await check_csrf(request)
     run = load_run(run_id)
     if run is None:
-        return back("/admin/backups")
+        return back(STORED)
     if not has(user, run["identifier"], "backups.run"):
         deny(request, user, "backups.run", run["identifier"])
     try:
         manager().start_verify(run, user.id, user.username)
     except BackupError as exc:
-        return back("/admin/backups", str(exc))
-    return back("/admin/backups", "Prüfung gestartet. Hatchtower liest die ganze Datei und prüft jede Datei darin;"
+        return back(STORED, str(exc))
+    return back(STORED, "Prüfung gestartet. Hatchtower liest die ganze Datei und prüft jede Datei darin;"
                                   " das Ergebnis steht danach in der Liste.")
 
 
@@ -632,12 +893,13 @@ async def backup_restore_page(request: Request, run_id: int):
     user = require_backups(request, "backups.restore")
     run = restorable(request, user, run_id)
     if run is None or not run["file"] or run["kind"] != "target":
-        return back("/admin/backups", "Diese Backup-Datei gibt es nicht mehr.")
+        return back(STORED, "Diese Backup-Datei gibt es nicht mehr.")
     ident = run["identifier"]
     names = server_names()
     with db.connect() as con:
         state = con.execute("SELECT state FROM server_state WHERE identifier = ?", (ident,)).fetchone()
-    return render(request, "restore.html", run=run, server=names.get(ident, run["server_name"] or ident),
+    return render(request, "restore.html", page_tabs=backup_tabs(user), page_tab=STORED, page_tabs_label="Backups",
+                  run=run, server=names.get(ident, run["server_name"] or ident),
                   present=ident in names, at=fmt_dt(run["finished_at"], settings.timezone),
                   size=fmt_size(run["size"]) if run["size"] else "",
                   verified=fmt_dt(run["verified_at"], settings.timezone) if run["verified_at"] else None,
@@ -653,7 +915,7 @@ async def backup_restore_start(request: Request, run_id: int, mode: str = Form("
     await check_csrf(request)
     run = restorable(request, user, run_id)
     if run is None or not run["file"] or run["kind"] != "target":
-        return back("/admin/backups", "Diese Backup-Datei gibt es nicht mehr.")
+        return back(STORED, "Diese Backup-Datei gibt es nicht mehr.")
     page = f"/admin/backups/runs/{run_id}/restore"
     ident = run["identifier"]
     if ident not in server_names():
@@ -673,7 +935,7 @@ async def backup_restore_start(request: Request, run_id: int, mode: str = Form("
                detail={"job": run["job_name"], "datei": run["file"],
                        "wohin": "Originalort" if mode == "overwrite" else "eigener Ordner", "stoppen": bool(stop),
                        "status": "gestartet"})
-    return back("/admin/backups", "Wiederherstellung gestartet. Den Fortschritt siehst du oben unter „Laufende Vorgänge“.")
+    return back("/admin/backups/restores", "Wiederherstellung gestartet. Den Fortschritt siehst du oben unter „Laufende Vorgänge“.")
 
 
 @app.post("/api/backups/restores/{restore_id}/cancel")
@@ -710,11 +972,11 @@ async def backup_run_delete(request: Request, run_id: int):
     await check_csrf(request)
     run = load_run(run_id)
     if run is None:
-        return back("/admin/backups")
+        return back(STORED)
     if not has(user, run["identifier"], "backups.manage"):
         deny(request, user, "backups.manage", run["identifier"])
     problem = await delete_run(request, user, run)
-    return back("/admin/backups", problem or "Backup gelöscht")
+    return back(STORED, problem or "Backup gelöscht")
 
 
 MAX_BULK = 200
@@ -727,7 +989,7 @@ async def backup_runs_bulk(request: Request, action: str = Form("")):
     passiert gar nichts (und der Versuch steht im Audit-Log)."""
     key = {"delete": "backups.manage", "verify": "backups.run"}.get(action)
     if key is None:
-        return back("/admin/backups#gespeichert", "Bitte eine Aktion wählen.")
+        return back(STORED, "Bitte eine Aktion wählen.")
     user = require_backups(request, key)
     await check_csrf(request)
     ids = sorted({int(v) for v in (await request.form()).getlist("run") if str(v).isdigit()})[:MAX_BULK]
@@ -735,7 +997,7 @@ async def backup_runs_bulk(request: Request, action: str = Form("")):
         runs = [r for r in (con.execute("SELECT * FROM backup_runs WHERE id = ?", (i,)).fetchone() for i in ids)
                 if r is not None and r["file"]]
     if not runs:
-        return back("/admin/backups#gespeichert", "Keine Backups ausgewählt.")
+        return back(STORED, "Keine Backups ausgewählt.")
     for run in runs:
         if not has(user, run["identifier"], key):
             deny(request, user, key, run["identifier"])
@@ -752,7 +1014,7 @@ async def backup_runs_bulk(request: Request, action: str = Form("")):
     else:
         runs = [r for r in runs if r["kind"] == "target"]
         if len(runs) > MAX_BULK_VERIFY:
-            return back("/admin/backups#gespeichert", i18n.t("Bitte höchstens {n} Backups auf einmal prüfen.",
+            return back(STORED, i18n.t("Bitte höchstens {n} Backups auf einmal prüfen.",
                                                               n=MAX_BULK_VERIFY))
         started = []
         for run in runs:
@@ -765,7 +1027,7 @@ async def backup_runs_bulk(request: Request, action: str = Form("")):
                          n=len(started))
     if problems:
         message += " " + i18n.t("Nicht möglich: {liste}", liste="; ".join(problems[:5]))
-    return back("/admin/backups#gespeichert", message)
+    return back(STORED, message)
 
 
 # -- Aus dem Datei-Explorer --------------------------------------------------------------------------
@@ -814,7 +1076,6 @@ def jobs_for_explorer(user, ident: str) -> list:
 
 # -- Ziele (nur Owner) ---------------------------------------------------------------------------
 
-TARGETS = "/admin/backups#ziele"
 
 
 def clean_subdir(subdir: str) -> str | None:

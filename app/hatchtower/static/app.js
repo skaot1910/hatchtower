@@ -1628,6 +1628,7 @@
       syncMode();
     }
     startRunSelection();
+    startJobBrowser();
     var box = document.getElementById("backup-active");
     if (!box) return;
     // Ergebnismeldung nur einmal zeigen: „done“ aus der Adresse nehmen, damit Neuladen sie nicht wiederholt
@@ -1682,6 +1683,8 @@
         list.appendChild(row);
       });
       empty.hidden = active.length > 0;
+      // outside the jobs tab the box only shows while something runs
+      if (box.hasAttribute("data-compact")) box.hidden = active.length === 0;
     }
     function tick() {
       fetch(box.dataset.status, { credentials: "same-origin", headers: { Accept: "application/json" } })
@@ -1778,6 +1781,38 @@
     form.addEventListener("submit", function (ev) {
       if (ev.submitter && ev.submitter.value === "delete" && !window.confirm(form.dataset.confirmDelete)) ev.preventDefault();
     });
+    update();
+  }
+
+  // ---- Backup job: tick files and folders in the file browser ----------------------------
+  function startJobBrowser() {
+    var form = document.getElementById("job-browse-form");
+    if (!form) return;
+    var boxes = document.querySelectorAll('input[name="names"][form="job-browse-form"]');
+    var all = document.getElementById("job-browse-all");
+    var count = document.getElementById("job-browse-count");
+    var add = document.getElementById("job-browse-add");
+    function update() {
+      var n = 0;
+      boxes.forEach(function (b) {
+        b.closest("tr").classList.toggle("is-selected", b.checked);
+        if (b.checked) n++;
+      });
+      count.textContent = tr("{n} ausgewählt", { n: n });
+      add.disabled = n === 0;
+      if (all) {
+        all.checked = n > 0 && n === boxes.length;
+        all.indeterminate = n > 0 && n < boxes.length;
+        all.disabled = boxes.length === 0;
+      }
+    }
+    boxes.forEach(function (b) { b.addEventListener("change", update); });
+    if (all) {
+      all.addEventListener("change", function () {
+        boxes.forEach(function (b) { b.checked = all.checked; });
+        update();
+      });
+    }
     update();
   }
 
