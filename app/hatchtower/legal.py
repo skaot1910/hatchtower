@@ -20,6 +20,8 @@ from . import db, retention
 PAGES = {"impressum": "legal_impressum", "datenschutz": "legal_privacy"}
 URL = re.compile(r"(https?://[^\s<>\"]+)")
 MAIL = re.compile(r"\b([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})\b")
+# Both in one pass, so an address inside a link (https://user@host/) does not get a second link within the first
+LINK = re.compile(f"{URL.pattern}|{MAIL.pattern}")
 
 TEMPLATES = {
     ("impressum", "de"): """## Angaben gemäß § 5 DDG
@@ -186,9 +188,11 @@ def links() -> list[tuple[str, str]]:
 
 
 def _inline(line: str) -> str:
-    escaped = html.escape(line)
-    escaped = URL.sub(lambda m: f'<a href="{m.group(1)}" rel="noopener noreferrer">{m.group(1)}</a>', escaped)
-    return MAIL.sub(lambda m: f'<a href="mailto:{m.group(1)}">{m.group(1)}</a>', escaped)
+    def link(m: re.Match) -> str:
+        if m.group(1):
+            return f'<a href="{m.group(1)}" rel="noopener noreferrer">{m.group(1)}</a>'
+        return f'<a href="mailto:{m.group(2)}">{m.group(2)}</a>'
+    return LINK.sub(link, html.escape(line))
 
 
 def to_html(source: str) -> Markup:

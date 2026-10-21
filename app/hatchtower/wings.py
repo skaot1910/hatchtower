@@ -132,14 +132,16 @@ async def console_stream(client: PteroClient, identifier: str) -> AsyncIterator[
                 elif event == "status" and args:
                     yield {"type": "status", "state": str(args[0])}
                 elif event == "stats" and args:
+                    # A malformed stats message is skipped instead of ending the whole console stream
                     try:
                         s = json.loads(args[0])
-                    except (TypeError, ValueError):
+                        net = s.get("network") or {}
+                        stats = {"type": "stats", "cpu": float(s.get("cpu_absolute") or 0),
+                                 "mem": int(s.get("memory_bytes") or 0), "rx": int(net.get("rx_bytes") or 0),
+                                 "tx": int(net.get("tx_bytes") or 0)}
+                    except (TypeError, ValueError, AttributeError):
                         continue
-                    net = s.get("network") or {}
-                    yield {"type": "stats", "cpu": float(s.get("cpu_absolute") or 0),
-                           "mem": int(s.get("memory_bytes") or 0), "rx": int(net.get("rx_bytes") or 0),
-                           "tx": int(net.get("tx_bytes") or 0)}
+                    yield stats
                 elif event in ("token expiring", "token expired"):
                     token, _ = await client.websocket_credentials(identifier)
                     await _send(ws, client, "auth", [token])

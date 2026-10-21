@@ -49,3 +49,11 @@ def test_netzwerkseite_mit_pruefung(world, monkeypatch):
     monkeypatch.setattr(setup, "dns_check", fake)
     page = world.client(world.ids["olga"]).get("/admin/network", params={"pruefen": "1"}).text
     assert "9.9.9.9" in page
+
+
+def test_links_im_rechtstext():
+    html = str(legal.to_html("Kontakt: https://max@example.com/kontakt oder info@example.com <b>"))
+    assert '<a href="https://max@example.com/kontakt" rel="noopener noreferrer">' in html
+    assert '<a href="mailto:info@example.com">info@example.com</a>' in html
+    assert html.count("<a ") == 2            # no mail link nested inside the web link
+    assert "&lt;b&gt;" in html
