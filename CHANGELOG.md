@@ -3,6 +3,12 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.39.1 – 2026-10-21
+
+- RAM and disk are shown the way the panel counts them: the panel sets limits in MiB, so a GB is now 1024³ bytes.
+  A server with 16384 MiB shows 16 GB instead of 17.2 GB; trailing zeros are dropped. The same applies to the RAM
+  and disk warnings sent by webhook and e-mail
+
 ## 0.39.0 – 2026-10-21
 
 - Backup permissions split by what they allow, so friends can e.g. download save games without being able to start,

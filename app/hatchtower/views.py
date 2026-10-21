@@ -53,9 +53,15 @@ def fmt_dt(value: str | None, tz: str, seconds: bool = False) -> str:
     return dt.strftime(date_format(seconds))
 
 
+GIB = 1024 ** 3
+
+
 def fmt_gb(num_bytes: float | None) -> str:
-    gb = (num_bytes or 0) / 1e9
-    return decimal(f"{gb:.2f}" if gb < 10 else f"{gb:.1f}")
+    """Bytes as GB the way the panel counts them (1024³, the panel sets limits in MiB): 16384 MiB is "16",
+    not 17.2. Trailing zeros are dropped."""
+    gb = (num_bytes or 0) / GIB
+    text = f"{gb:.2f}" if gb < 10 else f"{gb:.1f}"
+    return decimal(text.rstrip("0").rstrip(".") if "." in text else text)
 
 
 def fmt_size(num_bytes: int) -> str:

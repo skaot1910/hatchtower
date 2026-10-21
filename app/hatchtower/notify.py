@@ -16,6 +16,7 @@ import httpx
 
 from . import APP_NAME, db, i18n, inbox, mailer, security
 from .permissions import load_grants
+from .views import fmt_gb
 
 log = logging.getLogger("hatchtower.notify")
 
@@ -256,14 +257,14 @@ class ResourceWatch:
         t = thresholds()
         if disk_limit > 0 and disk / disk_limit * 100 >= t["disk"]:
             emit(self.vault, "disk", ident, i18n.t("Speicher bei {pct} % des Limits ({used} von {limit} GB).",
-                                                  pct=round(disk / disk_limit * 100), used=round(disk / 1e9, 1),
-                                                  limit=round(disk_limit / 1e9, 1)))
+                                                  pct=round(disk / disk_limit * 100), used=fmt_gb(disk),
+                                                  limit=fmt_gb(disk_limit)))
         if state == "running" and mem_limit > 0 and mem / mem_limit * 100 >= t["ram"]:
             since = self._ram_since.setdefault(ident, time.monotonic())
             if time.monotonic() - since >= t["ram_minutes"] * 60:
                 emit(self.vault, "ram", ident, i18n.t("RAM seit {m} Minuten über {pct} % ({used} von {limit} GB).",
-                                                     m=t["ram_minutes"], pct=t["ram"], used=round(mem / 1e9, 2),
-                                                     limit=round(mem_limit / 1e9, 2)))
+                                                     m=t["ram_minutes"], pct=t["ram"], used=fmt_gb(mem),
+                                                     limit=fmt_gb(mem_limit)))
         else:
             self._ram_since.pop(ident, None)
         # CPU: Pterodactyl zählt 100 % je Kern, das Limit ebenso (400 = 4 Kerne). Ohne Limit keine Prüfung.
