@@ -42,6 +42,10 @@ METRICS_KEEP_SECONDS = 73 * 3600   # 72 Stunden plus Puffer
 METRICS_MIN_GAP = 10              # höchstens ein Messpunkt pro 10 s und Server
 LIGHT_SYNC_INTERVAL = 30          # Serverliste mit Limits (CPU, RAM, Speicher): eine Anfrage je 100 Server
 PANEL_DOWN_AFTER = 2              # so viele Fehlversuche in Folge, bis Pterodactyl als ausgefallen gilt
+# The status poll costs one client-API request per server. It uses at most this share of the panel's rate limit
+# (shared by every instance with the same key), so backups, the file index and the web interface keep room.
+POLL_SHARE = 0.5
+POLL_MAX_DELAY = 45               # stay well below views.STALE_SECONDS, otherwise states would show as unknown
 
 POLL_QUERY = (
     "SELECT s.identifier, s.primary_ip, s.allocations, s.limit_memory, s.limit_disk, s.limit_cpu, m.query_port AS fixed_port,"
@@ -92,6 +96,16 @@ class Monitor:
         self._tracked: set[str] = set()
         self.down_since: str | None = None      # seit wann Pterodactyl nicht antwortet
         self._fails = 0
+        self._polled = 0                         # servers in the last status poll
+
+    def poll_delay(self) -> float:
+        """Pause between two status polls: the configured interval, longer when that many servers would use
+        more than POLL_SHARE of the rate limit the panel reports for the client key."""
+        rate = getattr(self.client, "rate", None)
+        if not rate or not rate[0] or not self._polled:
+            return self.poll_interval
+        needed = self._polled * 60 / (rate[0] * POLL_SHARE)
+        return max(self.poll_interval, min(needed, POLL_MAX_DELAY))
 
     def request_sync(self) -> None:
         """Serverliste beim nächsten Durchlauf neu aus Pterodactyl lesen (z. B. nach neuer Verbindung)."""
@@ -179,7 +193,7 @@ class Monitor:
             except Exception as exc:
                 self.last_error = i18n.Msg("Interner Fehler: {typ}", typ=exc.__class__.__name__)
                 log.exception("Monitoring-Fehler")
-            await asyncio.sleep(self.poll_interval)
+            await asyncio.sleep(self.poll_delay())
 
     def _panel_failed(self, exc: Exception) -> None:
         self._fails += 1
@@ -264,7 +278,7 @@ class Monitor:
             raise PteroError("Client-API-Key fehlt: Status kann nicht gelesen werden")
         with db.connect() as con:
             rows = con.execute(POLL_QUERY).fetchall()
-
+        self._polled = len(rows)
         results = await asyncio.gather(*(self._poll_one(row) for row in rows), return_exceptions=True)
         errors = [r for r in results if isinstance(r, Exception)]
         if errors and len(errors) == len(rows):

@@ -59,8 +59,9 @@ class ServerInfo:
 
 
 class PteroClient:
-    # Zuletzt gemeldetes Rate-Limit des Panels: (Limit pro Minute, verbleibend, Zeitpunkt). Es gilt pro
-    # API-Key für alle Instanzen zusammen; Backups richten sich danach, damit das Monitoring Luft behält.
+    # Last rate limit reported by the panel for the client key: (limit per minute, remaining, time.monotonic()).
+    # It applies per API key across all instances using that key; monitoring, backups and the file index pace
+    # themselves by it. Answers to the application or admin key have their own limit and are kept apart.
     rate: tuple[int, int, float] | None = None
 
     def __init__(self, settings: Settings):
@@ -104,7 +105,7 @@ class PteroClient:
             except httpx.HTTPError as exc:
                 raise PteroError(t("{panel} nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
             limit, remaining = response.headers.get("x-ratelimit-limit", ""), response.headers.get("x-ratelimit-remaining", "")
-            if limit.isdigit() and remaining.isdigit():
+            if limit.isdigit() and remaining.isdigit() and token == self.settings.client_key:
                 self.rate = (int(limit), int(remaining), time.monotonic())
             # Rate-Limit des Panels: lesende Anfragen kurz warten und wiederholen
             if response.status_code != 429 or method.upper() not in READ_METHODS or attempt == 3:

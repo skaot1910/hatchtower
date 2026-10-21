@@ -260,7 +260,7 @@ def world(monkeypatch, tmp_path) -> World:
     main.app.state.monitor = SimpleNamespace(
         healthy=True, last_error=None, last_ok=None, last_sync=None, client=ptero,
         query=SimpleNamespace(forget=noop), follow=noop, request_sync=noop,
-        request_light_sync=noop, down_since=None)
+        request_light_sync=noop, down_since=None, poll_interval=10, poll_delay=lambda: 10)
     main.app.state.automation = SimpleNamespace(client=ptero, note_power=noop, set_timezone=noop)
     main.app.state.logarchive = SimpleNamespace(client=ptero)
     main.app.state.updates = FakeUpdates()

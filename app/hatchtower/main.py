@@ -2759,7 +2759,9 @@ async def admin_system(request: Request):
     return render(request, "admin_system.html", checks=checks, last_ok=fmt_dt(m.last_ok, settings.timezone),
                   wings_total=len(node_list), wings_ok=sum(1 for n in node_list if n["daemon_ok"]),
                   public_host=db.get_setting("public_host"),
-                  last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error)
+                  last_sync=fmt_dt(m.last_sync, settings.timezone), last_error=m.last_error,
+                  poll_every=round(m.poll_delay()), poll_throttled=m.poll_delay() > m.poll_interval,
+                  rate_limit=ptero.rate[:2] if ptero.rate else None)
 
 
 @app.get("/admin/updates", response_class=HTMLResponse)

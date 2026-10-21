@@ -27,6 +27,8 @@
     <div class="facts">
       <div class="kv"><span>{{ _("Letzte erfolgreiche Abfrage") }}</span><span>{{ last_ok }}</span></div>
       <div class="kv"><span>{{ _("Letzter Abgleich der Serverliste") }}</span><span>{{ last_sync }}</span></div>
+      <div class="kv"><span>{{ _("Statusabfrage") }}</span><span>{{ _("alle {n} s", n=poll_every) }}{% if poll_throttled %} <span class="faint">{{ _("(verlängert wegen des Rate-Limits)") }}</span>{% endif %}</span></div>
+      {% if rate_limit %}<div class="kv"><span>{{ _("Rate-Limit des Panels") }}</span><span>{{ _("{frei} von {limit} Anfragen pro Minute frei", frei=rate_limit[1], limit=rate_limit[0]) }}</span></div>{% endif %}
       <div class="kv"><span>{{ _("Fehler") }}</span><span class="{% if last_error %}bad{% else %}faint{% endif %}">{{ _(last_error) if last_error else _('keiner') }}</span></div>
     </div>
   </section>
