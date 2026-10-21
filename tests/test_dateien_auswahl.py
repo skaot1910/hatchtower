@@ -79,3 +79,15 @@ def test_ordnerauswahl_listet_nur_ordner(world, monkeypatch):
     assert r.json() == {"dir": "/", "folders": ["Backups", "world"]}
     page = c.get("/servers/srv-a/files").text
     assert 'id="move-dialog"' in page and "data-move-open" in page
+
+
+def test_belegter_name_wird_vorher_erkannt(world):
+    """Pelican answers a rename onto an existing name with a bare HTTP 500 and Calagopus reports success without
+    doing anything, so Hatchtower checks the folder first and asks the panel nothing."""
+    c = world.client(world.ids["olga"])
+    r = _post(c, "/servers/srv-a/files/rename", dir="/", old="a.txt.bak", new="a.txt")
+    assert "gibt es in diesem Ordner schon" in unquote(r.headers["location"])
+    world.ptero.missing_dirs.discard("/x")
+    r = _post(c, "/servers/srv-a/files/move", dir="/plugins", names=["a.txt"], target="/x")
+    assert "gibt es am Ziel schon" in unquote(r.headers["location"])
+    assert _writes(world, "/files/rename") == []

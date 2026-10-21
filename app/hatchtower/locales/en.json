@@ -264,6 +264,8 @@
   "Letzte erfolgreiche Abfrage": "Last successful query",
   "Letzter Abgleich der Serverliste": "Last server list sync",
   "Statusabfrage": "Status poll",
+  "„{name}“ gibt es in diesem Ordner schon. Es wurde nichts umbenannt.": "“{name}” already exists in this folder. Nothing was renamed.",
+  "„{name}“ gibt es am Ziel schon. Es wurde nichts verschoben.": "“{name}” already exists at the destination. Nothing was moved.",
   "alle {n} s": "every {n} s",
   "(verlängert wegen des Rate-Limits)": "(stretched because of the rate limit)",
   "Rate-Limit des Panels": "Panel rate limit",

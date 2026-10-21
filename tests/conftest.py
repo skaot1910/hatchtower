@@ -30,7 +30,7 @@ os.environ["HATCHTOWER_DATA_DIR"] = str(_TMP / "unused")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from hatchtower import accounts, backups, db, main, permissions, security, setup  # noqa: E402
-from hatchtower.ptero import READ_METHODS, AdminKeyMissing, PteroClient, ReadOnlyViolation  # noqa: E402
+from hatchtower.ptero import READ_METHODS, AdminKeyMissing, PteroClient, PteroError, ReadOnlyViolation  # noqa: E402
 
 PASSWORD = "Sehr-Langes-Passwort-123"
 FEED_URL = "https://discord.com/api/webhooks/123456789012345678/" + "f" * 68
@@ -71,6 +71,7 @@ class FakePtero(PteroClient):
         self.settings = settings
         self._wings_hosts = {"wings.test"}
         self.calls: list[tuple] = []
+        self.missing_dirs: set[str] = {"/archiv/alt", "/x", "/plugins/deaktiviert", "/neu"}
 
     async def close(self) -> None:
         pass
@@ -91,6 +92,8 @@ class FakePtero(PteroClient):
         if key == "admin" and method.upper() == "POST" and path == "/api/application/servers":
             return {"attributes": {"identifier": "srv-new"}}
         if path.endswith("/files/list"):
+            if (params or {}).get("directory") in self.missing_dirs:      # like Wings for a folder that is not there
+                raise PteroError("Pterodactyl antwortet mit HTTP 404", status=404)
             return {"data": [{"attributes": {"name": n, "is_file": True, "size": 6, "modified_at": None}}
                              for n in ("a.txt", "a.txt.bak")]}
         if path.endswith("/files/contents"):

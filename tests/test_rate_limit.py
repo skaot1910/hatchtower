@@ -36,6 +36,24 @@ def test_nur_der_client_key_zaehlt():
     asyncio.run(run())
 
 
+def test_eigenes_limit_der_websocket_route():
+    """Pterodactyl and Pelican answer /websocket with a limit of 5 per minute that only applies to that route."""
+    client = client_with({"cli": ("256", "200")}, app_key="app", client_key="cli")
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        own = request.url.path.endswith("/websocket")
+        return httpx.Response(200, json={"data": {"token": "t", "socket": "wss://w"}},
+                              headers={"x-ratelimit-limit": "5" if own else "256",
+                                       "x-ratelimit-remaining": "3" if own else "200"})
+    client._http = httpx.AsyncClient(base_url="http://panel.test", transport=httpx.MockTransport(answer))
+
+    async def run():
+        await client._get("/api/client/servers/a/resources", key="client")
+        await client._get("/api/client/servers/a/websocket", key="client")
+        assert client.rate[:2] == (256, 200)
+    asyncio.run(run())
+
+
 def test_ein_key_fuer_alles():
     """Calagopus: the one API key is stored as both keys, so every answer counts."""
     client = client_with({"one": ("128", "100")}, panel_type="calagopus", app_key="one", client_key="one")

@@ -1528,6 +1528,16 @@ def files_back(ident: str, directory: str, message: str) -> RedirectResponse:
     return back(f"/servers/{ident}/files?dir={quote(directory)}", message)
 
 
+async def existing_names(ident: str, directory: str) -> set[str]:
+    """Names in a folder, to refuse a rename or move onto an existing entry before asking the panel: Pterodactyl
+    refuses it, Pelican answers with a bare HTTP 500 and Calagopus reports success without doing anything.
+    A folder that cannot be read (e.g. a move target that does not exist yet) counts as empty."""
+    try:
+        return {f["name"] for f in await app.state.ptero.list_files(ident, directory)}
+    except PteroError:
+        return set()
+
+
 async def file_action(request: Request, ident: str, directory: str, action: str, detail: str, coro):
     """Führt eine Dateiaktion aus, protokolliert sie und leitet zurück."""
     user = request.state.user
@@ -1595,6 +1605,9 @@ async def files_rename(request: Request, ident: str, dir: str = Form("/"), old: 
     directory, new = clean_path(dir), new.strip()
     if not valid_name(old) or not valid_name(new):
         return files_back(ident, directory, "Ungültiger Name")
+    if new != old and new in await existing_names(ident, directory):
+        return files_back(ident, directory, i18n.t("„{name}“ gibt es in diesem Ordner schon. Es wurde nichts"
+                                                   " umbenannt.", name=new))
     failed = await file_action(request, ident, directory, "files.rename",
                                f"{posixpath.join(directory, old)} → {new}",
                                app.state.ptero.rename(ident, directory, old, new))
@@ -1666,6 +1679,10 @@ async def files_move(request: Request, ident: str, dir: str = Form("/"), target:
             return files_back(ident, directory, i18n.t("„{name}“ kann nicht in sich selbst verschoben werden",
                                                        name=name))
         moves.append((source, posixpath.join(dest, name)))
+    taken = [n for n in names if n in await existing_names(ident, dest)]
+    if taken:
+        return files_back(ident, directory, i18n.t("„{name}“ gibt es am Ziel schon. Es wurde nichts verschoben.",
+                                                   name=taken[0]))
     failed = await file_action(request, ident, directory, "files.move",
                                "; ".join(f"{a} → {b}" for a, b in moves), app.state.ptero.move(ident, moves))
     if failed:

@@ -58,6 +58,9 @@ class ServerInfo:
     suspended: bool
 
 
+OWN_LIMIT_ROUTES = ("/websocket",)
+
+
 class PteroClient:
     # Last rate limit reported by the panel for the client key: (limit per minute, remaining, time.monotonic()).
     # It applies per API key across all instances using that key; monitoring, backups and the file index pace
@@ -105,7 +108,10 @@ class PteroClient:
             except httpx.HTTPError as exc:
                 raise PteroError(t("{panel} nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
             limit, remaining = response.headers.get("x-ratelimit-limit", ""), response.headers.get("x-ratelimit-remaining", "")
-            if limit.isdigit() and remaining.isdigit() and token == self.settings.client_key:
+            # Some routes have a limit of their own (Pterodactyl and Pelican: 5 per minute for /websocket);
+            # it says nothing about the general limit the rest of Hatchtower shares
+            if (limit.isdigit() and remaining.isdigit() and token == self.settings.client_key
+                    and not path.endswith(OWN_LIMIT_ROUTES)):
                 self.rate = (int(limit), int(remaining), time.monotonic())
             # Rate-Limit des Panels: lesende Anfragen kurz warten und wiederholen
             if response.status_code != 429 or method.upper() not in READ_METHODS or attempt == 3:
