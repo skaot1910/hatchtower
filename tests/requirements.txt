@@ -1,5 +1,5 @@
 # Nur für Tests und CI (zusätzlich zu app/requirements.txt), Versionen hält Dependabot aktuell
 pytest==9.1.1
-ruff==0.17.0
+ruff==0.17.1
 # Zeitzonen-Daten für Windows; Debian bringt sie über das System mit
 tzdata==2026.5
