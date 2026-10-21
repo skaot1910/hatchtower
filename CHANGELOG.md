@@ -3,6 +3,22 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.39.2-pre.1 – 2026-10-22
+
+- Status polling respects the panel's rate limit: it costs one request per server, and with a low limit
+  (e.g. 128 per minute) the monitor alone used it up from about 20 servers on. The interval now stretches
+  (up to 45 s) so the monitor uses at most half of the limit the panel reports. System → Overview shows the
+  current poll interval and how many requests per minute are left
+- The rate limit Hatchtower paces itself by (monitoring, backups, file search index) now only comes from the
+  client key's general limit. Before, answers to the application key or the console route (Pterodactyl and Pelican
+  limit `/websocket` to 5 per minute) could replace it, so backups paused or ran on without reason
+- Renaming or moving onto a name that already exists is refused with a clear message on every panel. Pterodactyl
+  refused it, Pelican answered with a bare error 500 and Calagopus reported success without doing anything
+- Console archive: exception names such as `NullPointerException` or `OutOfMemoryError` are marked as errors
+- Console: a malformed stats message from Wings no longer ends the connection
+- Imprint/privacy page: a web address containing `@` no longer produces a broken link
+- Many new tests (data transfer, monitoring, schedules, crash restart, console archive, command line)
+
 ## 0.39.1 – 2026-10-21
 
 - RAM and disk are shown the way the panel counts them: the panel sets limits in MiB, so a GB is now 1024³ bytes.
