@@ -645,6 +645,14 @@ MIGRATIONS: list[str] = [
                (SELECT 'backups.download' AS key UNION SELECT 'backups.direct') k
         WHERE permission = 'backups.run';
     """,
+    # 35: save the game before a backup without stopping (console command, then wait), and the save-game job of a
+    #     server: a direct-download job shown as "Download save game" on the server page
+    """
+    ALTER TABLE backup_jobs ADD COLUMN save_command TEXT;
+    ALTER TABLE backup_jobs ADD COLUMN save_wait INTEGER;
+    ALTER TABLE backup_jobs ADD COLUMN save_for TEXT;
+    CREATE UNIQUE INDEX backup_jobs_save_for ON backup_jobs (save_for) WHERE save_for IS NOT NULL;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

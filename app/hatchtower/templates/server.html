@@ -14,6 +14,15 @@
     <div class="actions">
       <button type="button" class="chip chip-fav" data-fav="{{ server.identifier }}" aria-pressed="{{ 'true' if server.favorite else 'false' }}" title="{{ _("Als Favorit oben anheften") }}" aria-label="{{ _("Als Favorit oben anheften") }}">{{ ic.icon("star") }}</button>
       {% if server.can_files %}<a class="chip" href="/servers/{{ server.identifier }}/files">{{ _("Dateien") }}</a>{% endif %}
+      {% if savegame.job and savegame.can_fetch %}
+        {% if savegame.active %}<span class="chip chip-ghost" aria-disabled="true">{{ _("Spielstand wird gerade geladen …") }}</span>
+        {% elif savegame.problems %}<span class="chip chip-ghost" aria-disabled="true" title="{{ savegame.problems|join(", ") }}">{{ _("Spielstand herunterladen (stoppt den Server – dafür fehlen dir die Steuerrechte)") }}</span>
+        {% else %}<form method="post" action="/admin/backups/jobs/{{ savegame.job.id }}/download" class="inline-chip" data-backup-download><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip" type="submit" title="{{ _("Lädt den aktuellen Spielstand direkt vom Server als ZIP herunter. Gespeichert wird dabei nichts.") }}">{{ _("Spielstand herunterladen") }}</button></form>{% endif %}
+      {% endif %}
+      {% if savegame.can_setup %}
+        {% if savegame.job %}<a class="chip chip-ghost" href="/admin/backups/jobs/{{ savegame.job.id }}?server={{ server.identifier }}#dateien">{{ _("Spielstand-Download einrichten") if not savegame.ready else _("Spielstand-Download bearbeiten") }}</a>
+        {% else %}<form method="post" action="/servers/{{ server.identifier }}/savegame" class="inline-chip"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-ghost" type="submit" title="{{ _("Legt einen Direktdownload für den Spielstand dieses Servers an. Danach wählst du den Ordner aus, und Spieler mit dem Recht „Direktdownload“ sehen hier den Knopf „Spielstand herunterladen“.") }}">{{ _("Spielstand-Download einrichten") }}</button></form>{% endif %}
+      {% endif %}
       {% if server.can_manage %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/settings">{{ _("Verwalten") }}</a>{% endif %}
       {% if server.can_admin %}<a class="chip chip-ghost" href="/servers/{{ server.identifier }}/admin">{{ _("Panel-Einstellungen") }}</a>{% endif %}
       {% if not view_locked %}{{ c.scope_toggle(simple_view, "/servers/" ~ server.identifier) }}{% endif %}

@@ -1593,12 +1593,15 @@
       var schedule = document.getElementById("job-schedule");
       var hint = document.getElementById("job-schedule-hint");
       var warn = document.getElementById("job-warn");
+      var save = document.getElementById("job-save");
       var sync = function () {
         var download = target.value === "";
         schedule.querySelectorAll("input").forEach(function (i) { i.disabled = download; });
         hint.hidden = !download;
         var stop = form.querySelector('input[name="stop_mode"]:checked');
         warn.hidden = !stop || stop.value === "none";
+        // saving without a stop only: a stopping game writes its save anyway
+        if (save) save.hidden = !!stop && stop.value !== "none";
       };
       form.addEventListener("change", sync);
       sync();

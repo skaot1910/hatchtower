@@ -6,6 +6,7 @@ Aufruf auf dem Server (als root):
   hatchtower reset-password   Passwort eines Benutzers neu setzen
   hatchtower selftest         Verbindung zum Panel prüfen (nur lesend)
   hatchtower version          Installierte Version anzeigen
+  hatchtower support          Support-Bericht als Datei schreiben (ohne Keys, Passwörter, Tokens)
   hatchtower update <paket>   Auf eine neue Version aktualisieren (Shell-Befehl, siehe /usr/local/bin/hatchtower)
 """
 from __future__ import annotations
@@ -128,11 +129,14 @@ async def selftest(settings) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="hatchtower", description=APP_NAME)
-    parser.add_argument("command", choices=["setup-token", "create-owner", "reset-password", "selftest", "version"])
+    parser.add_argument("command", choices=["setup-token", "create-owner", "reset-password", "selftest", "version",
+                                            "support", "redact"])
     args = parser.parse_args()
     if args.command == "version":
         print(f"{APP_NAME} {__version__}")
         sys.exit(0)
+    if args.command == "redact":
+        sys.exit(redact_stdin())
     try:
         settings = load_settings()
     except ConfigError as exc:
@@ -151,7 +155,35 @@ def main() -> None:
         values = {r["key"]: r["value"] for r in con.execute("SELECT key, value FROM app_settings WHERE key LIKE 'conn_%'")}
     apply_db_values(settings, values, vault.decrypt)
     i18n.set_panel(settings.panel.name)
+    if args.command == "support":
+        from . import support
+        sys.stdout.write(asyncio.run(support.build(settings, vault)))
+        sys.exit(0)
     sys.exit(asyncio.run(selftest(settings)))
+
+
+def redact_stdin() -> int:
+    """Filter for "hatchtower support": removes every known secret from text on stdin (the journal and service
+    status that root adds). Best effort: with a broken configuration the text still comes through, minus the
+    secrets from the environment file."""
+    import os
+    text = sys.stdin.read()
+    known = [v for k, v in os.environ.items() if k.startswith("HATCHTOWER_") and ("KEY" in k or "SECRET" in k)]
+    try:
+        from . import support
+        settings = load_settings()
+        db.init(settings.db_path)
+        vault = security.Vault(settings.data_key)
+        with db.connect() as con:
+            values = {r["key"]: r["value"] for r in con.execute("SELECT key, value FROM app_settings WHERE key LIKE 'conn_%'")}
+        apply_db_values(settings, values, vault.decrypt)
+        known += support.secrets(settings, vault)
+    except Exception as exc:
+        text += f"\n!! Could not load all secrets for redaction ({exc.__class__.__name__}); environment secrets removed.\n"
+    for value in sorted({v for v in known if v and len(v) >= 6}, key=len, reverse=True):
+        text = text.replace(value, "***")
+    sys.stdout.write(text)
+    return 0
 
 
 if __name__ == "__main__":

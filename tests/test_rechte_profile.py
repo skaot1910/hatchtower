@@ -56,7 +56,7 @@ def schedule(created_by):
 
 
 def job(created_by):
-    return {"created_by": created_by, "stop_mode": "none", "warn_command": None}
+    return {"created_by": created_by, "stop_mode": "none", "warn_command": None, "save_command": None}
 
 
 @pytest.mark.parametrize("check", [lambda c: automation.creator_allows(schedule(c)),

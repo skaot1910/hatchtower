@@ -45,11 +45,13 @@ KEEP_COUNTS = (1, 2, 3, 5, 7, 10, 14, 30, 60, 90)
 KEEP_DAYS = (1, 3, 7, 14, 30, 60, 90, 180, 365)
 STATUS_LABELS = {"queued": "wartet", "running": "läuft", "ok": "fertig", "partial": "mit Fehlern",
                  "error": "fehlgeschlagen", "cancelled": "abgebrochen", "denied": "übersprungen"}
-PHASES = {"queued": "Wartet", "warn": "Vorwarnung", "stopping": "Server wird gestoppt",
+PHASES = {"queued": "Wartet", "warn": "Vorwarnung", "saving": "Spielstand wird gespeichert", "stopping": "Server wird gestoppt",
           "collecting": "Dateien werden gelesen", "copying": "Wird gesichert", "verifying": "Backup-Datei wird geprüft",
           "starting": "Server wird gestartet", "uploading": "Dateien werden zurückgespielt"}
 
 STOP_TIMEOUT = 300          # Sekunden, bis ein gestoppter Server offline sein muss
+SAVE_WAIT_DEFAULT = 15      # seconds the game gets to write its save after the save command
+SAVE_WAITS = (5, 10, 15, 30, 60, 120)
 STOP_POLL = 3
 MAX_FILES = 200_000
 MAX_DEPTH = 40
@@ -505,7 +507,7 @@ def stop_problems(user, idents: list[str], stop_mode: str, warn_command: str | N
 def creator_allows(job, ident: str) -> bool:
     """Geplante Läufe eines Benutzers (nicht Owner) nur, solange er die nötigen Rechte noch hat."""
     need = {"backups.manage", *BACKUP_STOP_NEEDS.get(job["stop_mode"], ())}
-    if job["stop_mode"] != "none" and job["warn_command"]:
+    if job["stop_mode"] != "none" and job["warn_command"] or job["stop_mode"] == "none" and job["save_command"]:
         need.add("console.command")
     return permissions.creator_allows(job["created_by"], ident, need)
 
@@ -1251,6 +1253,7 @@ class BackupManager:
     async def _before(self, rs: RunState, job) -> None:
         """Vorwarnung und Stopp, falls der Job das will. Merkt sich in rs.stopped, ob gestoppt wurde."""
         if job["stop_mode"] == "none":
+            await self._save_first(rs, job)
             return
         state = (await self.client.resources(rs.ident))["state"]
         if state == "offline":
@@ -1273,6 +1276,28 @@ class BackupManager:
             with db.connect() as con:
                 con.execute("UPDATE backup_runs SET power_restore = 1 WHERE id = ?", (rs.run_id,))
         await self._stop_and_wait(rs, i18n.t("{job}: vor dem Backup", job=job["name"]))
+
+    async def _save_first(self, rs: RunState, job) -> None:
+        """Without a stop: let a running game write its save files first (console command, then wait), so the backup
+        does not catch a file halfway through being written. A failure only costs freshness, the backup still runs."""
+        command = (job["save_command"] or "").strip()
+        if not command:
+            return
+        if (await self.client.resources(rs.ident))["state"] != "running":
+            return
+        if self.settings.read_only:
+            audit.record("backup.save", result="error", username=ACTOR, ip="intern", server=rs.ident,
+                         detail=f"{job['name']}: {i18n.t('Read-Only-Modus')}")
+            return
+        try:
+            await self.client.command(rs.ident, command)
+        except PteroError as exc:
+            audit.record("backup.save", result="error", username=ACTOR, ip="intern", server=rs.ident,
+                         detail=f"{job['name']}: {exc}")
+            return
+        audit.record("backup.save", username=ACTOR, ip="intern", server=rs.ident, detail=f"{job['name']}: {command}")
+        rs.phase = "saving"
+        await self._sleep(rs, job["save_wait"] or SAVE_WAIT_DEFAULT)
 
     async def _stop_and_wait(self, rs: RunState, detail: str) -> None:
         """Stoppt den Server und wartet, bis er wirklich aus ist. Setzt rs.stopped."""

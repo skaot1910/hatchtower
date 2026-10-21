@@ -17,6 +17,7 @@
   </div>
   {% endif %}
 </div>
+{% if job.save_for %}<p class="flash small">{{ _("Spielstand-Download von {server}: Auf der Seite des Servers erscheint der Knopf „Spielstand herunterladen“ für alle mit dem Recht „Direktdownload aus dem Livesystem“. Wähle unten den Ordner oder die Dateien des Spielstands aus.", server=savegame_server) }}</p>{% endif %}
 {% if not job.target_id %}<p class="faint small">{{ _("Direktdownload-Job: liest den aktuellen Stand direkt vom laufenden Server und lädt ihn als ZIP herunter, gespeichert wird nichts. Ausführen darf ihn, wer für alle Server darin das Recht „Direktdownload aus dem Livesystem“ hat.") }}</p>{% endif %}
 {% if active %}<div class="flash">{{ _("Dieser Job läuft gerade. Den Fortschritt siehst du in der Backup-Übersicht.") }}</div>{% endif %}
 
@@ -71,18 +72,22 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="form-grid">
         <label>{{ _("Name") }}<input name="name" required maxlength="80" value="{{ job.name }}"></label>
+        {% if job.save_for %}
+        <label>{{ _("Ziel") }}<input type="hidden" name="target_id" value="" id="job-target"><span class="faint small">{{ _("Spielstand-Download: immer Direktdownload aus dem Livesystem") }}</span></label>
+        {% else %}
         <label>{{ _("Ziel") }}
           <select name="target_id" id="job-target">
             <option value="">{{ _("Direktdownload aus dem Livesystem (nur von Hand, wird nicht gespeichert)") }}</option>
             {% for t in targets %}<option value="{{ t.id }}" {% if job.target_id == t.id %}selected{% endif %}>{{ t.name }} ({{ t.path }})</option>{% endfor %}
           </select>
         </label>
+        {% endif %}
       </div>
       <details class="legend">
         <summary class="small">{{ _("Gespeichertes Backup oder Direktdownload – was ist der Unterschied?") }}</summary>
         {{ bk.kinds() }}
       </details>
-      {% if user.is_owner %}
+      {% if user.is_owner and not job.save_for %}
       <label class="check"><input type="checkbox" name="all_servers" value="1" {% if job.all_servers %}checked{% endif %}> {{ _("Alle Server, auch künftige – jeweils komplett (die Auswahl links gilt dann nicht)") }}</label>
       {% endif %}
 
@@ -103,6 +108,17 @@
         <div class="form-grid" id="job-warn">
           <label>{{ _("Vorwarnung (Minuten vorher)") }}<input name="warn_minutes" inputmode="numeric" placeholder="5" value="{{ job.warn_minutes or '' }}"></label>
           <label>{{ _("Vorwarn-Befehl (optional)") }}<input name="warn_command" maxlength="300" placeholder="{{ _("say Backup – Server stoppt in {minuten} Minuten!") }}" value="{{ job.warn_command or '' }}"></label>
+        </div>
+        <div id="job-save">
+          <div class="form-grid">
+            <label>{{ _("Vorher speichern: Befehl (optional)") }}<input name="save_command" maxlength="300" spellcheck="false" placeholder="save-all" value="{{ job.save_command or '' }}"></label>
+            <label>{{ _("Danach warten") }}
+              <select name="save_wait">
+                {% for n in save_waits %}<option value="{{ n }}" {% if (job.save_wait or save_wait_default) == n %}selected{% endif %}>{{ _("{n} Sekunden", n=n) }}</option>{% endfor %}
+              </select>
+            </label>
+          </div>
+          <p class="faint small">{{ _("Ohne Stopp: Läuft der Server, schickt Hatchtower diesen Befehl an die Konsole und wartet kurz, damit das Spiel seinen Spielstand fertig schreibt – niemand fliegt raus. Beispiele: Minecraft „save-all“, Terraria „save“. Spiele ohne Konsolenbefehl (z. B. Satisfactory, Enshrouded) speichern regelmäßig von selbst; dann leer lassen. Einstellen darf das nur, wer „Befehle senden“ hat; ausführen darf den Job dann jeder mit dem Recht dazu.") }}</p>
         </div>
         <p class="faint small">{{ _("Manche Spiele schreiben Spielstände erst beim Beenden sauber auf die Platte. Gestoppt wird erst nach der Vorwarnung; „wieder starten“ startet nur Server, die vorher liefen. {platzhalter} wird durch die Minutenzahl ersetzt.", platzhalter="{minuten}") }}</p>
       </fieldset>

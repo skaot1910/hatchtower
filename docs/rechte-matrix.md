@@ -39,7 +39,7 @@ Grundregeln:
 | `backups.download` | Gespeicherte Backups herunterladen |  | `server.view`, `backups.view`, `backups.list` | `GET /admin/backups/runs/{run_id}/download` | Gibt über das Backup Zugriff auf alle gesicherten Dateien – auch ohne die Rechte unter „Dateien“. |
 | `backups.run` | Backups starten |  | `server.view`, `backups.view`, `backups.list` | `POST /admin/backups/jobs/{job_id}/run`<br>`POST /admin/backups/runs/{run_id}/verify`<br>`POST /api/backups/runs/{run_id}/cancel` |  |
 | `backups.restore` | Gespeicherte Backups wiederherstellen | ✎ | `server.view`, `backups.view`, `backups.list` | `GET /admin/backups/runs/{run_id}/restore`<br>`POST /admin/backups/runs/{run_id}/restore`<br>`POST /api/backups/restores/{restore_id}/cancel` | Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“. |
-| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `backups.list`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`GET /admin/backups/new`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/bulk`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup` |  |
+| `backups.manage` | Backup-Jobs verwalten |  | `server.view`, `backups.view`, `backups.list`, `sftp.view` | `GET /admin/backups/jobs/{job_id}`<br>`GET /admin/backups/new`<br>`POST /admin/backups/jobs/{job_id}/delete`<br>`POST /admin/backups/jobs/{job_id}/items/remove`<br>`POST /admin/backups/jobs/{job_id}/items`<br>`POST /admin/backups/jobs/{job_id}`<br>`POST /admin/backups/jobs`<br>`POST /admin/backups/runs/bulk`<br>`POST /admin/backups/runs/{run_id}/delete`<br>`POST /servers/{ident}/files/backup`<br>`POST /servers/{ident}/savegame` |  |
 | `backups.direct` | Direktdownload aus dem Livesystem |  | `server.view`, `backups.view` | `POST /admin/backups/jobs/{job_id}/download` | Gibt Zugriff auf alle Dateien, die der Job enthält – auch ohne die Rechte unter „Dateien“. |
 | `admin.view` | Panel-Einstellungen sehen |  | `server.view` | `GET /servers/{ident}/admin` | Startvariablen können Passwörter oder Zugangsschlüssel enthalten. |
 | `admin.details` | Name und Beschreibung | ✎ | `server.view`, `admin.view` | `POST /servers/{ident}/admin/details` |  |
@@ -138,6 +138,7 @@ Grundregeln:
 | GET | `/api/servers/{ident}/files/search` | `sftp.view` | – | liest | Dateien und Ordner suchen (lokaler Index) |
 | POST | `/api/servers/{ident}/files/reindex` | `sftp.view` | Header | liest | Suchindex der Dateien neu aufbauen (nur lesend) |
 | POST | `/servers/{ident}/files/move` | `sftp.rename` | Formular | schreibt | Dateien und Ordner in einen anderen Ordner verschieben |
+| POST | `/servers/{ident}/savegame` | `backups.manage` | Formular | liest | Spielstand-Download einrichten (Direktdownload-Job dieses Servers anlegen oder öffnen) |
 | POST | `/servers/{ident}/files/backup` | `backups.manage` | Formular | liest | Auswahl zu einem Backup-Job hinzufügen |
 | GET | `/servers/{ident}/settings` | `server.manage` | – | liest | Serverangaben im Manager |
 | POST | `/servers/{ident}/settings` | `server.manage` | Formular | liest | Serverangaben speichern |
@@ -265,6 +266,7 @@ Grundregeln:
 | POST | `/admin/announcements` | Formular | Ankündigung speichern |
 | POST | `/admin/announcements/{ann_id}/delete` | Formular | Ankündigung löschen |
 | GET | `/admin/system` | – | System → Zustand: Verbindung, Monitoring, Selbsttest |
+| GET | `/admin/system/support` | – | Support-Bericht als Textdatei (ohne Keys, Passwörter, Tokens; Benutzer nur als Nummern) |
 | GET | `/admin/network` | – | System → Netzwerk |
 | POST | `/admin/network` | Formular | Adresse von Hatchtower, öffentliche Adresse, Reverse-Proxy |
 | GET | `/admin/mail` | – | E-Mail-Einstellungen |

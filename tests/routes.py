@@ -156,6 +156,9 @@ ROUTES: tuple[Route, ...] = (
       perm="sftp.view", csrf="header", json={}),
     R("POST", "/servers/{ident}/files/move", "server", "Dateien und Ordner in einen anderen Ordner verschieben",
       perm="sftp.rename", csrf="form", write=True, form={"dir": "/", "names": "a.txt", "target": "/neu"}),
+    R("POST", "/servers/{ident}/savegame", "server",
+      "Spielstand-Download einrichten (Direktdownload-Job dieses Servers anlegen oder öffnen)", perm="backups.manage",
+      csrf="form"),
     R("POST", "/servers/{ident}/files/backup", "server", "Auswahl zu einem Backup-Job hinzufügen", perm="backups.manage",
       csrf="form", form={"dir": "/", "names": "a.txt", "job_id": "new"}),
     R("GET", "/servers/{ident}/settings", "server", "Serverangaben im Manager", perm="server.manage"),
@@ -360,6 +363,8 @@ ROUTES: tuple[Route, ...] = (
 
     # -- Owner: System ----------------------------------------------------------------------
     R("GET", "/admin/system", "owner", "System → Zustand: Verbindung, Monitoring, Selbsttest"),
+    R("GET", "/admin/system/support", "owner",
+      "Support-Bericht als Textdatei (ohne Keys, Passwörter, Tokens; Benutzer nur als Nummern)"),
     R("GET", "/admin/network", "owner", "System → Netzwerk"),
     R("POST", "/admin/network", "owner", "Adresse von Hatchtower, öffentliche Adresse, Reverse-Proxy", csrf="form",
       form={"base_url": "https://evil.example", "public_host": "evil.example", "trusted_proxies": "0.0.0.0/8"}),

@@ -216,3 +216,55 @@ def test_zeitplaene_filtern(world):
     html = page(owner, "/admin/automation?server=srv-a")
     assert "Abendstart" not in html
     assert "Kein Zeitplan passt zum Filter." in page(owner, "/admin/automation?q=xyz")
+
+
+def job_form(c, **extra):
+    return {"csrf": c.csrf, "name": "Welt", "target_id": world_target(), "stop_mode": "none", "notify": "errors",
+            **extra}
+
+
+def world_target() -> str:
+    with db.connect() as con:
+        return str(con.execute("SELECT id FROM backup_targets").fetchone()["id"])
+
+
+def test_speicher_befehl_nur_mit_befehlsrecht(world):
+    jid = world.args["job_id"]
+    ohne = world.client(world.user("planer", grants={"srv-a": {"backups.manage"}}))
+    r = ohne.post(f"/admin/backups/jobs/{jid}", data=job_form(ohne, save_command="save-all", save_wait="10"))
+    assert "Befehle%20senden" in r.headers["location"] and backups.load_job(jid)["save_command"] is None
+    mit = world.client(world.user("mod", grants={"srv-a": {"backups.manage", "console.command"}}))
+    mit.post(f"/admin/backups/jobs/{jid}", data=job_form(mit, save_command="save-all", save_wait="10"))
+    job = backups.load_job(jid)
+    assert (job["save_command"], job["save_wait"]) == ("save-all", 10)
+    # with a stop the command is dropped: a stopping game saves anyway
+    owner = world.client(world.ids["olga"])
+    owner.post(f"/admin/backups/jobs/{jid}", data=job_form(owner, stop_mode="stop", save_command="save-all"))
+    assert backups.load_job(jid)["save_command"] is None
+
+
+def test_spielstand_knopf_auf_der_serverseite(world):
+    planer = world.client(world.user("planer", grants={"srv-a": {"backups.manage"}}))
+    freund = world.client(world.user("freund", grants={"srv-a": {"backups.direct"}}))
+    fremder = world.client(world.user("fremder", grants={"srv-a": {"server.view"}}))
+    assert "Spielstand-Download einrichten" in page(planer, "/servers/srv-a")
+    assert "Spielstand" not in page(freund, "/servers/srv-a")
+    r = planer.post("/servers/srv-a/savegame", data={"csrf": planer.csrf})
+    assert r.status_code == 303 and "server=srv-a" in r.headers["location"]
+    job = backups.load_job(int(r.headers["location"].split("/jobs/")[1].split("?")[0]))
+    assert job["save_for"] == "srv-a" and job["target_id"] is None
+    planer.post("/servers/srv-a/savegame", data={"csrf": planer.csrf})               # no second job
+    with db.connect() as con:
+        assert con.execute("SELECT COUNT(*) FROM backup_jobs WHERE save_for = 'srv-a'").fetchone()[0] == 1
+    assert "Spielstand herunterladen" not in page(freund, "/servers/srv-a")        # nothing picked yet
+    planer.post(f"/admin/backups/jobs/{job['id']}/items",
+                data={"csrf": planer.csrf, "identifier": "srv-a", "dir": "/", "names": ["a.txt"]})
+    html = page(freund, "/servers/srv-a")
+    assert "Spielstand herunterladen" in html and f"/admin/backups/jobs/{job['id']}/download" in html
+    assert "Spielstand herunterladen" not in page(fremder, "/servers/srv-a")
+    # it belongs to this one server and stays a direct download
+    assert planer.post(f"/admin/backups/jobs/{job['id']}/items",
+                       data={"csrf": planer.csrf, "identifier": "srv-b", "path": "/"}).status_code in (303, 403)
+    assert set(backups.job_items(job["id"])) == {"srv-a"}
+    planer.post(f"/admin/backups/jobs/{job['id']}", data=job_form(planer, name="Spielstand"))
+    assert backups.load_job(job["id"])["target_id"] is None

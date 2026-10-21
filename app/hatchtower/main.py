@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
-from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, fileindex, i18n, inbox, legal, logarchive, logos,
+from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, fileindex, i18n, inbox, legal, logarchive, logbuffer, logos,
                mailer, retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
@@ -34,6 +34,7 @@ from .views import SERVER_QUERY, fmt_dt, fmt_size, presence_detail, presence_his
 from .wings import console_stream
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+logbuffer.install()
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("hatchtower")
 
@@ -1207,7 +1208,8 @@ async def server_detail(request: Request, ident: str, log: str = "", log_n: int 
                   log_kind=log, log_n=min(max(log_n, 1), serverlog.MAX), log_kinds=serverlog.KIND_LABELS,
                   log_users=log_users, log_user=log_user, log_sort=log_sort, log_sorts=serverlog.SORTS,
                   audit_days=retention.audit_days(), log_page=serverlog.PAGE, log_max=serverlog.MAX,
-                  players=load_presence(server) if server["can_players"] else None)
+                  players=load_presence(server) if server["can_players"] else None,
+                  savegame=routes_backup.savegame_for(user, ident))
 
 
 def load_presence(server: dict) -> dict:
@@ -2735,6 +2737,19 @@ async def admin_branding_logo_delete(request: Request, kind: str):
     audit.record("settings.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
                  detail=f"Logo {spec['label']} entfernt")
     return back("/admin/appearance", i18n.t("Logo für {ziel} entfernt", ziel=i18n.t(spec["label"])))
+
+
+@app.get("/admin/system/support")
+async def admin_support_report(request: Request, view: str = ""):
+    """Support report as one text file (see support.py: nothing secret in it)."""
+    owner = require_owner(request)
+    from . import support
+    text = await support.build(settings, vault, app.state)
+    audit.record("system.support", user_id=owner.id, username=owner.username, ip=ip_of(request),
+                 detail={"ansehen": bool(view)})
+    disposition = "inline" if view else f'attachment; filename="{support.filename()}"'
+    return Response(text, media_type="text/plain; charset=utf-8",
+                    headers={"Content-Disposition": disposition, "Cache-Control": "no-store"})
 
 
 @app.get("/admin/system", response_class=HTMLResponse)

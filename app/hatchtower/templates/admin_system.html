@@ -42,4 +42,33 @@
     {% endfor %}
   </ul>
 </section>
+
+<section class="card" id="support">
+  <h2 class="card-h">{{ _("Support-Bericht") }}</h2>
+  <p>{{ _("Bei einem Problem: diesen Bericht herunterladen und an den schicken, der dir hilft. Er enthält alles, was zur Fehlersuche nötig ist, in einer einzigen Textdatei.") }}</p>
+  <div class="two-col support-scope">
+    <div>
+      <strong class="small">{{ _("Enthalten") }}</strong>
+      <ul class="small muted">
+        <li>{{ _("Version, System, freier Speicher und Arbeitsspeicher") }}</li>
+        <li>{{ _("Panel-Adresse, Wings-Nodes und die komplette Verbindungsprüfung") }}</li>
+        <li>{{ _("Server mit Status und Limits, Automationen, Backups und ihre letzten Läufe") }}</li>
+        <li>{{ _("Benutzer und ihre Rechte – nur als Nummern, ohne Namen und E-Mail-Adressen") }}</li>
+        <li>{{ _("Einstellungen, letzte Fehler aus dem Audit-Log (ohne IP-Adressen) und die letzten Log-Zeilen") }}</li>
+      </ul>
+    </div>
+    <div>
+      <strong class="small">{{ _("Nicht enthalten") }}</strong>
+      <ul class="small muted">
+        <li>{{ _("API-Keys, Passwörter, Tokens, Webhook- und Einladungslinks, Beitrittspasswörter der Server") }}</li>
+        <li>{{ _("Zur Sicherheit wird der fertige Bericht noch einmal nach jedem dieser Werte durchsucht; Treffer werden durch *** ersetzt.") }}</li>
+      </ul>
+    </div>
+  </div>
+  <div class="row-actions">
+    <a class="btn btn-primary btn-sm" href="/admin/system/support" download>{{ _("Support-Bericht herunterladen") }}</a>
+    <a class="btn btn-ghost btn-sm" href="/admin/system/support?view=1" target="_blank" rel="noopener">{{ _("Im Browser ansehen") }}</a>
+  </div>
+  <p class="faint small">{{ _("Das Erstellen dauert ein paar Sekunden, weil dabei die Verbindung zum Panel geprüft wird. Geht die Weboberfläche gar nicht mehr, erstellt {befehl} im Hatchtower-Container denselben Bericht, zusätzlich mit dem Systemprotokoll.", befehl="hatchtower support") }}</p>
+</section>
 {% endblock %}

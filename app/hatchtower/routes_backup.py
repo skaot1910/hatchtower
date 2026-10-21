@@ -532,9 +532,11 @@ async def backup_job_page(request: Request, job_id: int):
                   weekdays=[i18n.t(d) for d in backups.WEEKDAYS],
                   stop_modes={k: i18n.t(v) for k, v in backups.STOP_MODES.items()},
                   notify_modes={k: i18n.t(v) for k, v in backups.NOTIFY_MODES.items()},
-                  keep_counts=backups.KEEP_COUNTS, keep_days=backups.KEEP_DAYS,
+                  keep_counts=backups.KEEP_COUNTS, keep_days=backups.KEEP_DAYS, save_waits=backups.SAVE_WAITS,
+                  save_wait_default=backups.SAVE_WAIT_DEFAULT,
                   can_run=bool(job["target_id"]) and user_may(user, job, "backups.run") and not run_problems(user, job),
                   can_fetch=may_fetch(user, job) and not run_problems(user, job),
+                  savegame_server=names.get(job["save_for"], job["save_for"]) if job["save_for"] else "",
                   active=manager().job_active(job_id), **browser)
 
 
@@ -592,7 +594,7 @@ async def backup_job_save(request: Request, job_id: int, name: str = Form(""), t
                           time_: str = Form("", alias="time"), stop_mode: str = Form("none"),
                           warn_minutes: str = Form(""), warn_command: str = Form(""), keep_count: str = Form(""),
                           keep_days: str = Form(""), compress: str = Form(""), notify: str = Form("errors"),
-                          enabled: str = Form("")):
+                          enabled: str = Form(""), save_command: str = Form(""), save_wait: str = Form("")):
     user = require_backups(request, "backups.manage")
     await check_csrf(request)
     job = own_job(request, user, job_id, "backups.manage")
@@ -606,7 +608,9 @@ async def backup_job_save(request: Request, job_id: int, name: str = Form(""), t
     ok, tid = valid_target(target_id)
     if not ok:
         problems.append("Ziel")
-    all_flag = 1 if all_servers and user.is_owner else 0
+    if job["save_for"]:
+        tid = None
+    all_flag = 1 if all_servers and user.is_owner and not job["save_for"] else 0
     days = ""
     clock = None
     if schedule and tid:
@@ -632,6 +636,21 @@ async def backup_job_save(request: Request, job_id: int, name: str = Form(""), t
             problems.append("Vorwarn-Befehl")
     else:
         warn_command = ""
+    # Save before the backup: only without a stop (a stopping game saves anyway). The command is fixed in the job,
+    # so whoever sets it needs "send commands"; whoever only runs the job does not.
+    save_command = save_command.strip() if stop_mode == "none" else ""
+    wait = None
+    if save_command:
+        if len(save_command) > 300 or "\n" in save_command:
+            problems.append("Speicher-Befehl")
+        ok_wait, wait = _int_choice(save_wait, backups.SAVE_WAITS)
+        if not ok_wait:
+            problems.append("Wartezeit nach dem Speichern")
+        idents = list(backups.present_servers()) if all_flag else list(backups.job_items(job_id))
+        lacking = [server_names().get(i, i) for i in idents if not has(user, i, "console.command")]
+        if lacking and not user.is_owner:
+            problems.append(i18n.t("Speicher-Befehl nur mit dem Recht „Befehle senden“ ({list})",
+                                   list=", ".join(lacking[:5])))
     ok_count, k_count = _int_choice(keep_count, backups.KEEP_COUNTS)
     ok_days, k_days = _int_choice(keep_days, backups.KEEP_DAYS)
     if not ok_count or not ok_days:
@@ -652,12 +671,12 @@ async def backup_job_save(request: Request, job_id: int, name: str = Form(""), t
         con.execute(
             "UPDATE backup_jobs SET name = ?, target_id = ?, all_servers = ?, excludes = ?, weekdays = ?, time = ?,"
             " stop_mode = ?, warn_minutes = ?, warn_command = ?, keep_count = ?, keep_days = ?, compress = ?,"
-            " notify = ?, enabled = ?, updated_at = ? WHERE id = ?",
+            " notify = ?, enabled = ?, save_command = ?, save_wait = ?, updated_at = ? WHERE id = ?",
             (name, tid, all_flag, excludes or None, days, clock, stop_mode, warn, warn_command or None, k_count, k_days,
-             1 if compress else 0, notify, 1 if enabled else 0, db.utcnow(), job_id))
+             1 if compress else 0, notify, 1 if enabled else 0, save_command or None, wait, db.utcnow(), job_id))
     audit_user(request, user, "backup.job.update",
                detail={"job": name, "ziel": tid or "download", "zeitplan": f"{days} {clock}" if days else "-",
-                       "stopp": stop_mode, "alle_server": bool(all_flag), "aufbewahrung": [k_count, k_days]})
+                       "stopp": stop_mode, "speichern": save_command or "-", "alle_server": bool(all_flag), "aufbewahrung": [k_count, k_days]})
     return job_back(job_id, "Backup-Job gespeichert")
 
 
@@ -680,6 +699,8 @@ def add_items(user, job, ident: str, paths: list[str]) -> str | None:
     """Fügt Pfade eines Servers hinzu. Liefert eine Fehlermeldung oder None."""
     if job["all_servers"]:
         return "Dieser Job sichert schon alle Server komplett."
+    if job["save_for"] and ident != job["save_for"]:
+        return "Ein Spielstand-Download gehört zu genau einem Server."
     if not has(user, ident, "backups.manage") or ident not in server_names():
         return "Für diesen Server fehlt dir das Recht „Backup-Jobs verwalten“."
     missing = backups.stop_problems(user, [ident], job["stop_mode"], job["warn_command"], server_names())
@@ -1028,6 +1049,46 @@ async def backup_runs_bulk(request: Request, action: str = Form("")):
     if problems:
         message += " " + i18n.t("Nicht möglich: {liste}", liste="; ".join(problems[:5]))
     return back(STORED, message)
+
+
+# -- Save game of a server: a direct-download job shown as a button on the server page ----------------
+
+def savegame_job(ident: str):
+    with db.connect() as con:
+        return con.execute("SELECT * FROM backup_jobs WHERE save_for = ?", (ident,)).fetchone()
+
+
+def savegame_for(user, ident: str) -> dict:
+    """What the server page offers: downloading the save game, or setting that up."""
+    job = savegame_job(ident)
+    can_setup = has(user, ident, "backups.manage") and has(user, ident, "sftp.view")
+    if job is None:
+        return {"job": None, "can_setup": can_setup}
+    ready = bool(backups.job_items(job["id"]))
+    return {"job": job, "can_setup": can_setup, "ready": ready, "active": manager().job_active(job["id"]),
+            "can_fetch": ready and may_fetch(user, job), "problems": run_problems(user, job) if ready else []}
+
+
+@app.post("/servers/{ident}/savegame")
+async def savegame_setup(request: Request, ident: str):
+    """Creates the save-game job of this server (or opens it) and shows its files to pick the save folder."""
+    user = current_user(request)
+    await check_csrf(request)
+    server = get_server_or_deny(request, user, ident)
+    require(request, user, ident, "backups.manage")
+    require(request, user, ident, "sftp.view")
+    job = savegame_job(ident)
+    if job is not None:
+        return back(browser_url(job["id"], ident))
+    name = i18n.t("Spielstand: {server}", server=server["name"])[:80]
+    with db.connect() as con:
+        now = db.utcnow()
+        job_id = con.execute("INSERT INTO backup_jobs (name, target_id, save_for, created_by, created_at, updated_at)"
+                             " VALUES (?, NULL, ?, ?, ?, ?)", (name, ident, user.id, now, now)).lastrowid
+    audit_user(request, user, "backup.job.create", server=ident, detail={"job": name, "ziel": "download",
+                                                                          "spielstand": True})
+    return back(browser_url(job_id, ident), "Spielstand-Download angelegt. Wähle jetzt den Ordner oder die Dateien"
+                                            " des Spielstands aus.")
 
 
 # -- Aus dem Datei-Explorer --------------------------------------------------------------------------

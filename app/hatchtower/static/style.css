@@ -1200,6 +1200,7 @@ a.file-link:hover { color: var(--accent-text); }
 .backup-status-error { color: var(--red-fg); }
 .backup-status-cancelled { color: var(--muted); }
 .backup-detail { max-width: 46ch; overflow-wrap: anywhere; }
+.inline-chip { display: inline-flex; margin: 0; }
 .backup-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 4px 0 14px; }
 .backup-kinds > div { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--subtle); }
 .backup-kinds ul { margin: 6px 0 0; padding-left: 18px; }

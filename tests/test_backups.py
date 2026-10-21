@@ -407,3 +407,40 @@ def test_letzte_pruefung_wird_gemerkt(world, nas):
     assert smb["check_ok"] == 0 and "Passwort falsch" in smb["check_error"] and smb["check_free"] == 10 ** 12
     page = c.get("/admin/backups/targets").text
     assert "Letzte Prüfung" in page and "fehlgeschlagen: " in page and "Schreiben und Löschen klappt" in page
+
+
+# -- Vorher speichern, ohne zu stoppen ---------------------------------------------------------------
+
+def test_vorher_speichern_ohne_stopp(env, monkeypatch):
+    monkeypatch.setattr(backups, "SAVE_WAIT_DEFAULT", 0)
+    set_job(env.job_id, save_command="save-all")
+    env.manager.enqueue(backups.load_job(env.job_id))
+    run_all(env.manager)
+    assert runs()[-1]["status"] == "ok"
+    assert env.ptero.commands == ["save-all"] and env.ptero.power_calls == []
+    assert env.world.audit("backup.save")[-1]["result"] == "ok"
+
+
+def test_vorher_speichern_nur_wenn_der_server_laeuft(env, monkeypatch):
+    monkeypatch.setattr(backups, "SAVE_WAIT_DEFAULT", 0)
+    env.ptero.state = "offline"
+    set_job(env.job_id, save_command="save-all")
+    env.manager.enqueue(backups.load_job(env.job_id))
+    run_all(env.manager)
+    assert runs()[-1]["status"] == "ok" and env.ptero.commands == []
+
+
+def test_vorher_speichern_entfaellt_beim_stoppen(env):
+    set_job(env.job_id, stop_mode="stop", save_command="save-all")
+    env.manager.enqueue(backups.load_job(env.job_id))
+    run_all(env.manager)
+    assert env.ptero.commands == [] and env.ptero.power_calls == [("srv-a", "stop")]
+
+
+def test_vorher_speichern_im_read_only_modus_sichert_trotzdem(env):
+    env.world.read_only()
+    set_job(env.job_id, save_command="save-all")
+    env.manager.enqueue(backups.load_job(env.job_id))
+    run_all(env.manager)
+    assert runs()[-1]["status"] == "ok" and env.ptero.commands == []
+    assert env.world.audit("backup.save")[-1]["result"] == "error"
