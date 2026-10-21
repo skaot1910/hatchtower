@@ -21,7 +21,8 @@ from .wings import console_stream
 log = logging.getLogger("hatchtower.logarchive")
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-LEVEL_ERROR = re.compile(r"\b(error|err|exception|fatal|severe|critical|traceback|crash(ed)?)\b", re.I)
+# also Java/Python exception names such as NullPointerException or OutOfMemoryError (case-sensitive suffix)
+LEVEL_ERROR = re.compile(r"\b(?i:error|err|exception|fatal|severe|critical|traceback|crash(ed)?)\b|[a-z](Exception|Error)\b")
 LEVEL_WARN = re.compile(r"\b(warn(ing)?)\b", re.I)
 RECHECK = 30
 MAX_LINE = 2000
