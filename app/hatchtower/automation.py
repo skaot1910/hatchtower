@@ -221,8 +221,12 @@ class Automation:
         i18n.use_default()
         now = datetime.now(self.tz)
         with db.connect() as con:
+            # Only servers that still exist in the panel: a deleted server would answer every run with HTTP 404 and
+            # send a failure notification each time. If it comes back, its schedules simply run again.
             schedules = con.execute(
-                "SELECT sc.*, st.state FROM schedules sc LEFT JOIN server_state st ON st.identifier = sc.identifier"
+                "SELECT sc.*, st.state FROM schedules sc"
+                " JOIN servers sv ON sv.identifier = sc.identifier AND sv.present = 1"
+                " LEFT JOIN server_state st ON st.identifier = sc.identifier"
                 " WHERE sc.enabled = 1"
             ).fetchall()
         for sched in schedules:

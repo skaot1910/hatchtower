@@ -247,3 +247,16 @@ def test_im_read_only_modus_kein_neustart(world, monkeypatch):
         await asyncio.gather(*auto._crash_tasks.values())
     asyncio.run(run())
     assert started == [False]
+
+
+def test_zeitplan_eines_im_panel_geloeschten_servers_ruht(world):
+    panel = Panel()
+    sid = schedule(world)
+    with db.connect() as con:
+        con.execute("UPDATE servers SET present = 0 WHERE identifier = 'srv-a'")
+    tick(panel)
+    assert panel.calls == [] and sched(sid)["last_run"] is None          # no 404, no failure notification
+    with db.connect() as con:
+        con.execute("UPDATE servers SET present = 1 WHERE identifier = 'srv-a'")
+    tick(panel)
+    assert panel.calls == [("power", "srv-a", "restart")]               # back in the panel: runs again
