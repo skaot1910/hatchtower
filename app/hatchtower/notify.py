@@ -232,6 +232,8 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
                 _note_hook(hook["id"], str(exc) or exc.__class__.__name__)
                 if isinstance(exc, WebhookError) and webhook_gone(hook["kind"], exc.status):
                     disable_webhook(hook, exc.status)
+                    errors[-1] = (f"Webhook „{hook['title']}“: {gone_reason(exc.status)} "
+                                  + i18n.t("Er wurde deshalb automatisch abgeschaltet."))
     if only in (None, "mail"):
         cfg = mailer.load_config(vault)
         recipients = _email_recipients(event, ident) if only is None else []

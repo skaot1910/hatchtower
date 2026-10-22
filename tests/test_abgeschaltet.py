@@ -107,3 +107,14 @@ def test_postfach_zaehlt_und_filtert(world):
     only_b = owner.get("/notifications?server=srv-b").text
     assert only_b.count('class="inbox-item') == 1 and "Keine Meldung passt" not in only_b
     assert "Keine Meldung passt zum Filter" in owner.get("/notifications?cat=new").text
+
+
+def test_testnachricht_an_toten_webhook_sagt_dass_er_abgeschaltet_wurde(world, monkeypatch):
+    hid = add_hook()
+
+    async def post(*a):
+        raise notify.WebhookError("HTTP 404", 404)
+    monkeypatch.setattr(notify, "_post_webhook", post)
+    owner = world.client(world.ids["olga"])
+    r = owner.post(f"/admin/notify/webhook/{hid}/test", data={"csrf": owner.csrf})
+    assert "automatisch%20abgeschaltet" in r.headers["location"] and hook(hid)["enabled"] == 0

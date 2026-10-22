@@ -2576,7 +2576,8 @@
   "Webhook automatisch abgeschaltet": "Webhook switched off automatically",
   "Neuen Webhook unter Community → Statusseite eintragen und die Anzeige wieder einschalten.": "Enter a new webhook under Community → Status page and switch the display on again.",
   "Neuen Webhook unter System → Benachrichtigungen eintragen und wieder einschalten.": "Enter a new webhook under System → Notifications and switch it on again.",
-  "Trag unten einen neuen Webhook-Link ein, setz den Haken bei „Aktiv“ und speichere – dann verschwindet dieser Hinweis.": "Enter a new webhook link below, tick “Active” and save – then this notice goes away."
+  "Trag unten einen neuen Webhook-Link ein, setz den Haken bei „Aktiv“ und speichere – dann verschwindet dieser Hinweis.": "Enter a new webhook link below, tick “Active” and save – then this notice goes away.",
+  "Er wurde deshalb automatisch abgeschaltet.": "It was therefore switched off automatically."
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",
