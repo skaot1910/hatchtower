@@ -1,4 +1,5 @@
-"""Support report: one plain text file with everything that helps to find a problem, to send to whoever helps.
+"""Support report: one plain text file with the details that help to find the cause of a problem, to send to whoever
+helps.
 
 What it contains: version and system, panel connection and the full connection check, Wings nodes, servers,
 users and permissions (numbers instead of names), automation, backups, notifications, settings, recent problems

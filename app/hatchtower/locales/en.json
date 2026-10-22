@@ -2514,7 +2514,6 @@
   "Backup-Ziel anlegen": "Create a backup target",
   "Ein Owner kann eins anlegen.": "An owner can create one.",
   "API-Keys, Passwörter, Tokens, Webhook- und Einladungslinks, Beitrittspasswörter der Server": "API keys, passwords, tokens, webhook and invitation links, join passwords of servers",
-  "Bei einem Problem: diesen Bericht herunterladen und an den schicken, der dir hilft. Er enthält alles, was zur Fehlersuche nötig ist, in einer einzigen Textdatei.": "If something goes wrong: download this report and send it to whoever helps you. It contains everything needed to find the problem, in a single text file.",
   "Benutzer und ihre Rechte – nur als Nummern, ohne Namen und E-Mail-Adressen": "Users and their permissions – as numbers only, without names and e-mail addresses",
   "Danach warten": "Then wait",
   "Das Erstellen dauert ein paar Sekunden, weil dabei die Verbindung zum Panel geprüft wird. Geht die Weboberfläche gar nicht mehr, erstellt {befehl} im Hatchtower-Container denselben Bericht, zusätzlich mit dem Systemprotokoll.": "Creating it takes a few seconds because the connection to the panel is checked. If the web interface does not work at all, {befehl} in the Hatchtower container creates the same report, plus the system journal.",
@@ -2548,7 +2547,8 @@
   "Vorher speichern: Befehl (optional)": "Save first: command (optional)",
   "Wartezeit nach dem Speichern": "wait after saving",
   "Zur Sicherheit wird der fertige Bericht noch einmal nach jedem dieser Werte durchsucht; Treffer werden durch *** ersetzt.": "To be safe, the finished report is searched once more for each of these values; matches are replaced by ***.",
-  "{n} Sekunden": "{n} seconds"
+  "{n} Sekunden": "{n} seconds",
+  "Bei einem Problem: diesen Bericht herunterladen und an den schicken, der dir hilft. Er fasst die wichtigsten Angaben zu deiner Installation in einer Textdatei zusammen und hilft so, die Ursache schneller zu finden.": "If something goes wrong: download this report and send it to whoever helps you. It gathers the key details of your installation in one text file and so helps to track down the cause faster."
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",
