@@ -3,6 +3,24 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.40.0-pre.1 – 2026-10-22
+
+- Save game download per server: whoever manages backup jobs sets it up on the server page ("Set up save-game
+  download", then pick the folder in the file browser). Everyone with the right "Direct download from the live
+  system" then sees "Download save game" on the server page – one click, a ZIP of the current save, nothing stored
+- Save first, without stopping: backup jobs that do not stop the server can send a save command to the console
+  (e.g. `save-all` for Minecraft, `save` for Terraria) and wait 5–120 seconds before reading the files, so the save
+  is fresh and complete and nobody gets kicked. Only someone with "Send commands" can set the command; anyone with
+  the right to run the job can run it
+- Support report under System → Status ("Download support report" / "View in the browser") and on the command line
+  as `hatchtower support`: one text file with version, system, the full connection check, Wings nodes, servers,
+  permissions (users as numbers), automation, backups, notifications, settings, recent problems from the audit log
+  and the last log lines; the command line adds service status and the system journal. It contains no API keys,
+  passwords, tokens, webhook or invitation links, join passwords, e-mail addresses or user names: secret settings
+  are left out, and every known secret value is searched in the finished text and replaced by ***
+- Includes everything from 0.39.2-pre.1
+- Database migration 35 (save command and save-game job of a server)
+
 ## 0.39.2-pre.1 – 2026-10-22
 
 - Status polling respects the panel's rate limit: it costs one request per server, and with a low limit
