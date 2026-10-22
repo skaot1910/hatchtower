@@ -2740,13 +2740,13 @@ async def admin_branding_logo_delete(request: Request, kind: str):
 
 
 @app.get("/admin/system/support")
-async def admin_support_report(request: Request, view: str = ""):
+async def admin_support_report(request: Request, view: str = "", addresses: str = ""):
     """Support report as one text file (see support.py: nothing secret in it)."""
     owner = require_owner(request)
     from . import support
-    text = await support.build(settings, vault, app.state)
+    text = await support.build(settings, vault, app.state, addresses=bool(addresses))
     audit.record("system.support", user_id=owner.id, username=owner.username, ip=ip_of(request),
-                 detail={"ansehen": bool(view)})
+                 detail={"ansehen": bool(view), "adressen": bool(addresses)})
     disposition = "inline" if view else f'attachment; filename="{support.filename()}"'
     return Response(text, media_type="text/plain; charset=utf-8",
                     headers={"Content-Disposition": disposition, "Cache-Control": "no-store"})

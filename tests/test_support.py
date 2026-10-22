@@ -112,3 +112,37 @@ def test_webhook_erfolg_und_fehler_im_bericht(world, monkeypatch):
     section = text[text.index("9. Notifications"):text.index("10. Settings")]
     assert '"Clan" discord to discord.com' in section and "HTTP 404" in section
     assert "last sent ok: 20" in section and "WebhookToken" not in text
+
+
+def test_adressen_standardmaessig_als_platzhalter(world, monkeypatch):
+    monkeypatch.setattr(main.settings, "pterodactyl_url", "https://panel.meine-domain.de")
+    monkeypatch.setattr(main.settings, "node_overrides", {"wings.meine-domain.de": "http://192.168.1.20:8080"})
+    owner = world.client(world.ids["olga"])
+    text = owner.get("/admin/system/support").text
+    assert "meine-domain" not in text and "192.168.1.20" not in text
+    assert "https://<host-1>" in text and "http://<private-ip-1>:8080" in text
+    full = owner.get("/admin/system/support?addresses=1").text
+    assert "https://panel.meine-domain.de" in full and "192.168.1.20" in full
+    assert world.audit("system.support")[-1]["detail"] == '{"ansehen": false, "adressen": true}'
+
+
+def test_gleiche_probleme_im_audit_einmal_mit_anzahl(world):
+    from hatchtower import audit
+    for _ in range(3):
+        audit.record("schedule.run", result="error", username="Automation", server="srv-a", detail="Plan: HTTP 404")
+    text = world.client(world.ids["olga"]).get("/admin/system/support").text
+    section = text[text.index("11. Recent problems"):text.index("12. Updates")]
+    assert section.count("Plan: HTTP 404") == 1 and "(×3 since" in section
+    assert "last login" not in text
+
+
+def test_journal_wiederholungen_zusammengefasst(world, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "load_settings", lambda: main.settings)
+    monkeypatch.setattr(cli, "apply_db_values", lambda *a: None)
+    journal = "".join(f"2026-10-22T17:0{i}:11+02:00 host uvicorn[{100 + i}]: WARNING x: HTTP 404\n" for i in range(5))
+    monkeypatch.setattr(sys, "stdin", io.StringIO("Bericht\n15. System journal\n=====\n" + journal +
+                                                  "2026-10-22T17:09:00+02:00 host systemd[1]: Started.\n"))
+    cli.redact_stdin()
+    out = capsys.readouterr().out
+    assert out.count("HTTP 404") == 1 and "[×5, last 2026-10-22T17:04:11+02:00 host uvicorn[104]:]" in out
+    assert "Started." in out

@@ -13,6 +13,7 @@ cannot slip in through a log line or an error message either.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import re
 import shutil
@@ -28,6 +29,7 @@ from . import APP_NAME, __version__, db, diagnose, logbuffer, updates, wings
 from .i18n import t
 
 SECRET_NAME = re.compile(r"key|pass|secret|token|_enc|username|cookie|check$", re.IGNORECASE)
+PERSONAL = {"mail_from_name"}           # not needed to find a problem, may be a real name
 EMAIL = re.compile(r"[\w.+-]+@([\w-]+\.)+[\w-]+")
 MIN_SECRET = 6            # shorter values are not searched (they would match ordinary words and numbers)
 PACKAGES = ("fastapi", "starlette", "uvicorn", "httpx", "websockets", "jinja2", "cryptography")
@@ -77,6 +79,7 @@ def overview(out: Text, settings, web: bool) -> None:
     out.kv("Mode", "read only" if settings.read_only else "read and control")
     out.kv("Time zone", settings.timezone)
     out.kv("Default language", db.get_setting("default_language") or "–")
+    out.kv("Listens on", f"{os.environ.get('HATCHTOWER_BIND', '?')}:{os.environ.get('HATCHTOWER_PORT', '?')}")
     out.kv("Python", sys.version.split()[0])
     os_name = next((line.split("=", 1)[1].strip('"') for line in _read("/etc/os-release").splitlines()
                     if line.startswith("PRETTY_NAME=")), platform.system())
@@ -199,7 +202,7 @@ def users_section(out: Text) -> None:
             f"{len(groups)} permission group(s): " + ", ".join(f"#{g['id']} ({g['n']} rights)" for g in groups))
     for u in users:
         line = (f"- user #{u['id']} {u['role']}{'' if u['is_active'] else ' (disabled)'}"
-                f"{' (locked)' if u['locked_until'] else ''} · last login {_when(u['last_login_at'])}"
+                f"{' (locked)' if u['locked_until'] else ''}{'' if u['last_login_at'] else ' · never logged in'}"
                 f" · e-mail {'yes' if u['has_mail'] else 'no'} · view {u['view_mode'] or 'default'}")
         if u["role"] != "owner":
             grants = load_grants(u["id"])
@@ -215,7 +218,7 @@ def automation_section(out: Text) -> None:
         schedules = con.execute("SELECT identifier, action, weekdays, time, run_at, enabled, only_if_running,"
                                 " last_run, last_result FROM schedules ORDER BY identifier, time").fetchall()
         present = {r[0] for r in con.execute("SELECT identifier FROM servers WHERE present = 1")}
-        crashes = con.execute("SELECT identifier, detected_at, outcome FROM crash_events ORDER BY id DESC LIMIT 10").fetchall()
+        crashes = con.execute("SELECT identifier, detected_at, outcome FROM crash_events ORDER BY detected_at DESC LIMIT 10").fetchall()
     out.add(f"{len(schedules)} schedule(s)")
     for s in schedules:
         out.add(f"- {s['identifier']} {s['action']} {s['run_at'] or (s['weekdays'] + ' ' + s['time'])}"
@@ -237,7 +240,7 @@ def backups_section(out: Text, state) -> None:
                            " last_result FROM backup_jobs ORDER BY id").fetchall()
         items = {r["job_id"]: r["n"] for r in con.execute("SELECT job_id, COUNT(*) AS n FROM backup_job_items GROUP BY job_id")}
         runs = con.execute("SELECT id, job_id, identifier, kind, trigger, status, size, files, queued_at, finished_at,"
-                           " verify_ok, detail FROM backup_runs ORDER BY id DESC LIMIT 20").fetchall()
+                           " data_bytes, verify_ok, detail FROM backup_runs ORDER BY id DESC LIMIT 20").fetchall()
     for x in targets:
         where = x["path"] if x["kind"] == "local" else f"//{x['smb_host']}/{x['smb_share']}/{x['path'] or ''}"
         free = f"{x['check_free'] / 1024 ** 3:.1f} GiB free" if x["check_free"] else "free space unknown"
@@ -255,8 +258,9 @@ def backups_section(out: Text, state) -> None:
     out.add("Last runs:" if runs else "No runs yet.")
     for r in runs:
         detail = (r["detail"] or "").replace("\n", " ")[:300]
+        size = r["size"] or r["data_bytes"] or 0
         out.add(f"- run #{r['id']} job #{r['job_id']} {r['identifier']} {r['kind']}/{r['trigger'] or 'manual'}"
-                f" {r['status']} · {r['files'] or 0} files, {(r['size'] or 0) / 1024 ** 2:.1f} MiB"
+                f" {r['status']} · {r['files'] or 0} files, {size / 1024 ** 2:.1f} MiB"
                 f" · verified {'–' if r['verify_ok'] is None else ('ok' if r['verify_ok'] else 'FAILED')}"
                 f" · {_when(r['finished_at'] or r['queued_at'])}{' · ' + detail if detail else ''}")
     manager = getattr(state, "backups", None) if state is not None else None
@@ -300,7 +304,7 @@ def settings_section(out: Text) -> None:
         rows = con.execute("SELECT key, value, updated_at FROM app_settings ORDER BY key").fetchall()
     for r in rows:
         value = r["value"] or ""
-        if SECRET_NAME.search(r["key"]):
+        if SECRET_NAME.search(r["key"]) or r["key"] in PERSONAL:
             value = "(set)" if value else "(empty)"
         elif len(value) > 200:
             value = value[:200] + " …"
@@ -311,17 +315,25 @@ def audit_section(out: Text) -> None:
     out.section("11. Recent problems from the audit log (no IP addresses, users as numbers)")
     with db.connect() as con:
         rows = con.execute("SELECT ts, user_id, username, action, server, detail, result FROM audit_log"
-                           " WHERE result != 'ok' ORDER BY id DESC LIMIT 60").fetchall()
+                           " WHERE result != 'ok' ORDER BY id DESC LIMIT 1000").fetchall()
         accounts = {r["username"].casefold(): r["id"] for r in con.execute("SELECT id, username FROM users")}
         counts = con.execute("SELECT result, COUNT(*) AS n FROM audit_log WHERE ts >= ? GROUP BY result",
                              (datetime.fromtimestamp(time.time() - 86400, timezone.utc).isoformat(timespec="seconds"),)
                              ).fetchall()
     out.add("Last 24 h: " + (", ".join(f"{c['n']} {c['result']}" for c in counts) or "nothing"))
+    # the same problem many times (e.g. every night) shows once, with how often and since when
+    groups: dict[tuple, list] = {}
     for r in rows:
-        who = _who(r, accounts)
         detail = (r["detail"] or "").replace("\n", " ")[:200]
-        out.add(f"- {r['ts']} {r['result']} {r['action']} · {who}{' · ' + r['server'] if r['server'] else ''}"
-                f"{' · ' + detail if detail else ''}")
+        key = (r["result"], r["action"], _who(r, accounts), r["server"] or "", detail)
+        if key in groups:
+            groups[key][1] += 1
+            groups[key][2] = r["ts"]
+        else:
+            groups[key] = [r["ts"], 1, r["ts"]]
+    for (result, action, who, server, detail), (last, n, first) in list(groups.items())[:40]:
+        times = f"{last}" + (f" (×{n} since {first})" if n > 1 else "")
+        out.add(f"- {times} {result} {action} · {who}{' · ' + server if server else ''}{' · ' + detail if detail else ''}")
 
 
 def _who(row, accounts: dict[str, int]) -> str:
@@ -335,17 +347,27 @@ def _who(row, accounts: dict[str, int]) -> str:
     return "(unknown name)" if row["action"].startswith(("login", "auth", "password")) else (name or "–")
 
 
-def updates_section(out: Text, settings) -> None:
+BUFFER_STAMP = re.compile(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\dZ ")
+JOURNAL_STAMP = re.compile(r"\S+ \S+ [^:\s]+\[\d+\]: |\S+ \S+ [^:\s]+: ")
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def updates_section(out: Text, settings, state) -> None:
     out.section("12. Updates")
-    state = updates.read_state(settings.data_dir)
+    out.kv("Installed", __version__)
     out.kv("Pre-releases", "on" if db.get_setting("update_prereleases") == "1" else "off")
+    checker = getattr(state, "updates", None) if state is not None else None
+    if checker is not None:
+        out.kv("Newest offered", f"{checker.latest or '–'}{' (update available)' if checker.available else ''}")
+        out.kv("Last check", f"{_when(checker.checked_at)}{' – ' + t(checker.error) if checker.error else ''}")
+    info = updates.read_state(settings.data_dir)
     for key in ("state", "from", "to", "started", "finished"):
-        if state.get(key):
-            out.kv(f"Last update {key}", state[key])
+        if info.get(key):
+            out.kv(f"Last web update {key}", info[key])
     log = _read(str(updates._files(settings.data_dir)[2]), 200_000).splitlines()[-40:]
     if log:
-        out.add("Last lines of the update log:")
-        out.lines += ["  " + line for line in log]
+        out.add("Last lines of the log of the last update started in the web interface:")
+        out.lines += ["  " + ANSI.sub("", line) for line in log]
 
 
 def log_section(out: Text, web: bool) -> None:
@@ -353,8 +375,8 @@ def log_section(out: Text, web: bool) -> None:
     if not web:
         out.add("See the system journal at the end of this file.")
         return
-    lines = logbuffer.lines(400)
-    out.add(f"Last {len(lines)} log lines of this process (kept in memory since the last start):")
+    lines = collapse(logbuffer.lines(logbuffer.MAX_LINES), BUFFER_STAMP)[-400:]
+    out.add("Log of this process since its last start (repeated messages once, with count):")
     out.lines += lines or ["– (nothing logged yet)"]
 
 
@@ -388,15 +410,78 @@ def redact(text: str, known: list[str]) -> str:
     return text
 
 
+# -- addresses -----------------------------------------------------------------------------------------
+# Domains and IP addresses are replaced by placeholders unless the user chooses to send them. The same address
+# always gets the same placeholder, and private stays distinguishable from public: whoever reads the report can
+# still tell whether two addresses are the same, which was the key to problems like the console origin.
+
+TLDS = ("com|net|org|de|at|ch|eu|io|gg|me|info|xyz|dev|cloud|host|online|site|live|fr|nl|be|pl|uk|co|tv|cc|us|ru|"
+        "se|no|dk|fi|it|es|pt|cz|biz|pro|club|space|tech|network|server|games|lan|local|home|internal|arpa")
+HOST = re.compile(rf"\b(?:[a-z0-9](?:[a-z0-9-]{{0,61}}[a-z0-9])?\.)+(?:{TLDS})\b", re.IGNORECASE)
+IPV4 = re.compile(r"(?<![\d.])(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}(?![\d.])")
+# well-known services: naming them reveals nothing about the user's own setup
+KEEP_HOSTS = {"discord.com", "discordapp.com", "github.com", "api.github.com", "gmail.com", "smtp.gmail.com",
+              "googlemail.com", "outlook.com", "smtp.office365.com", "office365.com", "gmx.net", "mail.gmx.net",
+              "web.de", "smtp.web.de", "example.com", "example.org", "example.net"}
+
+
+def anonymize(text: str) -> str:
+    import ipaddress
+    names: dict[str, str] = {}
+
+    def label(kind: str, value: str) -> str:
+        key = value.lower()
+        if key not in names:
+            names[key] = f"<{kind}-{sum(1 for v in names.values() if v.startswith('<' + kind)) + 1}>"
+        return names[key]
+
+    def ip(m: re.Match) -> str:
+        addr = ipaddress.ip_address(m.group(0))
+        if addr.is_loopback or addr.is_unspecified:
+            return m.group(0)
+        return label("private-ip" if addr.is_private else "public-ip", m.group(0))
+
+    def host(m: re.Match) -> str:
+        value = m.group(0)
+        if value.lower() in KEEP_HOSTS or value.lower().endswith(".example.com"):
+            return value
+        return label("host", value)
+    return HOST.sub(host, IPV4.sub(ip, text))
+
+
+def collapse(lines: list[str], prefix: re.Pattern | None = None) -> list[str]:
+    """Identical messages once, with how often and when first and last (a message every minute would otherwise
+    push everything else out of the report). `prefix` matches the time stamp part that differs."""
+    seen: dict[str, list] = {}
+    order: list[str] = []
+    for line in lines:
+        m = prefix.match(line) if prefix else None
+        stamp, message = (m.group(0), line[m.end():]) if m else ("", line)
+        if message in seen:
+            seen[message][1] += 1
+            seen[message][2] = stamp
+        else:
+            seen[message] = [stamp, 1, stamp]
+            order.append(message)
+    out = []
+    for message in order:
+        first, n, last = seen[message]
+        out.append(f"{first}{message}" + (f"   [×{n}, last {last.strip()}]" if n > 1 else ""))
+    return out
+
+
 # -- the whole report --------------------------------------------------------------------------------
 
-async def build(settings, vault, state=None) -> str:
+async def build(settings, vault, state=None, *, addresses: bool = False, finish: bool = True) -> str:
     """The report as text. `state` is app.state in the web interface (adds live status and the in-memory log);
-    from the command line it is None."""
+    from the command line it is None. Without `addresses`, domains and IP addresses become placeholders.
+    finish=False leaves redaction of addresses to the caller (the command line adds the journal first)."""
     web = state is not None
     out = Text()
     out.add(f"{APP_NAME} support report – {__version__}")
-    out.add("Contains no keys, passwords, tokens or links with access codes. Please send the whole file.")
+    out.add("Contains no keys, passwords, tokens, links with access codes, e-mail addresses or user names.")
+    out.add("Addresses: " + ("included as they are." if addresses else
+                             "replaced by placeholders – the same address always gets the same placeholder."))
     nodes: list[dict] = []
     parts = [
         lambda: overview(out, settings, web),
@@ -410,7 +495,7 @@ async def build(settings, vault, state=None) -> str:
         lambda: notifications_section(out, vault),
         lambda: settings_section(out),
         lambda: audit_section(out),
-        lambda: updates_section(out, settings),
+        lambda: updates_section(out, settings, state),
         lambda: log_section(out, web),
     ]
     for part in parts:
@@ -422,7 +507,8 @@ async def build(settings, vault, state=None) -> str:
         except Exception as exc:              # one broken part must not cost the rest of the report
             out.add(f"!! This part could not be collected: {exc.__class__.__name__}: {exc}")
     out.add("")
-    return redact("\n".join(out.lines) + "\n", secrets(settings, vault))
+    text = redact("\n".join(out.lines) + "\n", secrets(settings, vault))
+    return text if addresses or not finish else anonymize(text)
 
 
 def filename(now: datetime | None = None) -> str:

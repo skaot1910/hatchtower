@@ -2548,7 +2548,13 @@
   "Wartezeit nach dem Speichern": "wait after saving",
   "Zur Sicherheit wird der fertige Bericht noch einmal nach jedem dieser Werte durchsucht; Treffer werden durch *** ersetzt.": "To be safe, the finished report is searched once more for each of these values; matches are replaced by ***.",
   "{n} Sekunden": "{n} seconds",
-  "Bei einem Problem: diesen Bericht herunterladen und an den schicken, der dir hilft. Er fasst die wichtigsten Angaben zu deiner Installation in einer Textdatei zusammen und hilft so, die Ursache schneller zu finden.": "If something goes wrong: download this report and send it to whoever helps you. It gathers the key details of your installation in one text file and so helps to track down the cause faster."
+  "Bei einem Problem: diesen Bericht herunterladen und an den schicken, der dir hilft. Er fasst die wichtigsten Angaben zu deiner Installation in einer Textdatei zusammen und hilft so, die Ursache schneller zu finden.": "If something goes wrong: download this report and send it to whoever helps you. It gathers the key details of your installation in one text file and so helps to track down the cause faster.",
+  "Wings-Nodes und die komplette Verbindungsprüfung": "Wings nodes and the complete connection check",
+  "Server mit Namen, Status und Limits, Automationen, Backups und ihre letzten Läufe": "Servers with names, state and limits, automation, backups and their last runs",
+  "Benutzer und ihre Rechte – nur als Nummern": "Users and their permissions – as numbers only",
+  "Benutzernamen, E-Mail-Adressen, IP-Adressen von Besuchern, Anmeldezeiten": "User names, e-mail addresses, IP addresses of visitors, login times",
+  "Domains und IP-Adressen deiner Server: Sie werden durch Platzhalter ersetzt (gleiche Adresse, gleicher Platzhalter) – außer du setzt unten das Häkchen.": "Domains and IP addresses of your servers: they are replaced by placeholders (same address, same placeholder) – unless you tick the box below.",
+  "Adressen unverändert mitschicken (nur wenn der Helfer danach fragt)": "Send addresses unchanged (only if the person helping asks for them)"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

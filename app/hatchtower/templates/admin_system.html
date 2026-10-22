@@ -51,9 +51,9 @@
       <strong class="small">{{ _("Enthalten") }}</strong>
       <ul class="small muted">
         <li>{{ _("Version, System, freier Speicher und Arbeitsspeicher") }}</li>
-        <li>{{ _("Panel-Adresse, Wings-Nodes und die komplette Verbindungsprüfung") }}</li>
-        <li>{{ _("Server mit Status und Limits, Automationen, Backups und ihre letzten Läufe") }}</li>
-        <li>{{ _("Benutzer und ihre Rechte – nur als Nummern, ohne Namen und E-Mail-Adressen") }}</li>
+        <li>{{ _("Wings-Nodes und die komplette Verbindungsprüfung") }}</li>
+        <li>{{ _("Server mit Namen, Status und Limits, Automationen, Backups und ihre letzten Läufe") }}</li>
+        <li>{{ _("Benutzer und ihre Rechte – nur als Nummern") }}</li>
         <li>{{ _("Einstellungen, letzte Fehler aus dem Audit-Log (ohne IP-Adressen) und die letzten Log-Zeilen") }}</li>
       </ul>
     </div>
@@ -61,14 +61,19 @@
       <strong class="small">{{ _("Nicht enthalten") }}</strong>
       <ul class="small muted">
         <li>{{ _("API-Keys, Passwörter, Tokens, Webhook- und Einladungslinks, Beitrittspasswörter der Server") }}</li>
+        <li>{{ _("Benutzernamen, E-Mail-Adressen, IP-Adressen von Besuchern, Anmeldezeiten") }}</li>
+        <li>{{ _("Domains und IP-Adressen deiner Server: Sie werden durch Platzhalter ersetzt (gleiche Adresse, gleicher Platzhalter) – außer du setzt unten das Häkchen.") }}</li>
         <li>{{ _("Zur Sicherheit wird der fertige Bericht noch einmal nach jedem dieser Werte durchsucht; Treffer werden durch *** ersetzt.") }}</li>
       </ul>
     </div>
   </div>
-  <div class="row-actions">
-    <a class="btn btn-primary btn-sm" href="/admin/system/support" download>{{ _("Support-Bericht herunterladen") }}</a>
-    <a class="btn btn-ghost btn-sm" href="/admin/system/support?view=1" target="_blank" rel="noopener">{{ _("Im Browser ansehen") }}</a>
-  </div>
+  <form method="get" action="/admin/system/support" class="form support-form">
+    <label class="check"><input type="checkbox" name="addresses" value="1"> {{ _("Adressen unverändert mitschicken (nur wenn der Helfer danach fragt)") }}</label>
+    <div class="row-actions">
+      <button class="btn btn-primary btn-sm" type="submit">{{ _("Support-Bericht herunterladen") }}</button>
+      <button class="btn btn-ghost btn-sm" type="submit" name="view" value="1" formtarget="_blank">{{ _("Im Browser ansehen") }}</button>
+    </div>
+  </form>
   <p class="faint small">{{ _("Das Erstellen dauert ein paar Sekunden, weil dabei die Verbindung zum Panel geprüft wird. Geht die Weboberfläche gar nicht mehr, erstellt {befehl} im Hatchtower-Container denselben Bericht, zusätzlich mit dem Systemprotokoll.", befehl="hatchtower support") }}</p>
 </section>
 {% endblock %}

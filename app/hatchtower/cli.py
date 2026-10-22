@@ -157,9 +157,15 @@ def main() -> None:
     i18n.set_panel(settings.panel.name)
     if args.command == "support":
         from . import support
-        sys.stdout.write(asyncio.run(support.build(settings, vault)))
+        # addresses are replaced later by "redact", once for the whole file including the journal
+        sys.stdout.write(asyncio.run(support.build(settings, vault, addresses=support_addresses(), finish=False)))
         sys.exit(0)
     sys.exit(asyncio.run(selftest(settings)))
+
+
+def support_addresses() -> bool:
+    import os
+    return os.environ.get("HATCHTOWER_SUPPORT_ADDRESSES") == "1"
 
 
 def redact_stdin() -> int:
@@ -182,7 +188,13 @@ def redact_stdin() -> int:
         text += f"\n!! Could not load all secrets for redaction ({exc.__class__.__name__}); environment secrets removed.\n"
     for value in sorted({v for v in known if v and len(v) >= 6}, key=len, reverse=True):
         text = text.replace(value, "***")
-    sys.stdout.write(text)
+    from . import support
+    marker = text.find("15. System journal")
+    if marker >= 0:                     # the same message every minute must not push out everything else
+        head, _, journal = text[marker:].partition("\n")
+        rule, _, body = journal.partition("\n")
+        text = text[:marker] + "\n".join([head, rule, *support.collapse(body.splitlines(), support.JOURNAL_STAMP)]) + "\n"
+    sys.stdout.write(text if support_addresses() else support.anonymize(text))
     return 0
 
 

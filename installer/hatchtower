@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Hatchtower – Befehl auf dem Server (als root).
 #   hatchtower setup-token | create-owner | reset-password | selftest | version
-#   hatchtower support [datei]        Support-Bericht schreiben (ohne Keys, Passwörter, Tokens), mit Dienststatus
-#                                     und Systemprotokoll – die Datei an den schicken, der beim Problem hilft
+#   hatchtower support [--full] [datei]   Support-Bericht schreiben (ohne Keys, Passwörter, Tokens), mit Dienst-
+#                                     status und Systemprotokoll – die Datei an den schicken, der beim Problem hilft.
+#                                     Adressen werden durch Platzhalter ersetzt; --full lässt sie stehen
 #   hatchtower update                 neueste Version von GitHub laden und installieren
 #                                     (Vorab-Versionen nur mit dem Schalter unter System → Updates
 #                                      oder HATCHTOWER_PRERELEASES=1; =0 schaltet sie für diesen Aufruf ab)
@@ -95,7 +96,11 @@ fi
 # service user cannot read them), and everything goes through the same redaction of secrets before it is written.
 if [ "${1:-}" = "support" ]; then
   need_root
-  OUT="${2:-$PWD/hatchtower-support-$(date +%Y-%m-%d_%H-%M).txt}"
+  shift
+  FULL=0
+  if [ "${1:-}" = "--full" ]; then FULL=1; shift; fi
+  OUT="${1:-$PWD/hatchtower-support-$(date +%Y-%m-%d_%H-%M).txt}"
+  export HATCHTOWER_SUPPORT_ADDRESSES=$FULL
   set -a
   # shellcheck source=/dev/null
   . "$ENV_FILE"
@@ -109,11 +114,12 @@ if [ "${1:-}" = "support" ]; then
     "${PY[@]}" support 2>&1 || echo "!! The report itself failed – the journal below shows why."
     printf '\n%s\n14. Service status\n%s\n' "$line" "$line"
     systemctl status 'hatchtower*' --no-pager -n 0 2>&1 | head -60 || true
-    printf '\n%s\n15. System journal of the hatchtower service (last 400 lines)\n%s\n' "$line" "$line"
-    journalctl -u hatchtower -n 400 --no-pager -o short-iso 2>&1 || true
+    printf '\n%s\n15. System journal of the Hatchtower services (repeated messages once, with count)\n%s\n' "$line" "$line"
+    journalctl -u 'hatchtower*' -n 3000 --no-pager -o short-iso 2>&1 || true
   } | "${PY[@]}" redact > "$OUT"
   echo "Support report written: $OUT"
   echo "Please send this file to whoever helps you. It contains no keys, passwords or tokens."
+  [ "$FULL" = 1 ] || echo "Addresses are replaced by placeholders; \"hatchtower support --full\" keeps them."
   exit 0
 fi
 
