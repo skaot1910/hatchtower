@@ -204,8 +204,10 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
                 continue
             try:
                 await _post_webhook(url, hook["kind"], event, title, text, ident, name)
+                _note_hook(hook["id"], None)
             except Exception as exc:
                 errors.append(f"Webhook „{hook['title']}“: {exc}")
+                _note_hook(hook["id"], str(exc) or exc.__class__.__name__)
     if only in (None, "mail"):
         cfg = mailer.load_config(vault)
         recipients = _email_recipients(event, ident) if only is None else []
@@ -219,8 +221,10 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
             i18n.use_default()
             try:
                 await mailer.send(cfg, r["email"], mail.subject, mail)
+                db.set_setting("mail_last_ok", db.utcnow(), None)
             except mailer.MailError as exc:
                 failed.append(str(exc))
+                db.set_setting("mail_last_error", f"{db.utcnow()} {exc}"[:500], None)
         if failed:
             errors.append(f"E-Mail ({len(failed)}/{len(recipients)}): {failed[0]}")
     for e in errors:
@@ -229,6 +233,16 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
         # Otherwise nobody notices that a webhook or the mail server stopped working
         inbox.add("delivery_failed", "owner", None, "\n".join([title, *errors]), key="delivery", cooldown=3600)
     return errors
+
+
+def _note_hook(hook_id: int, error: str | None) -> None:
+    """Remember how the last delivery to this webhook went (shown in the support report)."""
+    with db.connect() as con:
+        if error is None:
+            con.execute("UPDATE notify_webhooks SET last_ok_at = ? WHERE id = ?", (db.utcnow(), hook_id))
+        else:
+            con.execute("UPDATE notify_webhooks SET last_error_at = ?, last_error = ? WHERE id = ?",
+                        (db.utcnow(), error[:500], hook_id))
 
 
 def emit(vault, event: str, ident: str | None, detail: str = "") -> None:

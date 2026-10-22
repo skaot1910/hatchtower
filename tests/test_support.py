@@ -79,3 +79,36 @@ def test_namen_aus_fehlgeschlagenen_logins_erscheinen_nicht(world):
     text = world.client(world.ids["olga"]).get("/admin/system/support").text
     assert "Brezelbaron" not in text and "Tippfehler-Name" not in text
     assert f"user #{uid}" in text and "(unknown name)" in text
+
+
+def test_geloeschte_server_getrennt_und_kurz(world):
+    with db.connect() as con:
+        con.execute("INSERT INTO servers (identifier, ptero_id, uuid, name, node_id, egg, present, synced_at)"
+                    " VALUES ('alt-1', 99, 'u-alt', 'Alter Server', 1, 'Demo', 0, '2026-10-01T10:00:00+00:00')")
+    text = world.client(world.ids["olga"]).get("/admin/system/support").text
+    section = text[text.index("5. Servers"):text.index("6. Users")]
+    deleted = section[section.index("deleted in the panel"):]
+    assert "Alter Server" in deleted and "last seen in the panel 2026-10-01T10:00:00+00:00" in deleted
+    assert "srv-a" in section[:section.index("deleted in the panel")]
+
+
+def test_webhook_erfolg_und_fehler_im_bericht(world, monkeypatch):
+    import asyncio
+    from hatchtower import notify
+    with db.connect() as con:
+        con.execute("DELETE FROM notify_webhooks")
+        con.execute("INSERT INTO notify_webhooks (title, kind, url_enc, events, created_at) VALUES ('Clan', 'discord',"
+                    " ?, 'crash', ?)", (main.vault.encrypt(WEBHOOK), db.utcnow()))
+    calls = []
+
+    async def post(url, *a):
+        calls.append(url)
+        if len(calls) > 1:
+            raise RuntimeError("Webhook antwortet mit HTTP 404")
+    monkeypatch.setattr(notify, "_post_webhook", post)
+    asyncio.run(notify.deliver(main.vault, "crash", "srv-a", "weg", only="webhook"))
+    asyncio.run(notify.deliver(main.vault, "crash", "srv-a", "weg", only="webhook"))
+    text = world.client(world.ids["olga"]).get("/admin/system/support").text
+    section = text[text.index("9. Notifications"):text.index("10. Settings")]
+    assert '"Clan" discord to discord.com' in section and "HTTP 404" in section
+    assert "last sent ok: 20" in section and "WebhookToken" not in text

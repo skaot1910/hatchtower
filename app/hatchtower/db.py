@@ -653,6 +653,12 @@ MIGRATIONS: list[str] = [
     ALTER TABLE backup_jobs ADD COLUMN save_for TEXT;
     CREATE UNIQUE INDEX backup_jobs_save_for ON backup_jobs (save_for) WHERE save_for IS NOT NULL;
     """,
+    # 36: outcome of the last delivery per webhook, so a silently broken webhook can be seen (support report)
+    """
+    ALTER TABLE notify_webhooks ADD COLUMN last_ok_at TEXT;
+    ALTER TABLE notify_webhooks ADD COLUMN last_error_at TEXT;
+    ALTER TABLE notify_webhooks ADD COLUMN last_error TEXT;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

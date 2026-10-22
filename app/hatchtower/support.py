@@ -22,6 +22,7 @@ import time
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from . import APP_NAME, __version__, db, diagnose, logbuffer, updates, wings
 from .i18n import t
@@ -164,18 +165,25 @@ def servers_section(out: Text) -> None:
     out.section("5. Servers")
     with db.connect() as con:
         rows = con.execute("SELECT s.identifier, s.name, s.egg, s.node_id, s.limit_memory, s.limit_disk, s.limit_cpu,"
-                           " s.suspended, s.present, st.state, st.updated_at, st.presence, st.presence_source"
-                           " FROM servers s LEFT JOIN server_state st ON st.identifier = s.identifier"
-                           " ORDER BY s.present DESC, s.name COLLATE NOCASE").fetchall()
+                           " s.suspended, s.present, s.synced_at, st.state, st.updated_at, st.presence,"
+                           " st.presence_source FROM servers s LEFT JOIN server_state st ON st.identifier = s.identifier"
+                           " ORDER BY s.name COLLATE NOCASE").fetchall()
         crash = {r["identifier"] for r in con.execute("SELECT identifier FROM automation_settings WHERE crash_restart = 1")}
-    out.add(f"{sum(r['present'] for r in rows)} in the panel, {sum(not r['present'] for r in rows)} removed from it")
-    for r in rows:
+    present = [r for r in rows if r["present"]]
+    removed = [r for r in rows if not r["present"]]
+    out.add(f"{len(present)} server(s) in the panel:")
+    for r in present:
         out.add(f"- {r['identifier']} {r['name']} [{r['egg'] or '?'}] node {r['node_id']}"
                 f" · {r['state'] or '?'} (as of {_when(r['updated_at'])})"
                 f" · RAM {r['limit_memory'] or 0} MiB, disk {r['limit_disk'] or 0} MiB, CPU {r['limit_cpu'] or 0} %"
                 f" · players: {r['presence'] or '–'} via {r['presence_source'] or '–'}"
-                f"{' · restart after crash' if r['identifier'] in crash else ''}"
-                f"{' · SUSPENDED' if r['suspended'] else ''}{'' if r['present'] else ' · REMOVED'}")
+                f"{' · restart after crash' if r['identifier'] in crash else ''}{' · SUSPENDED' if r['suspended'] else ''}")
+    if removed:
+        out.add("")
+        out.add(f"{len(removed)} server(s) deleted in the panel. Hatchtower keeps them so that their history stays"
+                " (backups, server log, console archive); they are not polled any more:")
+        for r in removed:
+            out.add(f"- {r['identifier']} {r['name']} [{r['egg'] or '?'}] · last seen in the panel {_when(r['synced_at'])}")
 
 
 def users_section(out: Text) -> None:
@@ -206,11 +214,13 @@ def automation_section(out: Text) -> None:
     with db.connect() as con:
         schedules = con.execute("SELECT identifier, action, weekdays, time, run_at, enabled, only_if_running,"
                                 " last_run, last_result FROM schedules ORDER BY identifier, time").fetchall()
+        present = {r[0] for r in con.execute("SELECT identifier FROM servers WHERE present = 1")}
         crashes = con.execute("SELECT identifier, detected_at, outcome FROM crash_events ORDER BY id DESC LIMIT 10").fetchall()
     out.add(f"{len(schedules)} schedule(s)")
     for s in schedules:
         out.add(f"- {s['identifier']} {s['action']} {s['run_at'] or (s['weekdays'] + ' ' + s['time'])}"
                 f"{'' if s['enabled'] else ' (paused)'}{' only if running' if s['only_if_running'] else ''}"
+                f"{'' if s['identifier'] in present else ' · SERVER DELETED IN THE PANEL'}"
                 f" · last {_when(s['last_run'])}: {s['last_result'] or '–'}")
     out.add("Last crashes:" if crashes else "No crashes recorded.")
     for c in crashes:
@@ -255,21 +265,33 @@ def backups_section(out: Text, state) -> None:
         out.add(f"Running now: {len(active)}" + "".join(f"\n- {a['kind']} {a['ident']}: {a['phase']}" for a in active))
 
 
-def notifications_section(out: Text) -> None:
+def notifications_section(out: Text, vault) -> None:
     out.section("9. Notifications and status page")
     with db.connect() as con:
-        hooks = con.execute("SELECT id, kind, events, servers, enabled FROM notify_webhooks ORDER BY id").fetchall()
+        hooks = con.execute("SELECT * FROM notify_webhooks ORDER BY id").fetchall()
         feeds = con.execute("SELECT id, enabled, fields FROM status_feeds ORDER BY id").fetchall()
+        recent = con.execute("SELECT key, sent_at FROM notify_log ORDER BY sent_at DESC LIMIT 15").fetchall()
+        mail_users = con.execute("SELECT COUNT(*) FROM users WHERE is_active = 1 AND email IS NOT NULL AND email != ''"
+                                 " AND notify_email = 1").fetchone()[0]
+    out.add(f"{len(hooks)} webhook(s):" if hooks else "No webhooks.")
     for h in hooks:
-        out.add(f"- webhook #{h['id']} {h['kind'] or '?'}{'' if h['enabled'] else ' (off)'} · events {h['events']}"
-                f" · servers {h['servers'] or 'all'}")
-    if not hooks:
-        out.add("No webhooks.")
+        host = urlsplit(vault.decrypt(h["url_enc"]) or "").hostname or "?"
+        out.add(f"- webhook #{h['id']} \"{h['title']}\" {h['kind'] or '?'} to {host}{'' if h['enabled'] else ' · OFF'}")
+        out.add(f"    events: {h['events'] or '–'}")
+        out.add(f"    servers: {h['servers'] or 'all'} · last sent ok: {_when(h['last_ok_at'])}"
+                f" · last error: {_when(h['last_error_at'])}{' – ' + h['last_error'] if h['last_error'] else ''}")
     out.kv("E-mail", "on" if db.get_setting("mail_enabled") == "1" else "off")
     out.kv("Mail server", f"{db.get_setting('mail_host') or '–'}:{db.get_setting('mail_port') or '–'}"
                           f" ({db.get_setting('mail_security') or '–'})")
+    out.kv("Users getting e-mails", mail_users)
+    out.kv("Last mail sent ok", _when(db.get_setting("mail_last_ok") or None))
+    out.kv("Last mail error", db.get_setting("mail_last_error") or "–")
     out.kv("Status page", "on" if db.get_setting("status_enabled") == "1" else "off")
     out.kv("Status feeds", ", ".join(f"#{f['id']}{'' if f['enabled'] else ' (off)'}" for f in feeds) or "–")
+    out.add("Last notifications raised (event:server, before the per-event cooldown):" if recent else
+            "No notification raised yet.")
+    for r in recent:
+        out.add(f"- {datetime.fromtimestamp(r['sent_at'], timezone.utc).isoformat(timespec='seconds')} {r['key']}")
 
 
 def settings_section(out: Text) -> None:
@@ -385,7 +407,7 @@ async def build(settings, vault, state=None) -> str:
         lambda: users_section(out),
         lambda: automation_section(out),
         lambda: backups_section(out, state),
-        lambda: notifications_section(out),
+        lambda: notifications_section(out, vault),
         lambda: settings_section(out),
         lambda: audit_section(out),
         lambda: updates_section(out, settings),
