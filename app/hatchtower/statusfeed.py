@@ -28,7 +28,7 @@ from typing import Callable
 
 import httpx
 
-from . import APP_NAME, db, i18n, inbox
+from . import APP_NAME, db, i18n, inbox, notify
 
 log = logging.getLogger("hatchtower.statusfeed")
 
@@ -234,6 +234,9 @@ class StatusFeed:
         payloads[-1]["embeds"][-1]["timestamp"] = datetime.now(timezone.utc).isoformat()
         async with httpx.AsyncClient(timeout=10) as http:
             response = await self._sync(http, url, payloads, fid)
+        if response.status_code >= 400 and notify.webhook_gone("discord", response.status_code):
+            self._disable(feed, response.status_code)
+            return
         if response.status_code >= 400:
             # 429 (zu viele Anfragen) erledigt sich beim nächsten Durchlauf von selbst
             self._failed(feed, i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code))
@@ -247,6 +250,21 @@ class StatusFeed:
         if fid in self._reported:
             self._reported.discard(fid)
             inbox.add("statusfeed_ok", "owner", None, feed["name"])
+
+    def _disable(self, feed, status: int) -> None:
+        """The webhook is gone (a deleted message is simply posted again, so this is the webhook itself):
+        switch the feed off instead of retrying every minute, and tell the owners why."""
+        fid = feed["id"]
+        with db.connect() as con:
+            con.execute("UPDATE status_feeds SET enabled = 0, disabled_code = ?, disabled_at = ? WHERE id = ?",
+                        (status, db.utcnow(), fid))
+        self.last_error[fid] = notify.gone_reason(status)
+        self._fails.pop(fid, None)
+        self._reported.discard(fid)
+        inbox.add("statusfeed_disabled", "owner", None,
+                  f"{feed['name']}: {notify.gone_reason(status)} "
+                  + i18n.t("Neuen Webhook unter Community → Statusseite eintragen und die Anzeige wieder einschalten."))
+        log.warning("Discord-Statusanzeige %s automatisch abgeschaltet: HTTP %s", fid, status)
 
     def _failed(self, feed, message: str) -> None:
         """Remember the error; from the second failure in a row it goes into the owners' inbox (a single

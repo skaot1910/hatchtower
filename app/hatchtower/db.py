@@ -659,6 +659,14 @@ MIGRATIONS: list[str] = [
     ALTER TABLE notify_webhooks ADD COLUMN last_error_at TEXT;
     ALTER TABLE notify_webhooks ADD COLUMN last_error TEXT;
     """,
+    # 37: webhooks that Discord no longer knows (deleted: HTTP 404, link invalid: HTTP 401) are switched off
+    #     automatically instead of being retried forever; the HTTP code and time say why and when
+    """
+    ALTER TABLE notify_webhooks ADD COLUMN disabled_code INTEGER;
+    ALTER TABLE notify_webhooks ADD COLUMN disabled_at TEXT;
+    ALTER TABLE status_feeds ADD COLUMN disabled_code INTEGER;
+    ALTER TABLE status_feeds ADD COLUMN disabled_at TEXT;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

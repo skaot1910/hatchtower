@@ -1001,7 +1001,7 @@ async def admin_notify(request: Request):
     for h in notify.load_webhooks():
         url = vault.decrypt(h["url_enc"]) or ""
         hooks.append({"h": h, "events": notify.hook_events(h), "servers": notify.hook_servers(h),
-                      "hint": (url[:40] + "…") if url else ""})
+                      "hint": (url[:40] + "…") if url else "", "disabled": switched_off(h)})
     with db.connect() as con:
         subscribers = con.execute("SELECT username FROM users WHERE notify_email = 1 AND email_verified = 1"
                                   " AND is_active = 1 ORDER BY username").fetchall()
@@ -1070,6 +1070,13 @@ def webhook_form(form, hook=None) -> tuple[dict | None, str | None]:
     return values, None
 
 
+def switched_off(row) -> dict | None:
+    """Why and when Hatchtower switched a webhook or Discord status off by itself (None if it did not)."""
+    if row["enabled"] or not row["disabled_code"]:
+        return None
+    return {"reason": notify.gone_reason(row["disabled_code"]), "at": fmt_dt(row["disabled_at"], settings.timezone)}
+
+
 def webhook_audit(values: dict) -> dict:
     known = server_names()
     return {"webhook": values["title"], "aktiv": bool(values["enabled"]), "format": values["kind"],
@@ -1109,6 +1116,8 @@ async def admin_webhook_update(request: Request, hook_id: int):
     if error:
         return back(NOTIFY + "#webhooks", error)
     values["updated_at"] = db.utcnow()
+    if values["enabled"]:                    # switched on again (usually with a new link): the notice goes
+        values["disabled_code"] = values["disabled_at"] = None
     with db.connect() as con:
         con.execute(f"UPDATE notify_webhooks SET {', '.join(f'{k} = ?' for k in values)} WHERE id = ?",
                     (*values.values(), hook_id))
@@ -1168,7 +1177,7 @@ async def admin_statuspage(request: Request):
         feeds.append({"f": f, "servers": statusfeed.feed_servers(f["id"]), "fields": feed_fields(f),
                       "hint": (url[:45] + "…") if url else "",
                       "ok": fmt_dt(feed.last_ok[f["id"]], settings.timezone, seconds=True) if f["id"] in feed.last_ok else None,
-                      "error": feed.last_error.get(f["id"])})
+                      "error": feed.last_error.get(f["id"]), "disabled": switched_off(f)})
     return render(request, "admin_statuspage.html", servers=present_servers(), enabled=status_enabled(),
                   fields=STATUS_FIELDS, active_fields=status_fields(),
                   status_title=db.get_setting("status_title"), status_url=f"{link_base(request)}/status",
@@ -1267,6 +1276,8 @@ async def admin_feed_update(request: Request, feed_id: int):
         return back(STATUSPAGE + "#discord", error)
     old_url = vault.decrypt(feed["url_enc"]) if "url_enc" in values else None
     values["updated_at"] = db.utcnow()
+    if values["enabled"]:                    # switched on again (usually with a new link): the notice goes
+        values["disabled_code"] = values["disabled_at"] = None
     with db.connect() as con:
         con.execute(f"UPDATE status_feeds SET {', '.join(f'{k} = ?' for k in values)} WHERE id = ?",
                     (*values.values(), feed_id))
@@ -1662,18 +1673,39 @@ async def api_update_status(request: Request):
 # -- Notification inbox (bell) -------------------------------------------------------------
 
 @app.get("/notifications", response_class=HTMLResponse)
-async def notifications_page(request: Request, f: str = ""):
+async def notifications_page(request: Request, f: str = "", level: str = "", cat: str = "", server: str = ""):
+    """The inbox, filterable by level, area and server; errors are counted on top so they stand out."""
     from . import inbox
     user = current_user(request)
     only_unread = f == "unread"
+    level = level if level in inbox.LEVELS else ""
+    cat = cat if cat in inbox.CATEGORIES else ""
     names = server_names()
+    rows = inbox.entries(user, only_unread=only_unread)
+    unread_errors = sum(1 for r in inbox.entries(user, only_unread=True) if inbox.level(r) == "error")
+    # the level counts follow the other filters, so a click on "errors" shows exactly that many
+    base = [r for r in rows if (not cat or inbox.category(r) == cat) and (not server or r["identifier"] == server)]
+    counts = {key: sum(1 for r in base if inbox.level(r) == key) for key in inbox.LEVELS}
+    shown = [r for r in base if not level or inbox.level(r) == level]
     items = [{"id": r["id"], "title": inbox.title(r), "level": inbox.level(r), "detail": r["detail"] or "",
+              "level_label": i18n.t(inbox.LEVELS.get(inbox.level(r), "Info")),
               "server": names.get(r["identifier"], r["identifier"]) if r["identifier"] else "",
               "when": fmt_dt(r["created_at"], settings.timezone), "read": bool(r["is_read"]),
               "link": inbox.link(user, r)}
-             for r in inbox.entries(user, only_unread=only_unread)]
+             for r in shown]
+    servers = sorted({(r["identifier"], names.get(r["identifier"], r["identifier"])) for r in rows if r["identifier"]},
+                     key=lambda kv: kv[1].casefold())
+    params = {"f": "unread" if only_unread else "", "level": level, "cat": cat, "server": server}
+
+    def url(**change) -> str:
+        query = {k: v for k, v in {**params, **change}.items() if v}
+        return "/notifications" + ("?" + "&".join(f"{k}={quote(v)}" for k, v in query.items()) if query else "")
     return render(request, "notifications.html", items=items, only_unread=only_unread,
-                  retention_days=inbox.RETENTION_DAYS)
+                  retention_days=inbox.RETENTION_DAYS, unread_errors=unread_errors, counts=counts,
+                  levels=[(key, i18n.t(label)) for key, label in inbox.LEVELS.items()],
+                  categories=[(key, i18n.t(label)) for key, (label, _events) in inbox.CATEGORIES.items()],
+                  servers=servers, flt=params, url=url, total=len(base),
+                  filtered=bool(level or cat or server))
 
 
 @app.post("/notifications/read-all")

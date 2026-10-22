@@ -1543,6 +1543,22 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
 .inbox-detail { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; white-space: pre-line; overflow-wrap: anywhere; }
 .inbox-actions { flex: none; display: flex; gap: 6px; }
 .inbox-actions form { margin: 0; }
+/* errors and warnings stand out: coloured edge and a written label, not only a coloured dot */
+.inbox-item.inbox-error { box-shadow: inset 3px 0 0 var(--red); }
+.inbox-item.inbox-warn { box-shadow: inset 3px 0 0 var(--amber); }
+.inbox-level { padding: 0 7px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 700; line-height: 18px;
+  background: var(--amber-bg, var(--hover-2)); color: var(--amber-fg, var(--text)); }
+.inbox-error .inbox-level { background: var(--red-bg); color: var(--red-fg); }
+.inbox-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.inbox-count { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line-2); background: var(--card); color: var(--muted); font-size: 13.5px; }
+.inbox-count strong { font-size: 17px; color: var(--strong); }
+.inbox-count-error:not(.is-empty) { border-color: var(--red-line); background: var(--red-bg); color: var(--red-fg); }
+.inbox-count-error:not(.is-empty) strong { color: var(--red-fg); }
+.inbox-count-warn:not(.is-empty) { border-color: var(--amber-line, var(--line-2)); }
+.inbox-count.is-current { outline: 2px solid var(--accent); outline-offset: 1px; }
+.inbox-count.is-empty { opacity: .6; }
+.inbox-alert a { font-weight: 600; }
 .inbox-empty .ico-ui { width: 32px; height: 32px; color: var(--faint); margin-bottom: 8px; }
 @media (max-width: 900px) {
   .bell { width: 44px; height: 44px; background: var(--card-2); border-color: var(--line-2); }

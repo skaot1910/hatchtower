@@ -56,6 +56,28 @@ COLORS = {"crash": 0xE11D48, "restart_failed": 0xE11D48, "restarted": 0x10B981, 
           "panel_up": 0x10B981, "new_server": 0x8B5CF6, "new_user": 0x8B5CF6, "backup_failed": 0xE11D48, "backup_ok": 0x10B981,
           "test": 0x8B5CF6}
 WEBHOOK_TYPES = ("discord", "generic")
+
+# Answers that mean the webhook itself is gone, so retrying is pointless: Discord deleted it (404) or its link is no
+# longer valid (401); any receiver may say so with 410 Gone. Everything else may be temporary and is only recorded.
+GONE_REASONS = {
+    404: "Discord kennt den Webhook nicht mehr (HTTP 404) – er wurde vermutlich in Discord gelöscht.",
+    401: "Discord lehnt den Webhook ab (HTTP 401) – der Link ist nicht mehr gültig.",
+    410: "Der Empfänger meldet, dass es den Webhook nicht mehr gibt (HTTP 410).",
+}
+
+
+def webhook_gone(kind: str, status: int) -> bool:
+    return status == 410 or (kind == "discord" and status in (401, 404))
+
+
+def gone_reason(code: int | None) -> str:
+    return i18n.t(GONE_REASONS.get(code or 0, "Webhook antwortet mit HTTP {code}"), code=code)
+
+
+class WebhookError(RuntimeError):
+    def __init__(self, message: str, status: int):
+        super().__init__(message)
+        self.status = status
 SECRET_KEY = ""      # setzt main.py; signiert die Abmeldelinks in den E-Mails
 
 
@@ -172,7 +194,7 @@ async def _post_webhook(url: str, kind: str, event: str, title: str, text: str, 
     async with httpx.AsyncClient(timeout=10) as http:
         response = await http.post(url, json=payload)
     if response.status_code >= 400:
-        raise RuntimeError(i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code))
+        raise WebhookError(i18n.t("Webhook antwortet mit HTTP {code}", code=response.status_code), response.status_code)
 
 
 async def deliver(vault, event: str, ident: str | None, detail: str = "", *, only: str | None = None,
@@ -208,6 +230,8 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
             except Exception as exc:
                 errors.append(f"Webhook „{hook['title']}“: {exc}")
                 _note_hook(hook["id"], str(exc) or exc.__class__.__name__)
+                if isinstance(exc, WebhookError) and webhook_gone(hook["kind"], exc.status):
+                    disable_webhook(hook, exc.status)
     if only in (None, "mail"):
         cfg = mailer.load_config(vault)
         recipients = _email_recipients(event, ident) if only is None else []
@@ -233,6 +257,17 @@ async def _deliver(vault, event: str, ident: str | None, detail: str, *, only: s
         # Otherwise nobody notices that a webhook or the mail server stopped working
         inbox.add("delivery_failed", "owner", None, "\n".join([title, *errors]), key="delivery", cooldown=3600)
     return errors
+
+
+def disable_webhook(hook, status: int) -> None:
+    """Switch off a webhook that is gone for good and tell the owners why (instead of failing on every event)."""
+    with db.connect() as con:
+        con.execute("UPDATE notify_webhooks SET enabled = 0, disabled_code = ?, disabled_at = ? WHERE id = ?",
+                    (status, db.utcnow(), hook["id"]))
+    inbox.add("webhook_disabled", "owner", None,
+              f"{hook['title']}: {gone_reason(status)} "
+              + i18n.t("Neuen Webhook unter System → Benachrichtigungen eintragen und wieder einschalten."))
+    log.warning("Webhook %s automatisch abgeschaltet: HTTP %s", hook["id"], status)
 
 
 def _note_hook(hook_id: int, error: str | None) -> None:

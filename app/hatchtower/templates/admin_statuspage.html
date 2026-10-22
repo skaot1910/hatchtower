@@ -69,16 +69,17 @@
   <h2 class="card-h">{{ _("In Discord anzeigen") }}</h2>
   <p class="faint small">{{ _("Hatchtower postet in jeden Kanal eine Nachricht (bei vielen Servern mehrere) und hält sie aktuell (Prüfung jede Minute). Jeder Kanal hat seine eigene Server-Auswahl und eigene Angaben – unabhängig von der Statusseite. Oben stehen Links zur Statusseite (wenn eingeschaltet) und zur Serververwaltung. Am besten jeweils einen eigenen Kanal nehmen, in dem nur Hatchtower schreibt.") }}</p>
   {% for x in feeds %}
-  <details class="feed" {% if feeds|length == 1 %}open{% endif %}>
+  <details class="feed" {% if feeds|length == 1 or x.disabled %}open{% endif %}>
     <summary>
       <strong>{{ x.f.name }}</strong>
-      {% if not x.f.enabled %}<span class="badge">{{ _("pausiert") }}</span>{% elif x.error %}<span class="badge badge-warn">{{ _("Fehler") }}</span>{% elif x.ok %}<span class="badge badge-ok">{{ _("aktuell") }}</span>{% endif %}
+      {% if x.disabled %}<span class="badge badge-bad">{{ _("automatisch abgeschaltet") }}</span>{% elif not x.f.enabled %}<span class="badge">{{ _("pausiert") }}</span>{% elif x.error %}<span class="badge badge-warn">{{ _("Fehler") }}</span>{% elif x.ok %}<span class="badge badge-ok">{{ _("aktuell") }}</span>{% endif %}
       <span class="faint small">{{ _("{n} Server", n=x.servers|length) }}</span>
     </summary>
     {% if x.f.enabled %}
       {% if x.error %}<p class="small bad">{{ _("Letzter Versuch fehlgeschlagen: {grund}", grund=x.error) }}</p>
       {% elif x.ok %}<p class="small good">{{ _("Zuletzt aktualisiert: {zeit}", zeit=x.ok) }}</p>{% endif %}
     {% endif %}
+    {% if x.disabled %}<p class="alert small">{{ _("Am {zeit} automatisch abgeschaltet: {grund}", zeit=x.disabled.at, grund=x.disabled.reason) }} {{ _("Trag unten einen neuen Webhook-Link ein, setz den Haken bei „Aktiv“ und speichere – dann verschwindet dieser Hinweis.") }}</p>{% endif %}
     <form method="post" action="/admin/statuspage/discord/{{ x.f.id }}" class="form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       {{ feed_fields(x.hint, x.f, servers, x.fields, x.servers) }}

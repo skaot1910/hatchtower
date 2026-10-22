@@ -5,7 +5,7 @@
 <div class="page-head">
   <div><h1>{{ _("Benachrichtigungen") }}</h1><p class="muted">{{ _("Meldungen zu deinen Servern und zu {brand}, die du sonst vielleicht nicht mitbekommst. Einträge werden nach {n} Tagen gelöscht.", brand=brand.product, n=retention_days) }}</p></div>
   <div class="head-tools">
-    <span class="view-switch" role="group" aria-label="{{ _("Filter") }}"><a href="/notifications"{% if not only_unread %} class="is-current" aria-current="true"{% endif %}>{{ _("Alle") }}</a><a href="/notifications?f=unread"{% if only_unread %} class="is-current" aria-current="true"{% endif %}>{{ _("Ungelesen") }}{% if inbox_unread %} ({{ inbox_unread }}){% endif %}</a></span>
+    <span class="view-switch" role="group" aria-label="{{ _("Filter") }}"><a href="{{ url(f="") }}"{% if not only_unread %} class="is-current" aria-current="true"{% endif %}>{{ _("Alle") }}</a><a href="{{ url(f="unread") }}"{% if only_unread %} class="is-current" aria-current="true"{% endif %}>{{ _("Ungelesen") }}</a></span>
     {% if inbox_unread %}
     <form method="post" action="/notifications/read-all">
       <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -15,6 +15,30 @@
   </div>
 </div>
 
+{% if unread_errors %}
+<div class="alert inbox-alert" role="alert"><strong>{{ _("1 ungelesener Fehler") if unread_errors == 1 else _("{n} ungelesene Fehler", n=unread_errors) }}</strong> – <a href="/notifications?f=unread&amp;level=error">{{ _("jetzt ansehen") }}</a></div>
+{% endif %}
+
+<div class="inbox-summary" role="group" aria-label="{{ _("Nach Wichtigkeit filtern") }}">
+  {% for key, label in levels %}
+  <a class="inbox-count inbox-count-{{ key }}{% if flt.level == key %} is-current{% endif %}{% if not counts[key] %} is-empty{% endif %}" href="{{ url(level="" if flt.level == key else key) }}"{% if flt.level == key %} aria-current="true"{% endif %}><strong>{{ counts[key] }}</strong> {{ label }}</a>
+  {% endfor %}
+</div>
+
+<form method="get" action="/notifications" class="filters list-filter">
+  {% if only_unread %}<input type="hidden" name="f" value="unread">{% endif %}
+  {% if flt.level %}<input type="hidden" name="level" value="{{ flt.level }}">{% endif %}
+  <label class="sr-only" for="f-cat">{{ _("Bereich") }}</label>
+  <select id="f-cat" name="cat"><option value="">{{ _("Alle Bereiche") }}</option>{% for key, label in categories %}<option value="{{ key }}" {% if flt.cat == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  {% if servers|length > 1 %}
+  <label class="sr-only" for="f-server">{{ _("Server") }}</label>
+  <select id="f-server" name="server"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in servers %}<option value="{{ ident }}" {% if flt.server == ident %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+  {% endif %}
+  <button class="btn btn-sm" type="submit">{{ _("Filtern") }}</button>
+  {% if filtered %}<a class="btn btn-ghost btn-sm" href="{{ url(level="", cat="", server="") }}">{{ _("Filter zurücksetzen") }}</a>{% endif %}
+  <span class="faint small list-count">{{ _("{n} von {total}", n=items|length, total=total) }}</span>
+</form>
+
 {% if items %}
 <ul class="card inbox-list">
   {% for e in items %}
@@ -22,6 +46,7 @@
     <span class="inbox-mark" aria-hidden="true"></span>
     <div class="inbox-body">
       <div class="inbox-head">
+        {% if e.level in ("error", "warn") %}<span class="inbox-level">{{ e.level_label }}</span>{% endif %}
         <strong class="inbox-title">{{ e.title }}</strong>
         {% if e.server %}<span class="inbox-server">{{ e.server }}</span>{% endif %}
         {% if not e.read %}<span class="inbox-new">{{ _("Neu") }}</span>{% endif %}
@@ -49,7 +74,7 @@
 {% else %}
 <div class="card empty inbox-empty">
   {{ ic.icon("bell") }}
-  <h2>{{ _("Keine ungelesenen Meldungen") if only_unread else _("Noch keine Meldungen") }}</h2>
+  <h2>{% if filtered %}{{ _("Keine Meldung passt zum Filter") }}{% elif only_unread %}{{ _("Keine ungelesenen Meldungen") }}{% else %}{{ _("Noch keine Meldungen") }}{% endif %}</h2>
   <p class="muted">{{ _("Hier erscheinen zum Beispiel Abstürze, fehlgeschlagene Backups und Fehler bei Benachrichtigungen.") }}</p>
 </div>
 {% endif %}

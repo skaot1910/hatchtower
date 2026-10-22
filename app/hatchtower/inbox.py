@@ -37,9 +37,28 @@ EVENTS = {
     "backup_partial": ("Backup mit Fehlern", "warn"),
     "statusfeed_failed": ("Discord-Serverstatus wird nicht aktualisiert", "error"),
     "statusfeed_ok": ("Discord-Serverstatus läuft wieder", "ok"),
+    "statusfeed_disabled": ("Discord-Serverstatus automatisch abgeschaltet", "error"),
+    "webhook_disabled": ("Webhook automatisch abgeschaltet", "error"),
     "delivery_failed": ("Benachrichtigung nicht zugestellt", "error"),
     "update": ("Neue Version verfügbar", "info"),
 }
+# How the inbox page groups and filters entries. Levels from the most to the least urgent.
+LEVELS = {"error": "Fehler", "warn": "Warnungen", "ok": "Erledigt", "info": "Info"}
+CATEGORIES = {
+    "server": ("Server", {"crash", "restarted", "restart_failed"}),
+    "schedule": ("Zeitpläne", {"schedule_failed"}),
+    "backup": ("Backups", {"backup_failed", "backup_partial"}),
+    "system": ("Panel und System", {"panel_down", "panel_up", "update"}),
+    "delivery": ("Zustellung und Discord", {"delivery_failed", "webhook_disabled", "statusfeed_failed",
+                                            "statusfeed_ok", "statusfeed_disabled"}),
+    "new": ("Neue Server und Benutzer", {"new_server", "new_user"}),
+}
+
+
+def category(row) -> str:
+    return next((key for key, (_label, events) in CATEGORIES.items() if row["event"] in events), "system")
+
+
 # Events from notify.emit that also go into the inbox, with their audience
 FROM_NOTIFY = {"crash": "server", "restarted": "server", "restart_failed": "server", "schedule_failed": "server",
                "panel_down": "owner", "panel_up": "owner", "new_server": "owner",
@@ -148,9 +167,9 @@ def link(user, row) -> str | None:
     event, ident = row["event"], row["identifier"]
     if event in ("panel_down", "panel_up"):
         return "/admin/system"
-    if event in ("statusfeed_failed", "statusfeed_ok"):
+    if event in ("statusfeed_failed", "statusfeed_ok", "statusfeed_disabled"):
         return "/admin/statuspage"
-    if event == "delivery_failed":
+    if event in ("delivery_failed", "webhook_disabled"):
         return "/admin/notify"
     if event == "update":
         return "/admin/updates"

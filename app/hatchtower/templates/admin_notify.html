@@ -43,13 +43,14 @@
   <h2 class="card-h">{{ _("Webhooks (z. B. Discord)") }}</h2>
   <p class="faint small">{{ _("Du kannst mehrere Webhooks anlegen, z. B. einen Discord-Kanal nur für Abstürze und einen für Backups. Titel und Beschreibung helfen dir, später zu erkennen, wohin welcher Webhook schreibt.") }}</p>
   {% for x in hooks %}
-  <details class="feed" {% if hooks|length == 1 %}open{% endif %}>
+  <details class="feed" {% if hooks|length == 1 or x.disabled %}open{% endif %}>
     <summary>
       <strong>{{ x.h.title }}</strong>
-      {% if not x.h.enabled %}<span class="badge">{{ _("pausiert") }}</span>{% endif %}
+      {% if x.disabled %}<span class="badge badge-bad">{{ _("automatisch abgeschaltet") }}</span>{% elif not x.h.enabled %}<span class="badge">{{ _("pausiert") }}</span>{% endif %}
       <span class="faint small">{{ "Discord" if x.h.kind == 'discord' else _("Allgemein (JSON)") }} · {{ _("{n} Ereignisse", n=x.events|length) }} · {% if x.servers %}{{ _("{n} Server", n=x.servers|length) }}{% else %}{{ _("alle Server") }}{% endif %}</span>
       {% if x.h.description %}<div class="faint small feed-desc">{{ x.h.description }}</div>{% endif %}
     </summary>
+    {% if x.disabled %}<p class="alert small">{{ _("Am {zeit} automatisch abgeschaltet: {grund}", zeit=x.disabled.at, grund=x.disabled.reason) }} {{ _("Trag unten einen neuen Webhook-Link ein, setz den Haken bei „Aktiv“ und speichere – dann verschwindet dieser Hinweis.") }}</p>{% endif %}
     <form method="post" action="/admin/notify/webhook/{{ x.h.id }}" class="form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       {{ hook_fields(x) }}
