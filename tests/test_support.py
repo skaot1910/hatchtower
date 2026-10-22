@@ -146,3 +146,17 @@ def test_journal_wiederholungen_zusammengefasst(world, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.count("HTTP 404") == 1 and "[×5, last 2026-10-22T17:04:11+02:00 host uvicorn[104]:]" in out
     assert "Started." in out
+
+
+def test_adressen_auch_am_satzende_und_ipv6():
+    cases = {
+        "answers at http://192.168.178.97.": "answers at http://<private-ip-1>.",
+        "(10.0.0.5) and 8.8.8.8, 1.1.1.1;": "(<private-ip-1>) and <public-ip-1>, <public-ip-2>;",
+        "wings at [2a01:4f8::1]:8080": "wings at [<public-ip-1>]:8080",
+        "https://panel.my-domain.de/ and panel.my-domain.de.": "https://<host-1>/ and <host-1>.",
+    }
+    for text, expected in cases.items():
+        assert support.anonymize(text) == expected, text
+    for keep in ("version 1.2.3.4.5", "at 12:30:00", "2026-10-22T21:35:45+00:00", "127.0.0.1", "::1",
+                 "smtp.gmail.com", "hatchtower.statusfeed", "backups.download", "main.py"):
+        assert support.anonymize(keep) == keep, keep

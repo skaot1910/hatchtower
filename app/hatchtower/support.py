@@ -50,6 +50,10 @@ class Text:
         self.lines.append(line)
 
 
+def _size(num: int) -> str:
+    return f"{num / 1024 ** 2:.1f} MiB" if num >= 1024 ** 2 else f"{num / 1024:.0f} KiB"
+
+
 def _when(value: str | None) -> str:
     return value or "–"
 
@@ -260,7 +264,7 @@ def backups_section(out: Text, state) -> None:
         detail = (r["detail"] or "").replace("\n", " ")[:300]
         size = r["size"] or r["data_bytes"] or 0
         out.add(f"- run #{r['id']} job #{r['job_id']} {r['identifier']} {r['kind']}/{r['trigger'] or 'manual'}"
-                f" {r['status']} · {r['files'] or 0} files, {size / 1024 ** 2:.1f} MiB"
+                f" {r['status']} · {r['files'] or 0} files, {_size(size)}"
                 f" · verified {'–' if r['verify_ok'] is None else ('ok' if r['verify_ok'] else 'FAILED')}"
                 f" · {_when(r['finished_at'] or r['queued_at'])}{' · ' + detail if detail else ''}")
     manager = getattr(state, "backups", None) if state is not None else None
@@ -295,7 +299,8 @@ def notifications_section(out: Text, vault) -> None:
     out.add("Last notifications raised (event:server, before the per-event cooldown):" if recent else
             "No notification raised yet.")
     for r in recent:
-        out.add(f"- {datetime.fromtimestamp(r['sent_at'], timezone.utc).isoformat(timespec='seconds')} {r['key']}")
+        key = r["key"][:-5] if r["key"].endswith(":None") else r["key"]
+        out.add(f"- {datetime.fromtimestamp(r['sent_at'], timezone.utc).isoformat(timespec='seconds')} {key}")
 
 
 def settings_section(out: Text) -> None:
@@ -418,7 +423,10 @@ def redact(text: str, known: list[str]) -> str:
 TLDS = ("com|net|org|de|at|ch|eu|io|gg|me|info|xyz|dev|cloud|host|online|site|live|fr|nl|be|pl|uk|co|tv|cc|us|ru|"
         "se|no|dk|fi|it|es|pt|cz|biz|pro|club|space|tech|network|server|games|lan|local|home|internal|arpa")
 HOST = re.compile(rf"\b(?:[a-z0-9](?:[a-z0-9-]{{0,61}}[a-z0-9])?\.)+(?:{TLDS})\b", re.IGNORECASE)
-IPV4 = re.compile(r"(?<![\d.])(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}(?![\d.])")
+# not part of a longer dotted number (a version like 1.2.3.4.5), but a full stop after it is fine
+IPV4 = re.compile(r"(?<![\d.])(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}(?!\d|\.\d)")
+IPV6 = re.compile(r"(?<![\w:])(?=[0-9a-f:]*::|(?:[0-9a-f]{1,4}:){7})[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}(?![\w:])",
+                  re.IGNORECASE)
 # well-known services: naming them reveals nothing about the user's own setup
 KEEP_HOSTS = {"discord.com", "discordapp.com", "github.com", "api.github.com", "gmail.com", "smtp.gmail.com",
               "googlemail.com", "outlook.com", "smtp.office365.com", "office365.com", "gmx.net", "mail.gmx.net",
@@ -436,7 +444,10 @@ def anonymize(text: str) -> str:
         return names[key]
 
     def ip(m: re.Match) -> str:
-        addr = ipaddress.ip_address(m.group(0))
+        try:
+            addr = ipaddress.ip_address(m.group(0))
+        except ValueError:                 # looked like an address, is none (e.g. a time like 12:30:00)
+            return m.group(0)
         if addr.is_loopback or addr.is_unspecified:
             return m.group(0)
         return label("private-ip" if addr.is_private else "public-ip", m.group(0))
@@ -446,7 +457,7 @@ def anonymize(text: str) -> str:
         if value.lower() in KEEP_HOSTS or value.lower().endswith(".example.com"):
             return value
         return label("host", value)
-    return HOST.sub(host, IPV4.sub(ip, text))
+    return HOST.sub(host, IPV6.sub(ip, IPV4.sub(ip, text)))
 
 
 def collapse(lines: list[str], prefix: re.Pattern | None = None) -> list[str]:
