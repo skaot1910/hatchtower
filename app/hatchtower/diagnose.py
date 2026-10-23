@@ -572,6 +572,9 @@ async def check_client(report: Report, cand: Candidate, client: PteroClient, app
          Msg("Hatchtower kann z. B. Beitrittspasswörter nicht automatisch anzeigen."), Msg("Recht „startup.read“")),
         ("activity", base + "/activity", {"per_page": 1}, OPTIONAL, Msg("Aktivität lesen"),
          Msg("Protokoll und Erkennung von Neustarts im Panel fehlen."), Msg("Recht „activity.read“")),
+        ("panel_backups", base + "/backups", {"page": 1, "per_page": 1}, OPTIONAL, Msg("Backups des Panels lesen"),
+         Msg("Die Backups, die das Panel selbst anlegt, erscheinen nicht unter „Gespeicherte Backups“."),
+         Msg("Recht „backups.read“") if panel.key == "calagopus" else Msg("Recht „backup.read“")),
     ]
     if panel.key == "calagopus":
         probes[2] = ("files", base + "/files/list", {"directory": "/", "page": 1, "per_page": 1}, *probes[2][3:])

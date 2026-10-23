@@ -315,18 +315,35 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
         return back(STORED, "Dieses Backup gibt es im Panel nicht (mehr).")
     client = app.state.ptero
     try:
-        url = await client.wings_url(await client.backup_download_url(ident, uuid))
+        url = await client.wings_url(await client.backup_download_url(ident, uuid, backup.get("streaming", False)))
+        # the first bytes tell the real format (the panel's storage decides it), so the file name fits
+        stream = client.stream_download(url)
+        first = await anext(stream, b"")
     except PteroError as exc:
         return back(STORED, str(exc))
-    ext, media = client.BACKUP_FORMAT
+    ext, media = archive_format(first, client.BACKUP_FORMAT)
     stamp = (backup["completed"] or backup["created"] or "")[:16].replace("T", "_").replace(":", "-")
     name = f"{backups.slug(names[ident])}-{backups.slug(backup['name'] or 'backup')}-{stamp}.{ext}"
     audit_user(request, user, "backup.panel_download", server=ident,
                detail={"backup": backup["name"], "panel": settings.panel.name, "groesse": backup["bytes"]})
     headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
-    if backup["bytes"] and ext == "tar.gz":       # Pterodactyl and Pelican report the size of the archive itself
+    if backup["bytes"] and client.BACKUP_SIZE_IS_ARCHIVE:
         headers["Content-Length"] = str(backup["bytes"])
-    return StreamingResponse(client.stream_download(url), media_type=media, headers=headers)
+
+    async def body():
+        yield first
+        async for chunk in stream:
+            yield chunk
+    return StreamingResponse(body(), media_type=media, headers=headers)
+
+
+ARCHIVE_MAGIC = ((b"PK\x03\x04", "zip", "application/zip"), (b"\x1f\x8b", "tar.gz", "application/gzip"),
+                 (b"\x28\xb5\x2f\xfd", "tar.zst", "application/zstd"), (b"\xfd7zXZ", "tar.xz", "application/x-xz"),
+                 (b"BZh", "tar.bz2", "application/x-bzip2"))
+
+
+def archive_format(first: bytes, default: tuple[str, str]) -> tuple[str, str]:
+    return next(((ext, media) for magic, ext, media in ARCHIVE_MAGIC if first.startswith(magic)), default)
 
 
 DOWNLOAD_KINDS = {"live": "Direktdownload (live)", "stored": "Gespeichertes Backup", "panel": "Panel-Backup"}

@@ -213,6 +213,7 @@ class PteroClient:
 
     # Backups the panel made itself (not Hatchtower's). Pterodactyl and Pelican deliver them as tar.gz.
     BACKUP_FORMAT = ("tar.gz", "application/gzip")
+    BACKUP_SIZE_IS_ARCHIVE = True        # the size the panel reports is that of the downloaded file
 
     async def list_backups(self, identifier: str) -> list[dict[str, Any]]:
         """The panel's backups of a server, newest first, in one shape for every panel."""
@@ -233,7 +234,7 @@ class PteroClient:
         backups.sort(key=lambda b: b["created"] or "", reverse=True)
         return backups
 
-    async def backup_download_url(self, identifier: str, uuid: str) -> str:
+    async def backup_download_url(self, identifier: str, uuid: str, streaming: bool = False) -> str:
         data = await self._get(f"/api/client/servers/{identifier}/backups/{uuid}/download", key="client")
         return (data or {}).get("attributes", {}).get("url", "")
 

@@ -71,7 +71,17 @@ def test_calagopus_liefert_zip():
     backups = asyncio.run(client.list_backups("abc"))
     assert backups[0]["name"] == "Nacht" and backups[0]["locked"] and seen["list"][2] == {"kind": "server"}
     assert asyncio.run(client.backup_download_url("abc", "u1")) == "https://node/download?token=t"
-    assert seen["download"][1] == {"archive_format": "zip"} and client.BACKUP_FORMAT[0] == "zip"
+    assert seen["download"][1] == {"archive_format": "tar_gz"}           # stored backup: as it is stored
+    asyncio.run(client.backup_download_url("abc", "u1", streaming=True))
+    assert seen["download"][1] == {"archive_format": "zip"}              # streaming backup: ZIP for everyone
+
+
+def test_format_an_den_ersten_bytes():
+    default = ("tar.gz", "application/gzip")
+    assert routes_backup.archive_format(b"PK\x03\x04rest", default)[0] == "zip"
+    assert routes_backup.archive_format(b"\x1f\x8b\x08\x00", default)[0] == "tar.gz"
+    assert routes_backup.archive_format(b"\x28\xb5\x2f\xfd", default)[0] == "tar.zst"
+    assert routes_backup.archive_format(b"????", default) == default
 
 
 def test_liste_wird_eine_minute_gemerkt(world, monkeypatch):

@@ -100,21 +100,24 @@ class CalagopusClient(PteroClient):
         files.sort(key=lambda f: (f["is_file"], f["name"].lower()))
         return files
 
-    # Calagopus streams a backup in any format; ZIP opens on every computer without extra software
-    BACKUP_FORMAT = ("zip", "application/zip")
+    # Calagopus can stream a backup as ZIP (opens on every computer without extra software), but only "streaming"
+    # backups; the others come as they are stored (usually tar.gz). The download names the real format.
+    BACKUP_FORMAT = ("tar.gz", "application/gzip")
+    BACKUP_SIZE_IS_ARCHIVE = False
 
     async def list_backups(self, identifier: str) -> list[dict[str, Any]]:
         backups = [{"uuid": b.get("uuid", ""), "name": b.get("name") or "", "bytes": int(b.get("bytes") or 0),
                     "successful": bool(b.get("is_successful")), "locked": bool(b.get("is_locked")),
-                    "created": b.get("created"), "completed": b.get("completed")}
+                    "created": b.get("created"), "completed": b.get("completed"),
+                    "streaming": bool(b.get("is_streaming"))}
                    for b in await self._pages(f"/api/client/servers/{identifier}/backups", "backups", key="client",
                                               params={"kind": "server"})]
         backups.sort(key=lambda b: b["created"] or "", reverse=True)
         return backups
 
-    async def backup_download_url(self, identifier: str, uuid: str) -> str:
+    async def backup_download_url(self, identifier: str, uuid: str, streaming: bool = False) -> str:
         data = await self._get(f"/api/client/servers/{identifier}/backups/{uuid}/download", key="client",
-                               params={"archive_format": "zip"})
+                               params={"archive_format": "zip" if streaming else "tar_gz"})
         return (data or {}).get("url", "")
 
     async def download_url(self, identifier: str, file: str) -> str:
