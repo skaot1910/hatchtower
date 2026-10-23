@@ -3,6 +3,29 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.40.0-pre.2 – 2026-10-23
+
+- Webhooks that Discord no longer knows (deleted: HTTP 404, link no longer valid: HTTP 401) are switched off
+  automatically instead of being retried on every event or every minute – for all notification webhooks and the
+  Discord server status. JSON webhooks are switched off on HTTP 410 only. Owners get an inbox message with the
+  reason, the webhook shows "switched off automatically" with date, reason and what to do; saving it with
+  "Active" ticked (usually with a new link) removes the notice. "Send test" says so too
+- Notifications (bell): counts per level on top (errors, warnings, resolved, info) that work as filters, filters
+  by area and server, a red notice for unread errors, and errors and warnings marked with a coloured edge and a label
+- Support report reviewed line by line:
+  - domains and IP addresses of your servers are replaced by placeholders by default (the same address always gets
+    the same placeholder, private and public stay distinguishable); "Send addresses unchanged" or
+    `hatchtower support --full` keeps them
+  - login times and the e-mail sender name are left out
+  - repeated log lines and audit entries show once with a count; the journals of all Hatchtower services are
+    included
+  - servers deleted in the panel are listed apart; webhooks show target host, last successful delivery and last
+    error (also for e-mail); updates section without colour codes and with the newest offered version
+- Schedules of servers deleted in the panel rest instead of failing with HTTP 404 and sending a failure
+  notification on every run; they run again if the server comes back
+- The daily database backup no longer counts as failed when another folder sits next to the backups
+- Database migrations 36 and 37 (delivery outcome of webhooks, automatic switch-off)
+
 ## 0.40.0-pre.1 – 2026-10-22
 
 - Save game download per server: whoever manages backup jobs sets it up on the server page ("Set up save-game
