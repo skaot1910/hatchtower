@@ -108,6 +108,7 @@ ACTION_LABELS = {
     "backup.run": "Backup gelaufen",
     "backup.warn": "Backup-Vorwarnung",
     "backup.save": "Spielstand vor dem Backup gespeichert",
+    "backup.panel_download": "Panel-Backup heruntergeladen",
     "backup.download": "Backup direkt heruntergeladen",
     "backup.file_download": "Gespeichertes Backup heruntergeladen",
     "backup.file_delete": "Gespeichertes Backup gelöscht",

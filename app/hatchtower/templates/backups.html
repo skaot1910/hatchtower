@@ -11,6 +11,7 @@
   <summary>{{ _("So funktionieren Backups") }}</summary>
   <ol class="small muted">
     <li>{{ _("Es gibt zwei Arten: Gespeicherte Backups landen auf einem Backup-Ziel (Laufwerk oder Netzlaufwerk) und lassen sich später herunterladen oder zurückspielen. Ein Direktdownload liest den aktuellen Stand direkt vom laufenden Server und lädt ihn sofort als ZIP herunter – gespeichert wird dabei nichts.") }}</li>
+    <li>{{ _("Dazu kommen die Backups, die {panel} selbst anlegt: Sie stehen unter „Gespeicherte Backups“ in einem eigenen Abschnitt und lassen sich von dort herunterladen. Sie liegen beim Panel, nicht bei Hatchtower.", panel=settings.panel.name) }}</li>
     <li>{{ _("Ein Backup-Job legt fest, was gesichert wird (ganzer Server oder einzelne Ordner), wohin (Backup-Ziel) und wann (von Hand oder nach Zeitplan).") }}</li>
     <li>{{ _("Jeder Lauf erzeugt pro Server eine ZIP-Datei auf dem Ziel. Danach liest Hatchtower die Datei noch einmal komplett und prüft jede enthaltene Datei („geprüft“). Erst dann gilt das Backup als fertig.") }}</li>
     <li>{{ _("„Mit Fehlern“ heißt: Einzelne Dateien fehlen oder sind unvollständig – welche, steht in der Zeile und in FEHLER.txt im ZIP.") }}</li>
@@ -214,9 +215,11 @@
 {% endif %}
 
 {% if tab == "/admin/backups/stored" %}
+<p class="muted backup-sources">{{ _("Hier stehen zwei verschiedene Arten von Backups: solche, die Hatchtower mit seinen Backup-Jobs erstellt und auf deinem Backup-Ziel speichert, und solche, die {panel} selbst erstellt und bei sich speichert. Beide lassen sich hier herunterladen.", panel=panel_name) }}</p>
+
 <section class="card" id="gespeichert">
-  <h2 class="card-h">{{ _("Gespeicherte Backups") }}</h2>
-  <p class="faint small">{{ _("Ein gespeichertes Backup ist ein fester Stand von einem bestimmten Zeitpunkt, abgelegt auf dem Backup-Ziel (Laufwerk oder Netzlaufwerk). Es bleibt erhalten, auch wenn sich der Server danach ändert – deshalb lässt es sich herunterladen oder zurückspielen.") }}{% if ("/admin/backups/downloads", "Downloads") in page_tabs %} {{ _("Den Stand von jetzt holst du dagegen unter „Downloads“ direkt vom Server.") }}{% endif %}</p>
+  <h2 class="card-h">{{ _("Von Hatchtower erstellt") }} <span class="badge">{{ _("gespeichert auf deinem Backup-Ziel") }}</span></h2>
+  <p class="faint small">{{ _("Diese Backups legt Hatchtower mit seinen Backup-Jobs an und speichert sie auf dem Backup-Ziel (Laufwerk oder Netzlaufwerk). Jedes ist ein fester Stand von einem bestimmten Zeitpunkt – deshalb lassen sie sich herunterladen und auf den Server zurückspielen.") }}{% if ("/admin/backups/downloads", "Downloads") in page_tabs %} {{ _("Den Stand von jetzt holst du dagegen unter „Downloads“ direkt vom Server.") }}{% endif %}</p>
   {% if runs_total %}
   <form method="get" action="/admin/backups/stored" class="filters list-filter">
     <label class="sr-only" for="f-server">{{ _("Server") }}</label>
@@ -276,6 +279,32 @@
   {% elif runs_total %}<p class="faint">{{ _("Kein Backup passt zum Filter.") }}</p>
   {% else %}<p class="faint">{{ _("Noch keine Backups gelaufen.") }}</p>{% endif %}
 </section>
+
+<section class="card" id="panel-backups">
+  <h2 class="card-h">{{ _("Von {panel} erstellt", panel=panel_name) }} <span class="badge">{{ _("gespeichert bei {panel}", panel=panel_name) }}</span></h2>
+  <p class="faint small">{{ _("Diese Backups hat {panel} selbst angelegt – im Panel von Hand oder über seine eigenen Zeitpläne. Sie liegen dort, wo {panel} Backups speichert (meist auf dem Wings-Server), nicht bei Hatchtower. Ein solches Backup enthält immer den ganzen Server. Hatchtower zeigt sie an und lädt sie für dich herunter; anlegen, zurückspielen und löschen geht im Panel.", panel=panel_name) }}</p>
+  {% set any_panel = panel|selectattr("backups")|list %}
+  {% for p in panel if p.error %}<p class="alert small">{{ _("{server}: Backups im Panel nicht lesbar – {grund}", server=p.server, grund=p.error) }}</p>{% endfor %}
+  {% if any_panel %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Erstellt") }}</th><th>{{ _("Server") }}</th><th>{{ _("Name") }}</th><th>{{ _("Ergebnis") }}</th><th class="num">{{ _("Größe") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for p in any_panel %}{% for b in p.backups %}
+      <tr>
+        <td class="nowrap faint small">{{ b.at }}</td>
+        <td data-label="{{ _("Server") }}">{{ p.server }}</td>
+        <td data-label="{{ _("Name") }}">{{ b.name or "–" }}{% if b.locked %} <span class="badge" title="{{ _("Im Panel gesperrt: wird von dessen Aufbewahrung nicht gelöscht.") }}">{{ _("gesperrt") }}</span>{% endif %}</td>
+        <td data-label="{{ _("Ergebnis") }}">{% if not b.completed %}<span class="backup-status backup-status-running">{{ _("läuft") }}</span>{% elif b.successful %}<span class="backup-status backup-status-ok">{{ _("fertig") }}</span>{% else %}<span class="backup-status backup-status-error">{{ _("fehlgeschlagen") }}</span>{% endif %}</td>
+        <td class="num nowrap" data-label="{{ _("Größe") }}">{{ b.size or "–" }}</td>
+        <td class="num row-actions">{% if b.can_download %}<a class="chip chip-sm chip-ghost" href="/admin/backups/panel/{{ p.ident }}/{{ b.uuid }}/download" title="{{ _("Wird über Hatchtower aus dem Panel geladen.") }}">{{ _("Herunterladen") }}</a>{% endif %}</td>
+      </tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="faint">{{ _("{panel} hat für deine Server noch keine Backups angelegt.", panel=panel_name) }}</p>{% endif %}
+</section>
 {% endif %}
 
 {% if tab == "/admin/backups/downloads" %}
@@ -332,7 +361,7 @@
       <tr>
         <td class="nowrap faint small">{{ x.at }}</td>
         <td data-label="{{ _("Art") }}"><span class="badge">{{ x.kind_label }}</span></td>
-        <td data-label="{{ _("Job") }}">{{ x.job or "–" }}{% if x.kind == "stored" and x.detail %}<div class="faint small mono">{{ x.detail }}</div>{% endif %}</td>
+        <td data-label="{{ _("Job") }}">{{ x.job or "–" }}{% if x.kind in ("stored", "panel") and x.detail %}<div class="faint small mono">{{ x.detail }}</div>{% endif %}</td>
         <td data-label="{{ _("Server") }}">{{ x.server }}</td>
         <td data-label="{{ _("Wer") }}">{{ x.who }}</td>
         <td data-label="{{ _("Ergebnis") }}"><span class="backup-status backup-status-{{ x.status }}">{{ x.status_label }}</span>{% if x.size_text %} <span class="faint small">{{ x.size_text }}</span>{% endif %}{% if x.kind == "live" and x.detail %}<div class="faint small backup-detail">{{ x.detail }}</div>{% endif %}</td>

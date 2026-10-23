@@ -10,6 +10,7 @@ import asyncio
 import json
 import posixpath
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
@@ -244,7 +245,9 @@ async def backups_stored_page(request: Request):
     } for r in run_page]
     for x in run_list:                 # Auswahlkästchen nur, wo eine Sammelaktion möglich ist
         x["can_select"] = x["can_delete"] or x["can_verify"]
-    return render_backups(request, user, base, runs=run_list, runs_total=len(visible_runs),
+    panel = await panel_backups(user, names, run_filter["server"])
+    return render_backups(request, user, base, panel=panel, panel_name=settings.panel.name,
+                          runs=run_list, runs_total=len(visible_runs),
                           runs_count=len(filtered_runs), runs_pager=runs_pager,
                           run_filter={**run_filter, "active": any(run_filter.values())},
                           run_servers=server_choices(visible_runs, names),
@@ -252,7 +255,81 @@ async def backups_stored_page(request: Request):
                           status_options=status_options(), runs_reset=base)
 
 
-DOWNLOAD_KINDS = {"live": "Direktdownload (live)", "stored": "Gespeichertes Backup"}
+# -- Backups made by the panel (Pterodactyl, Pelican, Calagopus) -------------------------------------
+# Not Hatchtower's: the panel creates them (by hand, by its own schedules) and keeps them where it stores
+# backups, usually on the Wings server. Hatchtower only lists them and streams a download.
+
+PANEL_CACHE_SECONDS = 60        # one listing per server and minute at most: the panel's rate limit is shared
+_panel_cache: dict[str, tuple[float, list | str]] = {}
+
+
+async def panel_backups_of(ident: str) -> list | str:
+    """The panel's backups of one server, or the error text. Cached for a minute."""
+    hit = _panel_cache.get(ident)
+    if hit and time.monotonic() - hit[0] < PANEL_CACHE_SECONDS:
+        return hit[1]
+    try:
+        result: list | str = await app.state.ptero.list_backups(ident)
+    except PteroError as exc:
+        result = str(exc)
+    _panel_cache[ident] = (time.monotonic(), result)
+    return result
+
+
+async def panel_backups(user, names: dict, only: str = "") -> list[dict]:
+    """Per server this user may see stored backups of: the panel's backups (or why they could not be read)."""
+    idents = [i for i in sorted(names, key=lambda i: names[i].casefold())
+              if has(user, i, "backups.list") and (not only or i == only)]
+    gate = asyncio.Semaphore(4)
+
+    async def one(ident: str):
+        async with gate:
+            return await panel_backups_of(ident)
+    results = await asyncio.gather(*(one(i) for i in idents))
+    out = []
+    for ident, result in zip(idents, results):
+        if isinstance(result, str):
+            out.append({"ident": ident, "server": names[ident], "error": result, "backups": []})
+            continue
+        if not result:
+            continue
+        can_download = has(user, ident, "backups.download")
+        out.append({"ident": ident, "server": names[ident], "error": None, "backups": [{
+            **b, "size": fmt_size(b["bytes"]) if b["bytes"] else "",
+            "at": fmt_dt(b["completed"] or b["created"], settings.timezone),
+            "can_download": can_download and b["successful"] and bool(b["completed"])} for b in result]})
+    return out
+
+
+@app.get("/admin/backups/panel/{ident}/{uuid}/download")
+async def panel_backup_download(request: Request, ident: str, uuid: str):
+    """Download a backup the panel made, streamed through Hatchtower (Wings is often not reachable from outside)."""
+    user = require_backups(request, "backups.download")
+    names = server_names()
+    if ident not in names or not has(user, ident, "backups.download"):
+        deny(request, user, "backups.download", ident if ident in names else None)
+    found = await panel_backups_of(ident)
+    backup = next((b for b in found if b["uuid"] == uuid), None) if isinstance(found, list) else None
+    if backup is None:
+        _panel_cache.pop(ident, None)            # maybe brand new: look again next time
+        return back(STORED, "Dieses Backup gibt es im Panel nicht (mehr).")
+    client = app.state.ptero
+    try:
+        url = await client.wings_url(await client.backup_download_url(ident, uuid))
+    except PteroError as exc:
+        return back(STORED, str(exc))
+    ext, media = client.BACKUP_FORMAT
+    stamp = (backup["completed"] or backup["created"] or "")[:16].replace("T", "_").replace(":", "-")
+    name = f"{backups.slug(names[ident])}-{backups.slug(backup['name'] or 'backup')}-{stamp}.{ext}"
+    audit_user(request, user, "backup.panel_download", server=ident,
+               detail={"backup": backup["name"], "panel": settings.panel.name, "groesse": backup["bytes"]})
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
+    if backup["bytes"] and ext == "tar.gz":       # Pterodactyl and Pelican report the size of the archive itself
+        headers["Content-Length"] = str(backup["bytes"])
+    return StreamingResponse(client.stream_download(url), media_type=media, headers=headers)
+
+
+DOWNLOAD_KINDS = {"live": "Direktdownload (live)", "stored": "Gespeichertes Backup", "panel": "Panel-Backup"}
 REPEAT_SECONDS = 120     # Safari fetches one download in several requests: count them once
 
 
@@ -267,7 +344,8 @@ def download_history(user) -> list[dict]:
                          "who": r["started_name"] or "–", "status": r["status"],
                          "size": r["size"] or r["data_bytes"], "detail": r["detail"] or ""})
     with db.connect() as con:
-        audit_rows = con.execute("SELECT ts, username, server, detail FROM audit_log WHERE action = 'backup.file_download'"
+        audit_rows = con.execute("SELECT ts, username, server, detail, action FROM audit_log"
+                                 " WHERE action IN ('backup.file_download', 'backup.panel_download')"
                                  " AND result = 'ok' ORDER BY id DESC LIMIT ?", (HISTORY_MAX,)).fetchall()
     names = server_names()
     last: dict[tuple, datetime] = {}
@@ -279,13 +357,17 @@ def download_history(user) -> list[dict]:
             at = datetime.fromisoformat(a["ts"])
         except ValueError:
             continue
-        key = (a["username"], info.get("datei"))
+        panel = a["action"] == "backup.panel_download"
+        key = (a["username"], info.get("backup") if panel else info.get("datei"))
         if key in last and (last[key] - at).total_seconds() < REPEAT_SECONDS:
             continue
         last[key] = at
-        rows.append({"ts": a["ts"], "kind": "stored", "job": info.get("job") or "", "ident": a["server"],
+        rows.append({"ts": a["ts"], "kind": "panel" if panel else "stored",
+                     "job": i18n.t("erstellt von {panel}", panel=info.get("panel") or settings.panel.name) if panel
+                     else info.get("job") or "", "ident": a["server"],
                      "server": names.get(a["server"], a["server"]), "who": a["username"] or "–", "status": "ok",
-                     "size": None, "detail": posixpath.basename(info.get("datei") or "")})
+                     "size": info.get("groesse") if panel else None,
+                     "detail": info.get("backup") if panel else posixpath.basename(info.get("datei") or "")})
     rows.sort(key=lambda x: x["ts"] or "", reverse=True)
     return rows
 

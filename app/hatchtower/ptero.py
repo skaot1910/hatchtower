@@ -211,6 +211,32 @@ class PteroClient:
         files.sort(key=lambda f: (f["is_file"], f["name"].lower()))
         return files
 
+    # Backups the panel made itself (not Hatchtower's). Pterodactyl and Pelican deliver them as tar.gz.
+    BACKUP_FORMAT = ("tar.gz", "application/gzip")
+
+    async def list_backups(self, identifier: str) -> list[dict[str, Any]]:
+        """The panel's backups of a server, newest first, in one shape for every panel."""
+        backups: list[dict[str, Any]] = []
+        page = 1
+        while page <= 20:
+            data = await self._get(f"/api/client/servers/{identifier}/backups", key="client",
+                                   params={"page": page, "per_page": 50})
+            for item in data.get("data", []) if isinstance(data, dict) else []:
+                a = item.get("attributes", {})
+                backups.append({"uuid": a.get("uuid", ""), "name": a.get("name") or "", "bytes": int(a.get("bytes") or 0),
+                                "successful": bool(a.get("is_successful")), "locked": bool(a.get("is_locked")),
+                                "created": a.get("created_at"), "completed": a.get("completed_at")})
+            pagination = (data or {}).get("meta", {}).get("pagination", {})
+            if page >= int(pagination.get("total_pages", 1) or 1):
+                break
+            page += 1
+        backups.sort(key=lambda b: b["created"] or "", reverse=True)
+        return backups
+
+    async def backup_download_url(self, identifier: str, uuid: str) -> str:
+        data = await self._get(f"/api/client/servers/{identifier}/backups/{uuid}/download", key="client")
+        return (data or {}).get("attributes", {}).get("url", "")
+
     async def download_url(self, identifier: str, file: str) -> str:
         data = await self._get(
             f"/api/client/servers/{identifier}/files/download", key="client", params={"file": file}

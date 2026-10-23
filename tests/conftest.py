@@ -100,6 +100,14 @@ class FakePtero(PteroClient):
             return b"hallo\n"
         if path.endswith("/files/download") or path.endswith("/files/upload"):
             return {"attributes": {"url": "https://wings.test/x?token=t"}}
+        if path.endswith("/backups"):            # backups the panel made itself
+            return {"data": [{"attributes": {"uuid": "pb-1", "name": "Panel-Sicherung", "bytes": 1234,
+                                             "is_successful": True, "is_locked": False,
+                                             "created_at": "2026-10-20T10:00:00+00:00",
+                                             "completed_at": "2026-10-20T10:01:00+00:00"}}],
+                    "meta": {"pagination": {"total_pages": 1}}}
+        if "/backups/" in path and path.endswith("/download"):
+            return {"attributes": {"url": "https://wings.test/backup?token=t"}}
         if path.endswith("/websocket"):
             return {"data": {"token": "t", "socket": "wss://wings.test/ws"}}
         if path.endswith("/resources"):
@@ -245,6 +253,8 @@ def world(monkeypatch, tmp_path) -> World:
     path = tmp_path / "hatchtower.db"
     shutil.copy(_TEMPLATE, path)
     db.init(path)
+    from hatchtower import routes_backup
+    routes_backup._panel_cache.clear()          # the panel's backup list is cached per server for a minute
 
     s = main.settings
     monkeypatch.setattr(s, "data_dir", tmp_path)
@@ -325,7 +335,7 @@ def world(monkeypatch, tmp_path) -> World:
     invite = accounts.create("invite", data={"role": "user"}, created_by=1)
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
-        "job_id": str(jid), "direct_job_id": str(djid), "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
+        "job_id": str(jid), "direct_job_id": str(djid), "uuid": "pb-1", "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
         "token_hash": accounts._hash(invite), "kind": "login", "page": "impressum", "key": "hell", "mode": "simple", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,
