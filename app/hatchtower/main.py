@@ -1388,6 +1388,8 @@ async def files_download(request: Request, ident: str, file: str):
         # part requests go on to Wings (Safari's download manager asks for parts, see ptero.wings_stream)
         status, wings_headers, stream = await app.state.ptero.wings_stream(url, part)
     except PteroError as exc:
+        downloads.log.warning("Download Datei %s (%s) fehlgeschlagen: %s: %s", path, ident,
+                              downloads.device(request.headers.get("user-agent")), exc)
         audit.record("files.download", result="error", user_id=user.id, username=user.username,
                      ip=ip_of(request), server=ident, detail=f"{path}: {exc}")
         return render(request, "error.html", status=502, title="Download fehlgeschlagen", message=str(exc))

@@ -317,11 +317,16 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
     client = app.state.ptero
     part = request.headers.get("range")
     try:
-        url = await client.backup_download_url(ident, uuid, backup.get("streaming", False))
-        status, wings_headers, stream = await client.wings_stream(url, part)
+        status, wings_headers, stream = await fresh_link_stream(
+            lambda: client.backup_download_url(ident, uuid, backup.get("streaming", False)), part)
         # the first bytes tell the real format (the panel's storage decides it), so the file name fits
         first = await anext(stream, b"")
     except PteroError as exc:
+        downloads.log.warning("Download Panel-Backup %s (%s) fehlgeschlagen: %s: %s", backup["name"], ident,
+                              downloads.device(request.headers.get("user-agent")), exc)
+        if downloads.counts(part):
+            audit_user(request, user, "backup.panel_download", result="error", server=ident,
+                       detail={"backup": backup["name"], "panel": settings.panel.name, "fehler": str(exc)})
         return back(STORED, str(exc))
     if not part or part.replace(" ", "").startswith("bytes=0-"):    # the stream starts at the file's beginning
         _panel_formats[uuid] = archive_format(first, client.BACKUP_FORMAT)
@@ -350,6 +355,19 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
     return StreamingResponse(downloads.tracked(content, f"Panel-Backup {name}", request.headers.get("user-agent"),
                                                status, part, int(headers.get("Content-Length") or 0) or None),
                              status_code=status, media_type=media, headers=headers)
+
+
+async def fresh_link_stream(get_url, part: str | None):
+    """Wings accepts a download link exactly once and answers 404 the second time. Should that happen (a link
+    used by something in between), ask the panel for a new link and try once more; a missing backup stays 404."""
+    client = app.state.ptero
+    try:
+        return await client.wings_stream(await get_url(), part)
+    except PteroError as exc:
+        if exc.status != 404:
+            raise
+        downloads.log.info("Wings antwortet mit 404, neuer Versuch mit frischem Link: %s", exc)
+        return await client.wings_stream(await get_url(), part)
 
 
 _panel_formats: dict[str, tuple[str, str]] = {}    # format seen at the start of a download, for its part requests

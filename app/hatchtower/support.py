@@ -33,7 +33,6 @@ PERSONAL = {"mail_from_name"}           # not needed to find a problem, may be a
 EMAIL = re.compile(r"[\w.+-]+@([\w-]+\.)+[\w-]+")
 MIN_SECRET = 6            # shorter values are not searched (they would match ordinary words and numbers)
 PACKAGES = ("fastapi", "starlette", "uvicorn", "httpx", "websockets", "jinja2", "cryptography")
-STARTED = time.time()
 
 
 class Text:
@@ -90,7 +89,8 @@ def overview(out: Text, settings, web: bool) -> None:
     out.kv("System", f"{os_name}, kernel {platform.release()}, {platform.machine()}")
     out.kv("Virtualisation", _run(["systemd-detect-virt"]) or "unknown")
     if web:
-        out.kv("Process running for", f"{int((time.time() - STARTED) // 3600)} h {int((time.time() - STARTED) % 3600 // 60)} min")
+        up = time.time() - logbuffer.STARTED
+        out.kv("Process running for", f"{int(up // 3600)} h {int(up % 3600 // 60)} min")
     with db.connect() as con:
         out.kv("Database schema", con.execute("PRAGMA user_version").fetchone()[0])
     try:

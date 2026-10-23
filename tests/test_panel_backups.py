@@ -136,3 +136,29 @@ def test_range_auswerten():
     assert parse_range("bytes=100-", 100) is False
     assert parse_range("bytes=0-1,5-6", 100) is None              # several ranges: send everything
     assert parse_range(None, 100) is None
+
+
+def test_fehler_von_wings_wird_gezeigt_und_festgehalten(world, monkeypatch):
+    async def gone(url, range_header=None):
+        raise PteroError("Wings antwortet mit HTTP 404: The requested backup was not found on this server.", 404)
+    monkeypatch.setattr(world.ptero, "wings_stream", gone)
+    c = world.client(world.user("lader", grants={"srv-a": {"backups.download"}}))
+    r = c.get("/admin/backups/panel/srv-a/pb-1/download")
+    assert r.status_code == 303 and "backup%20was%20not%20found" in r.headers["location"]
+    entry = world.audit("backup.panel_download")[-1]
+    assert entry["result"] == "error" and "not found" in entry["detail"]
+
+
+def test_einmal_link_wird_einmal_erneuert(world, monkeypatch):
+    real = world.ptero.wings_stream
+    calls = []
+
+    async def once_used(url, range_header=None):
+        calls.append(url)
+        if len(calls) == 1:          # the first link was already used: Wings says 404
+            raise PteroError("Wings antwortet mit HTTP 404: The requested resource was not found on this server.", 404)
+        return await real(url, range_header)
+    monkeypatch.setattr(world.ptero, "wings_stream", once_used)
+    c = world.client(world.user("lader", grants={"srv-a": {"backups.download"}}))
+    r = c.get("/admin/backups/panel/srv-a/pb-1/download")
+    assert r.status_code == 200 and len(calls) == 2

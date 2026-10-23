@@ -581,10 +581,19 @@ class PteroClient:
             await http.aclose()
             raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
         if response.status_code >= 400 and response.status_code != 416:
-            await response.aclose()
-            await http.aclose()
-            raise PteroError(t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=response.status_code),
-                             response.status_code)
+            # keep Wings' own reason (e.g. "backup not found" vs. a used link), it tells what went wrong
+            try:
+                await response.aread()
+                message = _error_text(response, "Wings")
+            except httpx.HTTPError:
+                message = t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=response.status_code)
+            finally:
+                await response.aclose()
+                await http.aclose()
+            parts = urlsplit(url)
+            log.warning("Download von Wings fehlgeschlagen: %s://%s%s → %s", parts.scheme, parts.netloc, parts.path,
+                        message)
+            raise PteroError(message, response.status_code)
 
         async def body() -> AsyncIterator[bytes]:
             try:
@@ -614,7 +623,7 @@ class PteroClient:
             raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
 
 
-def _error_text(response: httpx.Response) -> str:
+def _error_text(response: httpx.Response, source: str | None = None) -> str:
     """Fehlermeldung aus einer Panel- oder Wings-Antwort, ohne Rohdaten durchzureichen."""
     detail = request_id = ""
     try:
@@ -629,7 +638,7 @@ def _error_text(response: httpx.Response) -> str:
             request_id = str(body.get("request_id") or "")
     except ValueError:
         pass
-    source = "Wings" if request_id or "/upload/" in str(response.request.url) else panel_name()
+    source = source or ("Wings" if request_id or "/upload/" in str(response.request.url) else panel_name())
     text = t("{quelle} antwortet mit HTTP {code}", quelle=source, code=response.status_code)
     if detail:
         text += f": {detail[:200]}"

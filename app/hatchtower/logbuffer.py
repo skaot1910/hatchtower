@@ -14,6 +14,7 @@ MAX_LINES = 1000
 _TOKEN = re.compile(r"((?:token|signature|key|password)=)[^&\s\"']+", re.IGNORECASE)
 
 _lines: deque[str] = deque(maxlen=MAX_LINES)
+STARTED = time.time()            # imported at start-up by main, so this is when the process started
 
 
 class _Handler(logging.Handler):
