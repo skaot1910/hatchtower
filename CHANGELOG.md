@@ -3,62 +3,56 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
-## 0.40.0-pre.2 – 2026-10-23
+## 0.40.0 – 2026-10-23
 
-- Webhooks that Discord no longer knows (deleted: HTTP 404, link no longer valid: HTTP 401) are switched off
-  automatically instead of being retried on every event or every minute – for all notification webhooks and the
-  Discord server status. JSON webhooks are switched off on HTTP 410 only. Owners get an inbox message with the
-  reason, the webhook shows "switched off automatically" with date, reason and what to do; saving it with
-  "Active" ticked (usually with a new link) removes the notice. "Send test" says so too
-- Notifications (bell): counts per level on top (errors, warnings, resolved, info) that work as filters, filters
-  by area and server, a red notice for unread errors, and errors and warnings marked with a coloured edge and a label
-- Support report reviewed line by line:
-  - domains and IP addresses of your servers are replaced by placeholders by default (the same address always gets
-    the same placeholder, private and public stay distinguishable); "Send addresses unchanged" or
-    `hatchtower support --full` keeps them
-  - login times and the e-mail sender name are left out
-  - repeated log lines and audit entries show once with a count; the journals of all Hatchtower services are
-    included
-  - servers deleted in the panel are listed apart; webhooks show target host, last successful delivery and last
-    error (also for e-mail); updates section without colour codes and with the newest offered version
-- Schedules of servers deleted in the panel rest instead of failing with HTTP 404 and sending a failure
-  notification on every run; they run again if the server comes back
-- The daily database backup no longer counts as failed when another folder sits next to the backups
-- Database migrations 36 and 37 (delivery outcome of webhooks, automatic switch-off)
+Includes everything from 0.39.2-pre.1, 0.40.0-pre.1 and 0.40.0-pre.2. Database migrations 35–37 run on their own.
 
-## 0.40.0-pre.1 – 2026-10-22
-
+**Backups and downloads**
+- Backups made by the panel itself (Pterodactyl, Pelican, Calagopus) show under Backups → Stored backups in their own
+  section "Created by …", clearly apart from the ones Hatchtower creates and stores on your backup target. Whoever may
+  see or download stored backups may see or download these too; downloads go through Hatchtower, so they also work when
+  Wings cannot be reached from outside, and the file is named after its real format (.tar.gz, .zip, …). Calagopus keys
+  need `backups.read` and `backups.download`; the connection check says whether the key may read them
 - Save game download per server: whoever manages backup jobs sets it up on the server page ("Set up save-game
-  download", then pick the folder in the file browser). Everyone with the right "Direct download from the live
-  system" then sees "Download save game" on the server page – one click, a ZIP of the current save, nothing stored
-- Save first, without stopping: backup jobs that do not stop the server can send a save command to the console
-  (e.g. `save-all` for Minecraft, `save` for Terraria) and wait 5–120 seconds before reading the files, so the save
-  is fresh and complete and nobody gets kicked. Only someone with "Send commands" can set the command; anyone with
-  the right to run the job can run it
-- Support report under System → Status ("Download support report" / "View in the browser") and on the command line
-  as `hatchtower support`: one text file with version, system, the full connection check, Wings nodes, servers,
-  permissions (users as numbers), automation, backups, notifications, settings, recent problems from the audit log
-  and the last log lines; the command line adds service status and the system journal. It contains no API keys,
-  passwords, tokens, webhook or invitation links, join passwords, e-mail addresses or user names: secret settings
-  are left out, and every known secret value is searched in the finished text and replaced by ***
-- Includes everything from 0.39.2-pre.1
-- Database migration 35 (save command and save-game job of a server)
+  download", then pick the folder in the file browser); everyone with "Direct download from the live system" then
+  sees "Download save game" there – one click, a ZIP of the current save, nothing stored
+- Save first, without stopping: jobs that do not stop the server can send a save command to the console (e.g.
+  `save-all`, `save`) and wait 5–120 seconds before reading the files. Only someone with "Send commands" sets it
+- Downloads on iPhone/iPad: Safari asks for a file in parts and failed ("Download failed") because Wings sends the whole
+  file to every part request. Hatchtower now answers part requests itself, for panel backups and files; Chrome,
+  Firefox and Edge can resume a broken download. One download counts once in the audit log and history, and every
+  download is logged with device, browser and whether it finished. Over plain http:// a note explains the browsers'
+  "insecure download" warning
 
-## 0.39.2-pre.1 – 2026-10-22
+**Notifications and webhooks**
+- Webhooks that Discord no longer knows (deleted: HTTP 404, link invalid: HTTP 401; JSON webhooks: HTTP 410) are
+  switched off automatically instead of being retried forever – all notification webhooks and the Discord server
+  status. Owners get an inbox message with the reason, the webhook shows "switched off automatically" with date and
+  reason; saving it again with "Active" removes the notice. "Send test" says so too
+- Notifications (bell): counts per level on top that work as filters, filters by area and server, a red notice for
+  unread errors, errors and warnings marked with a coloured edge and a label
+- Webhooks and e-mail remember their last successful delivery and last error
 
-- Status polling respects the panel's rate limit: it costs one request per server, and with a low limit
-  (e.g. 128 per minute) the monitor alone used it up from about 20 servers on. The interval now stretches
-  (up to 45 s) so the monitor uses at most half of the limit the panel reports. System → Overview shows the
-  current poll interval and how many requests per minute are left
-- The rate limit Hatchtower paces itself by (monitoring, backups, file search index) now only comes from the
-  client key's general limit. Before, answers to the application key or the console route (Pterodactyl and Pelican
-  limit `/websocket` to 5 per minute) could replace it, so backups paused or ran on without reason
-- Renaming or moving onto a name that already exists is refused with a clear message on every panel. Pterodactyl
-  refused it, Pelican answered with a bare error 500 and Calagopus reported success without doing anything
-- Console archive: exception names such as `NullPointerException` or `OutOfMemoryError` are marked as errors
-- Console: a malformed stats message from Wings no longer ends the connection
-- Imprint/privacy page: a web address containing `@` no longer produces a broken link
-- Many new tests (data transfer, monitoring, schedules, crash restart, console archive, command line)
+**Support report**
+- New under System → Status ("Download support report" / "View in the browser") and as `hatchtower support` on the
+  command line: one text file with version, system, the full connection check, Wings nodes, servers, permissions
+  (users as numbers), automation, backups, notifications, settings, recent problems and the last log lines; the
+  command line adds service status and the journals of all Hatchtower services
+- It contains no keys, passwords, tokens, links with access codes, e-mail addresses, user names or login times;
+  every known secret is searched in the finished text and replaced by ***. Domains and IP addresses become
+  placeholders (the same address always gets the same one); "Send addresses unchanged" or `--full` keeps them.
+  Repeated log lines and audit entries show once with a count
+
+**Panel and fixes**
+- Status polling stays within half of the panel's rate limit (the interval stretches up to 45 s); System → Overview
+  shows the current interval and the requests left. The rate limit Hatchtower paces itself by only comes from the
+  client key's general limit
+- Schedules of servers deleted in the panel rest instead of failing with HTTP 404 and notifying on every run
+- Renaming or moving onto an existing name is refused clearly on every panel (Pelican answered with error 500,
+  Calagopus reported success without doing anything)
+- The daily database backup no longer counts as failed when another folder sits next to the backups
+- Console archive marks exception names such as `NullPointerException` as errors; a malformed stats message from
+  Wings no longer ends the console connection; a web address with `@` on the imprint page no longer breaks the link
 
 ## 0.39.1 – 2026-10-21
 
