@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.40.1 – 2026-10-23
+
+- Downloads of panel backups and files: Wings' own error text is shown instead of a bare "HTTP 404", so it is clear
+  whether the backup file is missing on the node or the download link was already used. Wings accepts a download link
+  only once; on a 404 Hatchtower now asks the panel for a fresh link and tries once more
+- Failed downloads are logged (device, target host and path, never the link itself) and recorded in the audit log,
+  so they show up in the support report
+- Support report: "Process running for" counts from the start of Hatchtower, not from the first report
+
 ## 0.40.0 – 2026-10-23
 
 Includes everything from 0.39.2-pre.1, 0.40.0-pre.1 and 0.40.0-pre.2. Database migrations 35–37 run on their own.
