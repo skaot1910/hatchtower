@@ -3,6 +3,16 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.40.2 – 2026-10-23
+
+- Panel backups whose file is missing on the Wings node: the panel keeps listing a backup even when its file is gone,
+  which only shows when downloading. After the first failed download Hatchtower now marks it "File missing on the
+  node" instead of offering a download, explains the usual causes (Wings in Docker without the backup folder
+  `/var/lib/pterodactyl/backups` as a volume, a cleaned-up folder, another `backup_directory`) and that such entries
+  can be deleted in the panel. "Try again" stays possible; a working download removes the mark, and so does deleting
+  the backup in the panel. The support report counts these backups
+- Database migration 38
+
 ## 0.40.1 – 2026-10-23
 
 - Downloads of panel backups and files: Wings' own error text is shown instead of a bare "HTTP 404", so it is clear
