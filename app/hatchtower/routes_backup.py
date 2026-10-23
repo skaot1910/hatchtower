@@ -287,6 +287,7 @@ async def panel_backups(user, names: dict, only: str = "") -> list[dict]:
         async with gate:
             return await panel_backups_of(ident)
     results = await asyncio.gather(*(one(i) for i in idents))
+    missing = missing_files()
     out = []
     for ident, result in zip(idents, results):
         if isinstance(result, str):
@@ -295,11 +296,44 @@ async def panel_backups(user, names: dict, only: str = "") -> list[dict]:
         if not result:
             continue
         can_download = has(user, ident, "backups.download")
+        forget_missing(ident, {b["uuid"] for b in result})      # deleted in the panel: the mark goes too
         out.append({"ident": ident, "server": names[ident], "error": None, "backups": [{
             **b, "size": fmt_size(b["bytes"]) if b["bytes"] else "",
             "at": fmt_dt(b["completed"] or b["created"], settings.timezone),
+            "missing": fmt_dt(missing[b["uuid"]], settings.timezone) if b["uuid"] in missing else None,
             "can_download": can_download and b["successful"] and bool(b["completed"])} for b in result]})
     return out
+
+
+# The panel keeps a backup in its database even when the file on the Wings node is gone (container recreated
+# without the backup folder as a volume, folder cleaned up, other backup_directory). It only shows when
+# downloading; from then on the backup is marked instead of offering a download that cannot work.
+
+def missing_files() -> dict[str, str]:
+    with db.connect() as con:
+        return {r["uuid"]: r["detected_at"] for r in con.execute("SELECT uuid, detected_at FROM panel_backup_missing")}
+
+
+def mark_missing(ident: str, uuid: str, detail: str) -> None:
+    with db.connect() as con:
+        con.execute("INSERT INTO panel_backup_missing (uuid, identifier, detected_at, detail) VALUES (?, ?, ?, ?)"
+                    " ON CONFLICT(uuid) DO UPDATE SET detected_at = excluded.detected_at, detail = excluded.detail",
+                    (uuid, ident, db.utcnow(), detail[:300]))
+
+
+def forget_missing(ident: str, existing: set[str] | None = None, uuid: str | None = None) -> None:
+    with db.connect() as con:
+        if uuid is not None:
+            con.execute("DELETE FROM panel_backup_missing WHERE uuid = ?", (uuid,))
+        elif existing is not None:
+            rows = con.execute("SELECT uuid FROM panel_backup_missing WHERE identifier = ?", (ident,)).fetchall()
+            gone = [r["uuid"] for r in rows if r["uuid"] not in existing]
+            con.executemany("DELETE FROM panel_backup_missing WHERE uuid = ?", [(g,) for g in gone])
+
+
+def file_missing(exc: PteroError) -> bool:
+    """Wings: 404 "The requested backup was not found on this server." – unlike a used link ("resource")."""
+    return exc.status == 404 and "backup" in str(exc).lower()
 
 
 @app.get("/admin/backups/panel/{ident}/{uuid}/download")
@@ -327,7 +361,13 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
         if downloads.counts(part):
             audit_user(request, user, "backup.panel_download", result="error", server=ident,
                        detail={"backup": backup["name"], "panel": settings.panel.name, "fehler": str(exc)})
+        if file_missing(exc):
+            mark_missing(ident, uuid, str(exc))
+            return back(STORED + "#panel-backups", i18n.t(
+                "Die Datei zu „{backup}“ fehlt auf dem Wings-Node – {panel} führt das Backup noch, aber die Datei ist"
+                " weg. Es ist jetzt in der Liste markiert.", backup=backup["name"] or uuid, panel=settings.panel.name))
         return back(STORED, str(exc))
+    forget_missing(ident, uuid=uuid)              # it works (again): no mark
     if not part or part.replace(" ", "").startswith("bytes=0-"):    # the stream starts at the file's beginning
         _panel_formats[uuid] = archive_format(first, client.BACKUP_FORMAT)
     ext, media = _panel_formats.get(uuid, client.BACKUP_FORMAT)

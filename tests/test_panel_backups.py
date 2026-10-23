@@ -144,7 +144,7 @@ def test_fehler_von_wings_wird_gezeigt_und_festgehalten(world, monkeypatch):
     monkeypatch.setattr(world.ptero, "wings_stream", gone)
     c = world.client(world.user("lader", grants={"srv-a": {"backups.download"}}))
     r = c.get("/admin/backups/panel/srv-a/pb-1/download")
-    assert r.status_code == 303 and "backup%20was%20not%20found" in r.headers["location"]
+    assert r.status_code == 303 and "fehlt%20auf%20dem%20Wings-Node" in r.headers["location"]
     entry = world.audit("backup.panel_download")[-1]
     assert entry["result"] == "error" and "not found" in entry["detail"]
 
@@ -162,3 +162,39 @@ def test_einmal_link_wird_einmal_erneuert(world, monkeypatch):
     c = world.client(world.user("lader", grants={"srv-a": {"backups.download"}}))
     r = c.get("/admin/backups/panel/srv-a/pb-1/download")
     assert r.status_code == 200 and len(calls) == 2
+
+
+def test_fehlende_datei_wird_markiert_und_wieder_vergessen(world, monkeypatch):
+    real = world.ptero.wings_stream
+    state = {"gone": True}
+
+    async def wings(url, range_header=None):
+        if state["gone"]:
+            raise PteroError("Wings antwortet mit HTTP 404: The requested backup was not found on this server.", 404)
+        return await real(url, range_header)
+    monkeypatch.setattr(world.ptero, "wings_stream", wings)
+    c = world.client(world.user("lader", grants={"srv-a": {"backups.download"}}))
+    r = c.get("/admin/backups/panel/srv-a/pb-1/download")
+    assert r.status_code == 303 and "fehlt%20auf%20dem%20Wings-Node" in r.headers["location"]
+    html = page(c)
+    assert "Datei fehlt auf dem Node" in html and "Erneut versuchen" in html and "nicht als Volume eingebunden" in html
+    assert "Panel backups whose file is missing on the Wings node: 1" in world.client(world.ids["olga"]).get(
+        "/admin/system/support").text
+    state["gone"] = False                                   # file restored: the next download clears the mark
+    assert c.get("/admin/backups/panel/srv-a/pb-1/download").status_code == 200
+    assert "Datei fehlt auf dem Node" not in page(c)
+
+
+def test_benutzter_link_markiert_nichts(world, monkeypatch):
+    async def used(url, range_header=None):
+        raise PteroError("Wings antwortet mit HTTP 404: The requested resource was not found on this server.", 404)
+    monkeypatch.setattr(world.ptero, "wings_stream", used)
+    c = world.client(world.ids["olga"])
+    c.get("/admin/backups/panel/srv-a/pb-1/download")
+    assert "Datei fehlt auf dem Node" not in page(c)
+
+
+def test_markierung_geht_wenn_das_backup_im_panel_geloescht_ist(world, monkeypatch):
+    routes_backup.mark_missing("srv-a", "alt-uuid", "weg")
+    page(world.client(world.ids["olga"]))                   # the panel lists only pb-1
+    assert "alt-uuid" not in routes_backup.missing_files()

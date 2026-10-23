@@ -2594,7 +2594,13 @@
   "Panel-Backup heruntergeladen": "Panel backup downloaded",
   "Dieses Backup gibt es im Panel nicht (mehr).": "This backup does not exist in the panel (any more).",
   "Erstellt": "Created",
-  "Hinweis: Hatchtower läuft hier über http:// ohne Verschlüsselung. Browser warnen deshalb bei jedem Download („unsicherer Download“) – die Datei ist in Ordnung, du kannst sie behalten. Mit HTTPS, z. B. über einen Reverse-Proxy, verschwindet die Warnung.": "Note: Hatchtower runs over http:// without encryption here. That is why browsers warn on every download (“insecure download”) – the file is fine, you can keep it. With HTTPS, e.g. through a reverse proxy, the warning goes away."
+  "Hinweis: Hatchtower läuft hier über http:// ohne Verschlüsselung. Browser warnen deshalb bei jedem Download („unsicherer Download“) – die Datei ist in Ordnung, du kannst sie behalten. Mit HTTPS, z. B. über einen Reverse-Proxy, verschwindet die Warnung.": "Note: Hatchtower runs over http:// without encryption here. That is why browsers warn on every download (“insecure download”) – the file is fine, you can keep it. With HTTPS, e.g. through a reverse proxy, the warning goes away.",
+  "Bei {n} Backup(s) fehlt die Datei auf dem Wings-Node: {panel} führt sie noch, aber herunterladen lassen sie sich weder hier noch im Panel. Häufige Ursachen: Wings läuft in Docker und der Backup-Ordner (/var/lib/pterodactyl/backups) ist nicht als Volume eingebunden, sodass die Dateien beim Neuerstellen des Containers verloren gehen; der Ordner wurde aufgeräumt; oder in der config.yml von Wings steht ein anderer backup_directory. Solche Einträge kannst du im Panel löschen.": "For {n} backup(s) the file is missing on the Wings node: {panel} still lists them, but they can be downloaded neither here nor in the panel. Common causes: Wings runs in Docker and the backup folder (/var/lib/pterodactyl/backups) is not mounted as a volume, so the files are lost when the container is recreated; the folder was cleaned up; or the Wings config.yml has a different backup_directory. You can delete such entries in the panel.",
+  "Festgestellt beim Download am {zeit}.": "Found when downloading on {zeit}.",
+  "Datei fehlt auf dem Node": "File missing on the node",
+  "Falls die Datei inzwischen wieder da ist": "In case the file is back by now",
+  "Erneut versuchen": "Try again",
+  "Die Datei zu „{backup}“ fehlt auf dem Wings-Node – {panel} führt das Backup noch, aber die Datei ist weg. Es ist jetzt in der Liste markiert.": "The file of “{backup}” is missing on the Wings node – {panel} still lists the backup, but the file is gone. It is now marked in the list."
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

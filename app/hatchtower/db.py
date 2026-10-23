@@ -667,6 +667,16 @@ MIGRATIONS: list[str] = [
     ALTER TABLE status_feeds ADD COLUMN disabled_code INTEGER;
     ALTER TABLE status_feeds ADD COLUMN disabled_at TEXT;
     """,
+    # 38: panel backups whose file Wings no longer has (the panel still lists them): marked after the first failed
+    #     download instead of offering a download that cannot work
+    """
+    CREATE TABLE panel_backup_missing (
+        uuid        TEXT PRIMARY KEY,
+        identifier  TEXT NOT NULL,
+        detected_at TEXT NOT NULL,
+        detail      TEXT
+    );
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

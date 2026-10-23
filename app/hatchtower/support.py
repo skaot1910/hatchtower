@@ -267,6 +267,11 @@ def backups_section(out: Text, state) -> None:
                 f" {r['status']} · {r['files'] or 0} files, {_size(size)}"
                 f" · verified {'–' if r['verify_ok'] is None else ('ok' if r['verify_ok'] else 'FAILED')}"
                 f" · {_when(r['finished_at'] or r['queued_at'])}{' · ' + detail if detail else ''}")
+    with db.connect() as con:
+        missing = con.execute("SELECT identifier, detected_at FROM panel_backup_missing ORDER BY detected_at").fetchall()
+    if missing:
+        out.add(f"Panel backups whose file is missing on the Wings node: {len(missing)} ("
+                + ", ".join(f"{m['identifier']} since {m['detected_at']}" for m in missing[:10]) + ")")
     manager = getattr(state, "backups", None) if state is not None else None
     if manager is not None:
         active = manager.active_views(lambda i: True)
