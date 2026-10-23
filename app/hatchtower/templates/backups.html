@@ -215,6 +215,7 @@
 {% endif %}
 
 {% if tab == "/admin/backups/stored" %}
+{% if plain_http %}<p class="faint small download-http-note">{{ _("Hinweis: Hatchtower läuft hier über http:// ohne Verschlüsselung. Browser warnen deshalb bei jedem Download („unsicherer Download“) – die Datei ist in Ordnung, du kannst sie behalten. Mit HTTPS, z. B. über einen Reverse-Proxy, verschwindet die Warnung.") }}</p>{% endif %}
 <p class="muted backup-sources">{{ _("Hier stehen zwei verschiedene Arten von Backups: solche, die Hatchtower mit seinen Backup-Jobs erstellt und auf deinem Backup-Ziel speichert, und solche, die {panel} selbst erstellt und bei sich speichert. Beide lassen sich hier herunterladen.", panel=panel_name) }}</p>
 
 <section class="card" id="gespeichert">
@@ -337,6 +338,7 @@
 </section>
 {% endif %}
 
+{% if plain_http %}<p class="faint small download-http-note">{{ _("Hinweis: Hatchtower läuft hier über http:// ohne Verschlüsselung. Browser warnen deshalb bei jedem Download („unsicherer Download“) – die Datei ist in Ordnung, du kannst sie behalten. Mit HTTPS, z. B. über einen Reverse-Proxy, verschwindet die Warnung.") }}</p>{% endif %}
 <section class="card" id="verlauf">
   <h2 class="card-h">{{ _("Download-Verlauf") }}</h2>
   <p class="faint small">{{ _("Wer wann was heruntergeladen hat: Direktdownloads aus dem Livesystem und gespeicherte Backups. Gespeicherte Backups reichen so weit zurück, wie das Audit-Log aufbewahrt wird.") }}</p>

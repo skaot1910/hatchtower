@@ -18,12 +18,13 @@ from zoneinfo import ZoneInfo
 
 from fastapi import Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from starlette.concurrency import iterate_in_threadpool
 
-from . import audit, backups, db, i18n, security
+from . import audit, backups, db, downloads, i18n, security
 from .backups import BackupError, has, user_may
 from .ptero import PteroError
 from .main import (app, back, check_csrf, check_csrf_header, clean_path, current_user, deny, files_back,
-                   get_server_or_deny, ip_of, render, require, require_owner, server_names, settings, valid_name,
+                   get_server_or_deny, ip_of, is_https, render, require, require_owner, server_names, settings, valid_name,
                    vault)
 from .views import fmt_dt, fmt_size
 
@@ -150,7 +151,7 @@ def backup_tabs(user) -> list[tuple[str, str]]:
 
 def render_backups(request: Request, user, tab: str, **context):
     """One tab of the backups page. Running operations and results of finished ones show on every tab."""
-    return render(request, "backups.html", tab=tab, page_tabs=backup_tabs(user), page_tab=tab,
+    return render(request, "backups.html", tab=tab, page_tabs=backup_tabs(user), page_tab=tab, plain_http=not is_https(request),
                   page_tabs_label="Backups", active=active_for(user),
                   finished=finished_results(user, request.query_params.get("done", "")), **context)
 
@@ -314,27 +315,41 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
         _panel_cache.pop(ident, None)            # maybe brand new: look again next time
         return back(STORED, "Dieses Backup gibt es im Panel nicht (mehr).")
     client = app.state.ptero
+    part = request.headers.get("range")
     try:
-        url = await client.wings_url(await client.backup_download_url(ident, uuid, backup.get("streaming", False)))
+        url = await client.backup_download_url(ident, uuid, backup.get("streaming", False))
+        status, wings_headers, stream = await client.wings_stream(url, part)
         # the first bytes tell the real format (the panel's storage decides it), so the file name fits
-        stream = client.stream_download(url)
         first = await anext(stream, b"")
     except PteroError as exc:
         return back(STORED, str(exc))
-    ext, media = archive_format(first, client.BACKUP_FORMAT)
+    from_start = not part or part.replace(" ", "").startswith("bytes=0-")
+    if from_start:
+        _panel_formats[uuid] = archive_format(first, client.BACKUP_FORMAT)
+    ext, media = _panel_formats.get(uuid, client.BACKUP_FORMAT)
     stamp = (backup["completed"] or backup["created"] or "")[:16].replace("T", "_").replace(":", "-")
     name = f"{backups.slug(names[ident])}-{backups.slug(backup['name'] or 'backup')}-{stamp}.{ext}"
-    audit_user(request, user, "backup.panel_download", server=ident,
-               detail={"backup": backup["name"], "panel": settings.panel.name, "groesse": backup["bytes"]})
+    if from_start:                                # a part request of the same download is not a new download
+        audit_user(request, user, "backup.panel_download", server=ident,
+                   detail={"backup": backup["name"], "panel": settings.panel.name, "groesse": backup["bytes"]})
     headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
-    if backup["bytes"] and client.BACKUP_SIZE_IS_ARCHIVE:
+    for key in ("content-length", "content-range", "accept-ranges"):
+        if wings_headers.get(key):
+            headers[key.title()] = wings_headers[key]
+    if "Content-Length" not in headers and backup["bytes"] and client.BACKUP_SIZE_IS_ARCHIVE and status == 200:
         headers["Content-Length"] = str(backup["bytes"])
 
     async def body():
-        yield first
+        if first:
+            yield first
         async for chunk in stream:
             yield chunk
-    return StreamingResponse(body(), media_type=media, headers=headers)
+    return StreamingResponse(downloads.tracked(body(), f"Panel-Backup {name}", request.headers.get("user-agent"),
+                                               status, part, int(headers.get("Content-Length") or 0) or None),
+                             status_code=status, media_type=media, headers=headers)
+
+
+_panel_formats: dict[str, tuple[str, str]] = {}    # format seen at the start of a download, for its part requests
 
 
 ARCHIVE_MAGIC = ((b"PK\x03\x04", "zip", "application/zip"), (b"\x1f\x8b", "tar.gz", "application/gzip"),
@@ -913,7 +928,9 @@ async def backup_job_download(request: Request, job_id: int):
     if len(states) == 1:
         base += "-" + backups.slug(states[0].server_name)
     filename = f"{base}-{stamp}.zip"
-    return StreamingResponse(manager().stream_download(job, states, user.id), media_type="application/zip",
+    return StreamingResponse(downloads.tracked(manager().stream_download(job, states, user.id), f"Direktdownload {filename}",
+                                               request.headers.get("user-agent"), 200, None, None),
+                             media_type="application/zip",
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
 
 
@@ -943,11 +960,14 @@ async def backup_run_download(request: Request, run_id: int):
     if not found:
         target.close()
         return back(STORED, "Diese Backup-Datei gibt es nicht mehr.")
-    audit_user(request, user, "backup.file_download", server=run["identifier"],
-               detail={"job": run["job_name"], "datei": run["file"]})
+    part = request.headers.get("range")
+    if not part or part.replace(" ", "").startswith("bytes=0-"):   # part requests of one download count once
+        audit_user(request, user, "backup.file_download", server=run["identifier"],
+                   detail={"job": run["job_name"], "datei": run["file"]})
     stem = posixpath.basename(run["file"]).rsplit(".", 1)[0]
     name = f"{backups.slug(run['job_name'])}-{backups.slug(run['server_name'] or run['identifier'])}-{stem}.zip"
     if target.kind == "local":
+        downloads.requested(f"Backup {name}", request.headers.get("user-agent"), part)
         return FileResponse(target.full(run["file"]), media_type="application/zip", filename=name)
 
     def chunks():
@@ -955,7 +975,9 @@ async def backup_run_download(request: Request, run_id: int):
             yield from target.read_chunks(run["file"])
         finally:
             target.close()
-    return StreamingResponse(chunks(), media_type="application/zip",
+    # SMB reads block: in a worker thread, as before
+    return StreamingResponse(downloads.tracked(iterate_in_threadpool(chunks()), f"Backup {name}", request.headers.get("user-agent"), 200,
+                                               None, run["size"]), media_type="application/zip",
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"})
 
 

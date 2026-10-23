@@ -2593,7 +2593,8 @@
   "erstellt von {panel}": "created by {panel}",
   "Panel-Backup heruntergeladen": "Panel backup downloaded",
   "Dieses Backup gibt es im Panel nicht (mehr).": "This backup does not exist in the panel (any more).",
-  "Erstellt": "Created"
+  "Erstellt": "Created",
+  "Hinweis: Hatchtower läuft hier über http:// ohne Verschlüsselung. Browser warnen deshalb bei jedem Download („unsicherer Download“) – die Datei ist in Ordnung, du kannst sie behalten. Mit HTTPS, z. B. über einen Reverse-Proxy, verschwindet die Warnung.": "Note: Hatchtower runs over http:// without encryption here. That is why browsers warn on every download (“insecure download”) – the file is fine, you can keep it. With HTTPS, e.g. through a reverse proxy, the warning goes away."
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

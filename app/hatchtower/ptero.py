@@ -567,6 +567,36 @@ class PteroClient:
             netloc = override if ":" in override else f"{override}:{parts.port}" if parts.port else override
         return urlunsplit((scheme, netloc, parts.path, parts.query, parts.fragment))
 
+    async def wings_stream(self, url: str, range_header: str | None = None):
+        """A file from Wings for a browser download: passes a Range request on (Safari's download manager fetches
+        in parts and gives up if every part request returns the whole file) and returns Wings' status, headers
+        and the body. The body closes the connection when it ends or the browser goes away."""
+        self._guard("GET")
+        url = await self.wings_url(url)
+        http = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+        try:
+            request = http.build_request("GET", url, headers={"Range": range_header} if range_header else None)
+            response = await http.send(request, stream=True)
+        except httpx.HTTPError as exc:
+            await http.aclose()
+            raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+        if response.status_code >= 400 and response.status_code != 416:
+            await response.aclose()
+            await http.aclose()
+            raise PteroError(t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=response.status_code),
+                             response.status_code)
+
+        async def body() -> AsyncIterator[bytes]:
+            try:
+                async for chunk in response.aiter_bytes(65536):
+                    yield chunk
+            except httpx.HTTPError as exc:
+                raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+            finally:
+                await response.aclose()
+                await http.aclose()
+        return response.status_code, response.headers, body()
+
     async def stream_download(self, url: str) -> AsyncIterator[bytes]:
         """Lädt eine von Pterodactyl signierte Datei von Wings (nur GET)."""
         self._guard("GET")

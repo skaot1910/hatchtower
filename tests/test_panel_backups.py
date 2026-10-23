@@ -97,3 +97,27 @@ def test_liste_wird_eine_minute_gemerkt(world, monkeypatch):
     page(owner)
     assert calls.count("srv-a") == 1
     assert routes_backup.PANEL_CACHE_SECONDS == 60
+
+
+def test_teilanfragen_wie_safari(world):
+    from hatchtower import downloads
+    c = world.client(world.user("lader", grants={"srv-a": {"backups.download"}}))
+    url = "/admin/backups/panel/srv-a/pb-1/download"
+    whole = c.get(url)
+    assert whole.status_code == 200 and whole.content.startswith(b"\x1f\x8b")
+    assert whole.headers["accept-ranges"] == "bytes"
+    part = c.get(url, headers={"Range": "bytes=2-6"})
+    assert part.status_code == 206 and part.headers["content-range"].startswith("bytes 2-6/")
+    assert part.content == whole.content[2:7]
+    assert part.headers["content-disposition"].endswith(".tar.gz")          # format remembered from the start
+    assert len(world.audit("backup.panel_download")) == 1                    # one download, not one per part
+    safari_app = ("Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                  "Mobile/15E148")
+    assert downloads.device(safari_app) == "iPad, web app from the home screen"
+    assert downloads.device("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36") \
+        == "Android, Chrome"
+
+
+def test_hinweis_bei_http(world):
+    html = page(world.client(world.ids["olga"]))
+    assert "unsicherer Download" in html

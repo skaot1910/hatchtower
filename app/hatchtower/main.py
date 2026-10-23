@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
-from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, extras, fileindex, i18n, inbox, legal, logarchive, logbuffer, logos,
+from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, downloads, extras, fileindex, i18n, inbox, legal, logarchive, logbuffer, logos,
                mailer, retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
@@ -1382,29 +1382,26 @@ async def files_download(request: Request, ident: str, file: str):
     get_server_or_deny(request, user, ident)
     require(request, user, ident, "sftp.download")
     path = clean_path(file)
+    part = request.headers.get("range")
     try:
         url = await app.state.ptero.download_url(ident, path)
-        stream = app.state.ptero.stream_download(url)
-        first = await stream.__anext__()
-    except StopAsyncIteration:
-        first, stream = b"", None
+        # part requests go on to Wings (Safari's download manager asks for parts, see ptero.wings_stream)
+        status, wings_headers, stream = await app.state.ptero.wings_stream(url, part)
     except PteroError as exc:
         audit.record("files.download", result="error", user_id=user.id, username=user.username,
                      ip=ip_of(request), server=ident, detail=f"{path}: {exc}")
         return render(request, "error.html", status=502, title="Download fehlgeschlagen", message=str(exc))
-    audit.record("files.download", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
-                 detail=path)
-
-    async def body():
-        yield first
-        if stream is not None:
-            async for chunk in stream:
-                yield chunk
-
+    if not part or part.replace(" ", "").startswith("bytes=0-"):
+        audit.record("files.download", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
+                     detail=path)
     name = posixpath.basename(path) or "download"
-    return StreamingResponse(body(), media_type="application/octet-stream", headers={
-        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}",
-    })
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
+    for key in ("content-length", "content-range", "accept-ranges"):
+        if wings_headers.get(key):
+            headers[key.title()] = wings_headers[key]
+    return StreamingResponse(downloads.tracked(stream, f"Datei {name}", request.headers.get("user-agent"), status, part,
+                                               int(headers.get("Content-Length") or 0) or None),
+                             status_code=status, media_type="application/octet-stream", headers=headers)
 
 
 # -- Steuerung: Start, Stop, Restart, Befehle ---------------------------------
