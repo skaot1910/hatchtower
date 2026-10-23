@@ -1391,7 +1391,7 @@ async def files_download(request: Request, ident: str, file: str):
         audit.record("files.download", result="error", user_id=user.id, username=user.username,
                      ip=ip_of(request), server=ident, detail=f"{path}: {exc}")
         return render(request, "error.html", status=502, title="Download fehlgeschlagen", message=str(exc))
-    if not part or part.replace(" ", "").startswith("bytes=0-"):
+    if downloads.counts(part):
         audit.record("files.download", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
                      detail=path)
     name = posixpath.basename(path) or "download"
@@ -1399,7 +1399,8 @@ async def files_download(request: Request, ident: str, file: str):
     for key in ("content-length", "content-range", "accept-ranges"):
         if wings_headers.get(key):
             headers[key.title()] = wings_headers[key]
-    return StreamingResponse(downloads.tracked(stream, f"Datei {name}", request.headers.get("user-agent"), status, part,
+    status, headers, content = downloads.ranged(status, headers, stream, part)
+    return StreamingResponse(downloads.tracked(content, f"Datei {name}", request.headers.get("user-agent"), status, part,
                                                int(headers.get("Content-Length") or 0) or None),
                              status_code=status, media_type="application/octet-stream", headers=headers)
 

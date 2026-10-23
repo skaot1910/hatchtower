@@ -105,10 +105,14 @@ def test_teilanfragen_wie_safari(world):
     url = "/admin/backups/panel/srv-a/pb-1/download"
     whole = c.get(url)
     assert whole.status_code == 200 and whole.content.startswith(b"\x1f\x8b")
-    assert whole.headers["accept-ranges"] == "bytes"
-    part = c.get(url, headers={"Range": "bytes=2-6"})
-    assert part.status_code == 206 and part.headers["content-range"].startswith("bytes 2-6/")
-    assert part.content == whole.content[2:7]
+    probe = c.get(url, headers={"Range": "bytes=0-1"})                  # Safari's first question
+    assert probe.status_code == 206 and probe.content == b"\x1f\x8b"
+    assert probe.headers["content-range"] == f"bytes 0-1/{len(whole.content)}" and probe.headers["accept-ranges"] == "bytes"
+    part = c.get(url, headers={"Range": "bytes=5-12"})                  # across the chunk border of the stream
+    assert part.status_code == 206 and part.content == whole.content[5:13]
+    rest = c.get(url, headers={"Range": "bytes=2-"})
+    assert rest.content == whole.content[2:] and rest.headers["content-length"] == str(len(whole.content) - 2)
+    assert c.get(url, headers={"Range": "bytes=999-"}).status_code == 416
     assert part.headers["content-disposition"].endswith(".tar.gz")          # format remembered from the start
     assert len(world.audit("backup.panel_download")) == 1                    # one download, not one per part
     safari_app = ("Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) "
@@ -121,3 +125,14 @@ def test_teilanfragen_wie_safari(world):
 def test_hinweis_bei_http(world):
     html = page(world.client(world.ids["olga"]))
     assert "unsicherer Download" in html
+
+
+def test_range_auswerten():
+    from hatchtower.downloads import parse_range
+    assert parse_range("bytes=0-1", 100) == (0, 1)
+    assert parse_range("bytes=90-", 100) == (90, 99)
+    assert parse_range("bytes=-10", 100) == (90, 99)
+    assert parse_range("bytes=50-500", 100) == (50, 99)
+    assert parse_range("bytes=100-", 100) is False
+    assert parse_range("bytes=0-1,5-6", 100) is None              # several ranges: send everything
+    assert parse_range(None, 100) is None

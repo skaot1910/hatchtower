@@ -323,13 +323,12 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
         first = await anext(stream, b"")
     except PteroError as exc:
         return back(STORED, str(exc))
-    from_start = not part or part.replace(" ", "").startswith("bytes=0-")
-    if from_start:
+    if not part or part.replace(" ", "").startswith("bytes=0-"):    # the stream starts at the file's beginning
         _panel_formats[uuid] = archive_format(first, client.BACKUP_FORMAT)
     ext, media = _panel_formats.get(uuid, client.BACKUP_FORMAT)
     stamp = (backup["completed"] or backup["created"] or "")[:16].replace("T", "_").replace(":", "-")
     name = f"{backups.slug(names[ident])}-{backups.slug(backup['name'] or 'backup')}-{stamp}.{ext}"
-    if from_start:                                # a part request of the same download is not a new download
+    if downloads.counts(part):                    # a part request of the same download is not a new download
         audit_user(request, user, "backup.panel_download", server=ident,
                    detail={"backup": backup["name"], "panel": settings.panel.name, "groesse": backup["bytes"]})
     headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
@@ -340,11 +339,15 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
         headers["Content-Length"] = str(backup["bytes"])
 
     async def body():
-        if first:
-            yield first
-        async for chunk in stream:
-            yield chunk
-    return StreamingResponse(downloads.tracked(body(), f"Panel-Backup {name}", request.headers.get("user-agent"),
+        try:
+            if first:
+                yield first
+            async for chunk in stream:
+                yield chunk
+        finally:
+            await stream.aclose()                 # a part request stops early: close the connection to Wings
+    status, headers, content = downloads.ranged(status, headers, body(), part)
+    return StreamingResponse(downloads.tracked(content, f"Panel-Backup {name}", request.headers.get("user-agent"),
                                                status, part, int(headers.get("Content-Length") or 0) or None),
                              status_code=status, media_type=media, headers=headers)
 
@@ -961,7 +964,7 @@ async def backup_run_download(request: Request, run_id: int):
         target.close()
         return back(STORED, "Diese Backup-Datei gibt es nicht mehr.")
     part = request.headers.get("range")
-    if not part or part.replace(" ", "").startswith("bytes=0-"):   # part requests of one download count once
+    if downloads.counts(part):                    # part requests of one download count once
         audit_user(request, user, "backup.file_download", server=run["identifier"],
                    detail={"job": run["job_name"], "datei": run["file"]})
     stem = posixpath.basename(run["file"]).rsplit(".", 1)[0]

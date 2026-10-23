@@ -126,22 +126,15 @@ class FakePtero(PteroClient):
         yield b"daten"
 
     async def wings_stream(self, url, range_header=None):
-        """Like Wings: a Range request gets 206 with that part, otherwise the whole file."""
+        """Like real Wings for backups: ignores Range and always sends the whole file."""
         self._guard("GET")
         self.calls.append(("GET", "wings-download", url, range_header))
-        data = b"\x1f\x8b-daten"
-        if range_header:
-            start, _, end = range_header.removeprefix("bytes=").partition("-")
-            part = data[int(start):int(end) + 1 if end else None]
-            headers = {"content-range": f"bytes {start}-{int(start) + len(part) - 1}/{len(data)}",
-                       "content-length": str(len(part)), "accept-ranges": "bytes"}
-            status = 206
-        else:
-            part, headers, status = data, {"content-length": str(len(data)), "accept-ranges": "bytes"}, 200
+        data = b"\x1f\x8b-daten-0123456789"
 
         async def body():
-            yield part
-        return status, headers, body()
+            yield data[:7]
+            yield data[7:]
+        return 200, {"content-length": str(len(data))}, body()
 
 
 async def fake_console(client, identifier):
