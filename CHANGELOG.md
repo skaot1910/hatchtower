@@ -3,6 +3,11 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.41.0-pre.2 – 2026-10-24
+
+- Security updates of dependencies: Pillow 13.0.0 (fixes several known vulnerabilities in image decoding, some
+  critical; Hatchtower uses Pillow for uploaded logos) and certifi 2026.10.23 (current root certificates)
+
 ## 0.41.0-pre.1 – 2026-10-24
 
 - Upload limit for downloads (System → Network): when Hatchtower runs at home, every download to the outside goes
