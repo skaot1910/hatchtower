@@ -393,7 +393,8 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
             await stream.aclose()                 # a part request stops early: close the connection to Wings
     status, headers, content = downloads.ranged(status, headers, body(), part)
     return StreamingResponse(downloads.tracked(content, f"Panel-Backup {name}", request.headers.get("user-agent"),
-                                               status, part, int(headers.get("Content-Length") or 0) or None),
+                                               status, part, int(headers.get("Content-Length") or 0) or None,
+                                               ip_of(request)),
                              status_code=status, media_type=media, headers=headers)
 
 
@@ -990,7 +991,7 @@ async def backup_job_download(request: Request, job_id: int):
         base += "-" + backups.slug(states[0].server_name)
     filename = f"{base}-{stamp}.zip"
     return StreamingResponse(downloads.tracked(manager().stream_download(job, states, user.id), f"Direktdownload {filename}",
-                                               request.headers.get("user-agent"), 200, None, None),
+                                               request.headers.get("user-agent"), 200, None, None, ip_of(request)),
                              media_type="application/zip",
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
 
@@ -1027,9 +1028,17 @@ async def backup_run_download(request: Request, run_id: int):
                    detail={"job": run["job_name"], "datei": run["file"]})
     stem = posixpath.basename(run["file"]).rsplit(".", 1)[0]
     name = f"{backups.slug(run['job_name'])}-{backups.slug(run['server_name'] or run['identifier'])}-{stem}.zip"
-    if target.kind == "local":
+    if target.kind == "local" and not downloads.throttled(ip_of(request)):
         downloads.requested(f"Backup {name}", request.headers.get("user-agent"), part)
         return FileResponse(target.full(run["file"]), media_type="application/zip", filename=name)
+    disposition = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
+    if target.kind == "local":                    # limited: stream it ourselves, the file response cannot be paced
+        path = Path(target.full(run["file"]))
+        headers = dict(disposition)
+        status, content = downloads.file_body(path, path.stat().st_size, part, headers)
+        return StreamingResponse(downloads.tracked(content, f"Backup {name}", request.headers.get("user-agent"), status,
+                                                   part, int(headers.get("Content-Length") or 0) or None, ip_of(request)),
+                                 status_code=status, media_type="application/zip", headers=headers)
 
     def chunks():
         try:
@@ -1038,8 +1047,8 @@ async def backup_run_download(request: Request, run_id: int):
             target.close()
     # SMB reads block: in a worker thread, as before
     return StreamingResponse(downloads.tracked(iterate_in_threadpool(chunks()), f"Backup {name}", request.headers.get("user-agent"), 200,
-                                               None, run["size"]), media_type="application/zip",
-                             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"})
+                                               None, run["size"], ip_of(request)), media_type="application/zip",
+                             headers=disposition)
 
 
 @app.post("/api/backups/runs/{run_id}/cancel")

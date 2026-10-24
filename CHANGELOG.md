@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.41.0-pre.1 – 2026-10-24
+
+- Upload limit for downloads (System → Network): when Hatchtower runs at home, every download to the outside goes
+  through the upload of the internet line. The owner can now cap downloads in Mbit/s (0 = no limit); the limit is
+  shared by all downloads at once and takes effect immediately, also for running ones. By default visitors from the
+  own network (usual home network addresses) keep full LAN speed. The page shows whether the current connection
+  counts as internal or external and warns when a reverse proxy in front is not entered. Covers panel backups,
+  files, stored backups and direct downloads; limited downloads are marked in the log
+
 ## 0.40.2 – 2026-10-23
 
 - Panel backups whose file is missing on the Wings node: the panel keeps listing a backup even when its file is gone,

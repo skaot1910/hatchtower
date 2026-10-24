@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import ipaddress
 import json
 import posixpath
 import time
@@ -21,12 +22,13 @@ from urllib.parse import quote, urlsplit
 from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
-from . import (APP_NAME, __version__, accounts, audit, db, extras, i18n, legal, logarchive, mailer, notify, retention,
+from . import (APP_NAME, __version__, accounts, audit, db, downloads, extras, i18n, legal, logarchive, mailer, notify, retention,
                security, setup, statusfeed, themes, transfer)
 from .main import (BACKUP_SUFFIX, LoginRequired, announce_new_user, app, apply_connection, back, check_csrf,
                    check_csrf_header, clean_path,
                    current_user, file_action, get_server_or_deny, ip_of, is_https, load_brand,
                    login_response, render, require, require_owner, server_names, settings, throttle, vault)
+from .config import is_trusted_proxy
 from .panels import PANELS
 from .permissions import BY_KEY, load_grants, load_groups, save_assignments, save_default_group
 from .views import STATE_LABELS, fmt_dt, is_stale, monogram
@@ -960,9 +962,21 @@ async def admin_network(request: Request, pruefen: str = ""):
     cfg = mail_config()
     host = urlsplit(cfg.base_url or link_base(request)).hostname or ""
     dns = await setup.dns_check(host) if pruefen and host else None
+    limit_mbit, lan_free = downloads.config()
     return render(request, "admin_network.html", base_url=cfg.base_url, suggested_base=link_base(request),
                   public_host=db.get_setting("public_host"), trusted_proxies=format_proxies(settings.trusted_proxies),
-                  dns=dns, dns_host=host)
+                  dns=dns, dns_host=host, limit_mbit=limit_mbit, lan_free=lan_free, my_ip=ip_of(request),
+                  my_internal=downloads.is_internal(ip_of(request)), proxy_missing=proxy_missing(request))
+
+
+def proxy_missing(request: Request) -> bool:
+    """A proxy forwards the request (X-Forwarded-For) but is not entered: every visitor then looks like the proxy."""
+    if not request.headers.get("x-forwarded-for") or not request.client:
+        return False
+    try:
+        return not is_trusted_proxy(ipaddress.ip_address(request.client.host), settings.trusted_proxies)
+    except ValueError:
+        return False
 
 
 @app.post("/admin/network")
@@ -987,6 +1001,23 @@ async def admin_network_save(request: Request, base_url: str = Form(""), public_
     owner_audit(request, owner, "settings.network", detail={"adresse": base, "public_host": host,
                                                              "proxy": trusted_proxies.strip()})
     return back("/admin/network", "Netzwerk gespeichert")
+
+
+@app.post("/admin/network/downloads")
+async def admin_network_downloads(request: Request, limit_mbit: str = Form(""), lan_free: str = Form("")):
+    owner = require_owner(request)
+    await check_csrf(request)
+    try:
+        mbit = round(float(limit_mbit.strip().replace(",", ".") or 0), 1)
+    except ValueError:
+        mbit = -1
+    if not 0 <= mbit <= 100000:
+        return back("/admin/network#downloads", "Download-Grenze: bitte eine Zahl in Mbit/s angeben (0 = keine Grenze)")
+    db.set_setting("download_limit_mbit", f"{mbit:g}", owner.id)
+    db.set_setting("download_limit_lan_free", "1" if lan_free else "0", owner.id)
+    downloads.reload()
+    owner_audit(request, owner, "settings.download_limit", detail={"mbit": mbit, "eigenes_netz_frei": bool(lan_free)})
+    return back("/admin/network#downloads", "Download-Grenze gespeichert")
 
 
 # == System: Benachrichtigungen ======================================================================

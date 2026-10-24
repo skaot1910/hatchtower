@@ -2600,7 +2600,21 @@
   "Datei fehlt auf dem Node": "File missing on the node",
   "Falls die Datei inzwischen wieder da ist": "In case the file is back by now",
   "Erneut versuchen": "Try again",
-  "Die Datei zu „{backup}“ fehlt auf dem Wings-Node – {panel} führt das Backup noch, aber die Datei ist weg. Es ist jetzt in der Liste markiert.": "The file of “{backup}” is missing on the Wings node – {panel} still lists the backup, but the file is gone. It is now marked in the list."
+  "Die Datei zu „{backup}“ fehlt auf dem Wings-Node – {panel} führt das Backup noch, aber die Datei ist weg. Es ist jetzt in der Liste markiert.": "The file of “{backup}” is missing on the Wings node – {panel} still lists the backup, but the file is gone. It is now marked in the list.",
+  "Upload-Grenze für Downloads": "Upload limit for downloads",
+  "Läuft Hatchtower zu Hause, geht jeder Download nach draußen (z. B. ein Backup) über den Upload deiner Internetleitung. Mit einer Grenze bleibt die Leitung nutzbar, auch wenn jemand gerade ein großes Backup herunterlädt. Sie gilt für alle Downloads zusammen.": "If Hatchtower runs at home, every download to the outside (e.g. a backup) goes through the upload of your internet line. With a limit the line stays usable, even while someone downloads a large backup. It applies to all downloads together.",
+  "Downloads begrenzen auf (Mbit/s, 0 = keine Grenze)": "Limit downloads to (Mbit/s, 0 = no limit)",
+  "z. B. 80": "e.g. 80",
+  "Im eigenen Netz nicht begrenzen": "Do not limit within the own network",
+  "Vor Hatchtower sitzt ein Reverse-Proxy, der oben nicht eingetragen ist. Dann sieht jeder Besucher aus wie der Proxy und die Grenze greift nicht richtig – bitte dessen IP oben eintragen.": "A reverse proxy sits in front of Hatchtower but is not entered above. Every visitor then looks like the proxy and the limit does not work properly – please enter its IP above.",
+  "Deine aktuelle Verbindung ({ip}) zählt als eigenes Netz.": "Your current connection ({ip}) counts as the own network.",
+  "Deine Downloads laufen ungebremst.": "Your downloads run at full speed.",
+  "Deine aktuelle Verbindung ({ip}) kommt von außerhalb.": "Your current connection ({ip}) comes from outside.",
+  "Deine Downloads werden begrenzt.": "Your downloads are limited.",
+  "Als eigenes Netz gelten die üblichen Heimnetz-Adressen (192.168.x.x, 10.x.x.x, 172.16–31.x.x). Verkehr der Spieler auf den Spielservern und Downloads direkt im Panel kann Hatchtower nicht begrenzen.": "The usual home network addresses count as the own network (192.168.x.x, 10.x.x.x, 172.16–31.x.x). Hatchtower cannot limit the players' traffic on the game servers or downloads directly in the panel.",
+  "Download-Grenze: bitte eine Zahl in Mbit/s angeben (0 = keine Grenze)": "Download limit: please enter a number in Mbit/s (0 = no limit)",
+  "Download-Grenze gespeichert": "Download limit saved",
+  "Upload-Grenze für Downloads geändert": "Upload limit for downloads changed"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

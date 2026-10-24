@@ -1403,7 +1403,7 @@ async def files_download(request: Request, ident: str, file: str):
             headers[key.title()] = wings_headers[key]
     status, headers, content = downloads.ranged(status, headers, stream, part)
     return StreamingResponse(downloads.tracked(content, f"Datei {name}", request.headers.get("user-agent"), status, part,
-                                               int(headers.get("Content-Length") or 0) or None),
+                                               int(headers.get("Content-Length") or 0) or None, ip_of(request)),
                              status_code=status, media_type="application/octet-stream", headers=headers)
 
 

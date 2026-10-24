@@ -3,9 +3,12 @@ broken off – so a problem with one particular browser (e.g. Safari's download 
 on iOS) shows up in the log and in the support report instead of only on the user's screen."""
 from __future__ import annotations
 
+import asyncio
+import ipaddress
 import logging
 import re
 import time
+from pathlib import Path
 from typing import AsyncIterator
 
 log = logging.getLogger("hatchtower.download")
@@ -31,19 +34,97 @@ def device(user_agent: str | None) -> str:
     return f"{system}, {browser}"
 
 
-async def tracked(body: AsyncIterator[bytes], what: str, user_agent: str | None, status: int,
-                  range_header: str | None, total: int | None) -> AsyncIterator[bytes]:
-    """Pass the body through and log how the download ended."""
-    started, sent, finished = time.monotonic(), 0, False
+# -- upload limit ----------------------------------------------------------------------------------------
+# At home, every download to a browser outside the house goes through the upload of the internet line. The owner
+# can cap all such downloads together (System → Network) so the line stays usable; visitors from the own network
+# (usual home network addresses) may be left at full LAN speed.
+
+INTERNAL = [ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8",
+                                              "169.254.0.0/16", "::1/128", "fc00::/7", "fe80::/10")]
+PIECE = 65536                                           # bytes per step, keeps the pace smooth at low limits
+_config: tuple[float, bool] | None = None               # (Mbit/s, 0 = no limit; own network exempt)
+
+
+def config() -> tuple[float, bool]:
+    global _config
+    if _config is None:
+        from . import db
+        try:
+            mbit = max(0.0, float(db.get_setting("download_limit_mbit", "0") or 0))
+        except ValueError:
+            mbit = 0.0
+        _config = (mbit, db.get_setting("download_limit_lan_free", "1") != "0")
+    return _config
+
+
+def reload() -> None:
+    """After the setting changed; running downloads follow the new limit with their next piece."""
+    global _config
+    _config = None
+
+
+def is_internal(ip: str | None) -> bool:
     try:
-        async for chunk in body:
+        addr = ipaddress.ip_address(ip or "")
+    except ValueError:
+        return False
+    if addr.version == 6 and addr.ipv4_mapped:
+        addr = addr.ipv4_mapped
+    return any(addr in net for net in INTERNAL)
+
+
+def throttled(ip: str | None) -> bool:
+    mbit, lan_free = config()
+    return mbit > 0 and not (lan_free and is_internal(ip))
+
+
+class Limiter:
+    """One shared budget for all limited downloads: each piece books the next free slot on the line and waits
+    until it is due, so parallel downloads share the limit instead of each getting it."""
+
+    def __init__(self) -> None:
+        self.free_at = 0.0
+
+    async def take(self, size: int, rate: float) -> None:
+        now = time.monotonic()
+        start = max(self.free_at, now - 0.25)           # a short pause may be made up, but no big burst
+        self.free_at = start + size / rate
+        if self.free_at > now:
+            await asyncio.sleep(self.free_at - now)
+
+
+limiter = Limiter()
+
+
+async def _paced(body: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+    async for chunk in body:
+        for i in range(0, len(chunk), PIECE):
+            piece = chunk[i:i + PIECE]
+            mbit = config()[0]
+            if mbit > 0:
+                await limiter.take(len(piece), mbit * 125000)
+            yield piece
+
+
+async def tracked(body: AsyncIterator[bytes], what: str, user_agent: str | None, status: int,
+                  range_header: str | None, total: int | None, ip: str | None = None) -> AsyncIterator[bytes]:
+    """Pass the body through (limited for visitors from outside, see above) and log how the download ended."""
+    started, sent, finished = time.monotonic(), 0, False
+    limited = throttled(ip)
+    try:
+        async for chunk in (_paced(body) if limited else body):
             sent += len(chunk)
             yield chunk
         finished = True
     finally:
-        log.info("Download %s: %s, HTTP %s%s, %s von %s Bytes in %.0f s – %s", what, device(user_agent), status,
+        if limited:
+            closer = getattr(body, "aclose", None)
+            if closer:
+                await closer()
+        log.info("Download %s: %s, HTTP %s%s, %s von %s Bytes in %.0f s%s – %s", what, device(user_agent), status,
                  f", Teil {range_header}" if range_header else "", sent, total if total else "?",
-                 time.monotonic() - started, "vollständig" if finished else "vom Browser abgebrochen")
+                 time.monotonic() - started, f", gedrosselt auf {config()[0]:g} Mbit/s" if limited else "",
+                 "vollständig" if finished else "vom Browser abgebrochen")
 
 
 def counts(range_header: str | None) -> bool:
@@ -114,3 +195,38 @@ def ranged(status: int, headers: dict, body: AsyncIterator[bytes], range_header:
     headers["Content-Range"] = f"bytes {start}-{end}/{total}"
     headers["Content-Length"] = str(end - start + 1)
     return 206, headers, _cut(body, start, end)
+
+
+def file_body(path: Path, total: int, range_header: str | None, headers: dict) -> tuple[int, AsyncIterator[bytes]]:
+    """A file on disk as a stream with part requests, for when the download has to be limited (the web server's own
+    file response cannot be). Headers are changed in place."""
+    headers["Accept-Ranges"] = "bytes"
+    headers["Content-Length"] = str(total)
+    status, start, end = 200, 0, total - 1
+    part = parse_range(range_header, total) if total else None
+    if part is False:
+        headers.pop("Content-Length")
+        headers["Content-Range"] = f"bytes */{total}"
+        status, start, end = 416, 1, 0
+    elif part:
+        start, end = part
+        status = 206
+        headers["Content-Range"] = f"bytes {start}-{end}/{total}"
+        headers["Content-Length"] = str(end - start + 1)
+
+    async def body() -> AsyncIterator[bytes]:
+        if start > end:
+            return
+        handle = await asyncio.to_thread(open, path, "rb")
+        try:
+            await asyncio.to_thread(handle.seek, start)
+            left = end - start + 1
+            while left > 0:
+                chunk = await asyncio.to_thread(handle.read, min(PIECE * 4, left))
+                if not chunk:
+                    break
+                left -= len(chunk)
+                yield chunk
+        finally:
+            handle.close()
+    return status, body()

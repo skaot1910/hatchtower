@@ -89,6 +89,7 @@ ACTION_LABELS = {
     "email.verify": "E-Mail-Adresse bestätigt",
     "settings.mail": "E-Mail-Einstellungen geändert",
     "settings.network": "Netzwerk-Einstellungen geändert",
+    "settings.download_limit": "Upload-Grenze für Downloads geändert",
     "settings.notify": "Benachrichtigungen geändert",
     "notify.unsubscribe": "E-Mail-Benachrichtigungen per Link abbestellt",
     "settings.status": "Statusseite geändert",

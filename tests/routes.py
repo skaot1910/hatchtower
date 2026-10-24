@@ -371,6 +371,8 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/admin/network", "owner", "System → Netzwerk"),
     R("POST", "/admin/network", "owner", "Adresse von Hatchtower, öffentliche Adresse, Reverse-Proxy", csrf="form",
       form={"base_url": "https://evil.example", "public_host": "evil.example", "trusted_proxies": "0.0.0.0/8"}),
+    R("POST", "/admin/network/downloads", "owner", "Upload-Grenze für Downloads", csrf="form",
+      form={"limit_mbit": "1", "lan_free": ""}),
     R("GET", "/admin/mail", "owner", "E-Mail-Einstellungen"),
     R("POST", "/admin/mail", "owner", "E-Mail-Einstellungen speichern", csrf="form",
       form={"enabled": "1", "host": "smtp.evil.example", "port": "587", "security": "starttls",

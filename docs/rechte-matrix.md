@@ -270,6 +270,7 @@ Grundregeln:
 | GET | `/admin/system/support` | – | Support-Bericht als Textdatei (ohne Keys, Passwörter, Tokens; Benutzer nur als Nummern) |
 | GET | `/admin/network` | – | System → Netzwerk |
 | POST | `/admin/network` | Formular | Adresse von Hatchtower, öffentliche Adresse, Reverse-Proxy |
+| POST | `/admin/network/downloads` | Formular | Upload-Grenze für Downloads |
 | GET | `/admin/mail` | – | E-Mail-Einstellungen |
 | POST | `/admin/mail` | Formular | E-Mail-Einstellungen speichern |
 | POST | `/admin/mail/password/delete` | Formular | SMTP-Passwort entfernen |
