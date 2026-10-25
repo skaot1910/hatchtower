@@ -3,6 +3,13 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.41.1 – 2026-10-25
+
+- Sign-in pages in the home-screen app on iPad: with a hardware keyboard, WebKit wrongly believes an on-screen
+  keyboard covers the password field and scrolled the page down into empty space as soon as one typed, so only part
+  of it stayed visible. Hatchtower now puts the page back when it fits on screen anyway; with a real on-screen
+  keyboard nothing changes. Only affects the installed web app (also when added from Chrome), not the browser tab
+
 ## 0.41.0 – 2026-10-24
 
 - Upload limit for downloads (System → Network): when Hatchtower runs at home, every download to the outside goes

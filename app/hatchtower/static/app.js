@@ -1871,8 +1871,42 @@
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(function () {});
   }
 
+  // Home-screen app on iPad/iPhone (also when added from Chrome, which uses WebKit there): focusing the password
+  // field brings up the AutoFill bar and WebKit scrolls the page, leaving it shifted although the short sign-in
+  // pages fit on screen. Put it back, but not while the on-screen keyboard is up (then the pan reveals the field).
+  function startStandaloneLoginFix() {
+    if (!document.body.classList.contains("login-page")) return;
+    var standalone = navigator.standalone || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    if (!standalone) return;
+    var vv = window.visualViewport;
+    function settle() {
+      // clientHeight, not innerHeight: WebKit shrinks innerHeight along with its imagined keyboard
+      var root = document.scrollingElement || document.documentElement;
+      var height = document.documentElement.clientHeight;
+      if (root.scrollHeight > height + 1) return;
+      // A real on-screen keyboard shrinks the visible area; with a hardware keyboard WebKit (iPadOS) reports a
+      // height of zero or less for the password field and scrolls into nothing
+      if (vv && vv.height > 0 && vv.height < height - 150) return;
+      if (window.scrollY || (vv && vv.offsetTop)) window.scrollTo(0, 0);
+    }
+    window.addEventListener("scroll", settle, { passive: true });
+    if (vv) { vv.addEventListener("resize", settle); vv.addEventListener("scroll", settle); }
+    // Typing fast, WebKit scrolls again between events, so check every frame while a field has the focus
+    var watching = false;
+    function watch() {
+      settle();
+      if (document.activeElement && document.activeElement.matches("input")) requestAnimationFrame(watch);
+      else watching = false;
+    }
+    document.addEventListener("focusin", function () {
+      if (!watching) { watching = true; requestAnimationFrame(watch); }
+    });
+    document.addEventListener("focusout", function () { setTimeout(settle, 100); });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     startServiceWorker();
+    startStandaloneLoginFix();
     startAnnouncements();
     startFavorites();
     startBulk();
