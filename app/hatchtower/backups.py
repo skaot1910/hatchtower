@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import AsyncIterator
 from zoneinfo import ZoneInfo
 
-from . import audit, db, i18n, inbox, notify
+from . import audit, db, i18n, inbox, notify, zipdownload
 from . import permissions
 from .permissions import BACKUP_STOP_NEEDS
 from .ptero import PteroError
@@ -745,6 +745,15 @@ class ZipBuilder:
             rs.done_files += 1
             yield self.drain()
 
+    async def paths(self, name: str, rs: "RunState", entries: list[Entry]) -> bytes:
+        present = {e.path: e.arcname for e in entries}
+        chosen = [("" if p == "/" else present[p], p) for p in minimal_paths(rs.paths) if p == "/" or p in present]
+        if chosen and entries:
+            text = zipdownload.paths_note(rs.server_name, rs.ident, chosen, self.zone)
+            await asyncio.to_thread(self.zf.writestr, name, text)
+            self.names.append(name)
+        return self.drain()
+
     async def note(self, name: str, lines: list[str]) -> bytes:
         if lines:
             await asyncio.to_thread(self.zf.writestr, name, "\n".join(lines) + "\n")
@@ -758,7 +767,7 @@ class ZipBuilder:
 def note_names() -> set[str]:
     """Hinweisdateien, die Hatchtower selbst ins ZIP legt (in allen Sprachen) – werden nicht zurückgespielt."""
     names = set()
-    for text in ("FEHLER.txt", "ABGEBROCHEN.txt"):
+    for text in ("FEHLER.txt", "ABGEBROCHEN.txt", "HATCHTOWER-PFADE.txt"):
         names.add(text)
         names.update(catalog.get(text, text) for catalog in i18n._catalogs.values())
     return names
@@ -1188,6 +1197,7 @@ class BackupManager:
                     # Ein ZIP ganz ohne Dateien ist kein Backup – und darf bei der Aufbewahrung keins verdrängen
                     raise BackupError(i18n.t("Keine einzige Datei ließ sich sichern. Erster Fehler: {grund}",
                                              grund=builder.failed[0] if builder.failed else "?"))
+                await builder.paths(i18n.t("HATCHTOWER-PFADE.txt"), rs, entries)
                 await builder.note(i18n.t("FEHLER.txt"), self._problem_lines(builder.failed, missing))
                 await builder.close()
                 await writer.close()
@@ -1370,6 +1380,7 @@ class BackupManager:
                         if data:
                             yield data
                     problems = builder.failed[before:] + missing
+                    yield await builder.paths(prefix + i18n.t("HATCHTOWER-PFADE.txt"), rs, entries)
                     yield await builder.note(prefix + i18n.t("FEHLER.txt"), self._problem_lines(builder.failed[before:], missing))
                     status = "partial" if problems else "ok"
                     if builder.saved == saved_before and any(not e.is_dir for e in entries):

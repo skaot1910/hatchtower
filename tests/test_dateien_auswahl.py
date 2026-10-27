@@ -91,3 +91,38 @@ def test_belegter_name_wird_vorher_erkannt(world):
     r = _post(c, "/servers/srv-a/files/move", dir="/plugins", names=["a.txt"], target="/x")
     assert "gibt es am Ziel schon" in unquote(r.headers["location"])
     assert _writes(world, "/files/rename") == []
+
+
+def test_zip_auswahl_enthaelt_pfadliste():
+    import asyncio
+    import io
+    import zipfile
+    from hatchtower import zipdownload
+
+    files = {"/world/playerdata": [{"name": "a.dat", "is_file": True, "size": 3}],
+             "/world/playerdata/alt": [{"name": "b.dat", "is_file": True, "size": 3}]}
+
+    class Client:
+        async def list_files(self, ident, path):
+            if path == "/world/playerdata":
+                return files[path] + [{"name": "alt", "is_file": False, "size": 0}]
+            return files[path]
+
+        async def download_url(self, ident, path):
+            return path
+
+        async def stream_download(self, url):
+            yield b"abc"
+
+    async def go():
+        client = Client()
+        entries = await zipdownload.collect(client, "srv-a", "/world/playerdata", ["a.dat", "alt"])
+        return b"".join([chunk async for chunk in zipdownload.stream_zip(
+            client, "srv-a", entries, "Europe/Berlin", "Survival", "/world/playerdata")])
+
+    with zipfile.ZipFile(io.BytesIO(asyncio.run(go()))) as zf:
+        note = zf.read("HATCHTOWER-PFADE.txt").decode()
+        assert zf.read("alt/b.dat") == b"abc"
+    assert "Survival (srv-a)" in note and "Ausgewählt im Ordner: /world/playerdata" in note
+    assert "\n/world/playerdata/a.dat\n" in note
+    assert "\n/world/playerdata/alt/\n" in note and "b.dat" not in note

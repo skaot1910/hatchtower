@@ -118,7 +118,10 @@ def test_ganzer_server_mit_ausschluessen(env):
     path = env.target / last["file"]
     assert path.is_file() and not path.with_name(path.name + ".part").exists()
     assert zip_names(path) == {"server.properties", "world/", "world/level.dat", "world/region/",
-                               "world/region/r.0.0.mca"}
+                               "world/region/r.0.0.mca", "HATCHTOWER-PFADE.txt"}
+    with zipfile.ZipFile(path) as zf:
+        note = zf.read("HATCHTOWER-PFADE.txt").decode()
+    assert "\n/\n" in note and "level.dat" not in note
     assert env.ptero.writes == [] and env.ptero.power_calls == []
     assert env.sent == []          # Meldung nur bei Fehlern (Standard)
 
@@ -134,6 +137,10 @@ def test_nur_ausgewaehlte_pfade(env):
     assert last["status"] == "partial" and "gibts-nicht" in last["detail"]
     names = zip_names(env.target / last["file"])
     assert "world/region/r.0.0.mca" in names and "server.properties" in names and "FEHLER.txt" in names
+    with zipfile.ZipFile(env.target / last["file"]) as zf:
+        note = zf.read("HATCHTOWER-PFADE.txt").decode()
+    assert "\n/world/\n" in note and "\n/server.properties\n" in note and "->" not in note
+    assert "level.dat" not in note and "gibts-nicht" not in note
     assert not any(n.startswith("logs") for n in names)
     assert env.sent and env.sent[0][0] == "backup_failed"
 
@@ -260,7 +267,7 @@ def test_direktdownload_ueber_die_oberflaeche(world):
     c = world.client(world.ids["olga"])
     r = c.post(f"/admin/backups/jobs/{world.args['job_id']}/download", data={"csrf": c.csrf})
     assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
-    assert set(zipfile.ZipFile(io.BytesIO(r.content)).namelist()) == {"a.txt", "a.txt.bak"}
+    assert set(zipfile.ZipFile(io.BytesIO(r.content)).namelist()) == {"a.txt", "a.txt.bak", "HATCHTOWER-PFADE.txt"}
     assert world.audit("backup.download")
 
 

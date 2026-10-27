@@ -109,7 +109,25 @@ def _date_time(value: str | None, tz: ZoneInfo) -> tuple[int, int, int, int, int
     return (1980, 1, 1, 0, 0, 0)
 
 
-async def stream_zip(client: PteroClient, ident: str, entries: list[Entry], tz: str) -> AsyncIterator[bytes]:
+def paths_note(server: str, ident: str, picked: list[tuple[str, str]], zone: ZoneInfo, folder: str | None = None) -> str:
+    """Text of the PATHS.txt: the full server path of each selected file or folder (folders end in /)."""
+    lines = [t("Herkunft der Dateien in diesem ZIP (Hatchtower)"),
+             t("Server: {name} ({ident})", name=server, ident=ident),
+             t("Erstellt: {date}", date=datetime.now(zone).strftime("%Y-%m-%d %H:%M"))]
+    if folder:
+        lines.append(t("Ausgewählt im Ordner: {path}", path=folder))
+    lines += ["", t("Ausgewählte Dateien und Ordner (voller Pfad auf dem Server):"), ""]
+    lines += [path.rstrip("/") + "/" if arc.endswith("/") or not arc else path for arc, path in picked]
+    return "\n".join(lines) + "\n"
+
+
+def picked(entries: list) -> list[tuple[str, str]]:
+    """The selected files and folders themselves (top level of the ZIP), without their contents."""
+    return [(e.arcname, e.path) for e in entries if "/" not in e.arcname.rstrip("/")]
+
+
+async def stream_zip(client: PteroClient, ident: str, entries: list[Entry], tz: str,
+                     server: str = "", folder: str = "/") -> AsyncIterator[bytes]:
     zone = ZoneInfo(tz)
     sink = _Sink()
     failed: list[str] = []
@@ -133,6 +151,8 @@ async def stream_zip(client: PteroClient, ident: str, entries: list[Entry], tz: 
             except PteroError as exc:
                 failed.append(f"{entry.path}: {exc}")
             yield sink.drain()
+        if entries:
+            zf.writestr(t("HATCHTOWER-PFADE.txt"), paths_note(server, ident, picked(entries), zone, folder))
         if failed:
             zf.writestr(t("FEHLER.txt"), t("Diese Dateien konnten nicht geladen werden:") + "\n\n" + "\n".join(failed) + "\n")
     yield sink.drain()

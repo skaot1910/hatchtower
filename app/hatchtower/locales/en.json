@@ -2614,7 +2614,13 @@
   "Als eigenes Netz gelten die üblichen Heimnetz-Adressen (192.168.x.x, 10.x.x.x, 172.16–31.x.x). Verkehr der Spieler auf den Spielservern und Downloads direkt im Panel kann Hatchtower nicht begrenzen.": "The usual home network addresses count as the own network (192.168.x.x, 10.x.x.x, 172.16–31.x.x). Hatchtower cannot limit the players' traffic on the game servers or downloads directly in the panel.",
   "Download-Grenze: bitte eine Zahl in Mbit/s angeben (0 = keine Grenze)": "Download limit: please enter a number in Mbit/s (0 = no limit)",
   "Download-Grenze gespeichert": "Download limit saved",
-  "Upload-Grenze für Downloads geändert": "Upload limit for downloads changed"
+  "Upload-Grenze für Downloads geändert": "Upload limit for downloads changed",
+  "HATCHTOWER-PFADE.txt": "HATCHTOWER-PATHS.txt",
+  "Herkunft der Dateien in diesem ZIP (Hatchtower)": "Origin of the files in this ZIP (Hatchtower)",
+  "Server: {name} ({ident})": "Server: {name} ({ident})",
+  "Erstellt: {date}": "Created: {date}",
+  "Ausgewählt im Ordner: {path}": "Selected in folder: {path}",
+  "Ausgewählte Dateien und Ordner (voller Pfad auf dem Server):": "Selected files and folders (full path on the server):"
  },
  "browser": {
   "1 Eintrag ausgewählt": "1 item selected",

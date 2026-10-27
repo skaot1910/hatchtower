@@ -1777,7 +1777,7 @@ async def files_zip(request: Request, ident: str, dir: str = Form("/")):
         base += "-" + re.sub(r"[^\w.-]+", "_", posixpath.basename(directory))
     filename = f"{base}-{datetime.now().strftime('%Y-%m-%d_%H-%M')}.zip"
     return StreamingResponse(
-        zipdownload.stream_zip(app.state.ptero, ident, entries, settings.timezone),
+        zipdownload.stream_zip(app.state.ptero, ident, entries, settings.timezone, server["name"], directory),
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
     )
