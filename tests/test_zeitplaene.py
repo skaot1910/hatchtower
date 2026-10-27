@@ -260,3 +260,64 @@ def test_zeitplan_eines_im_panel_geloeschten_servers_ruht(world):
         con.execute("UPDATE servers SET present = 1 WHERE identifier = 'srv-a'")
     tick(panel)
     assert panel.calls == [("power", "srv-a", "restart")]               # back in the panel: runs again
+
+
+# == Editing and history ===========================================================================
+
+def edit_form(c, **fields) -> dict:
+    return {"csrf": c.csrf, "identifier": "srv-a", "name": "Plan", "action": "restart", "time": "04:00",
+            "weekdays": "1", "repeat": "weekly", **fields}
+
+
+def test_zeitplan_bearbeiten(world):
+    sid = schedule(world, last_run="2026-10-01T04:00", warn_minutes=5, warn_command="say gleich")
+    c = world.client(world.ids["olga"])
+    html = c.get(f"/admin/automation/schedules/{sid}/edit").text
+    assert f'action="/admin/automation/schedules/{sid}"' in html and 'value="Plan"' in html and "say gleich" in html
+    r = c.post(f"/admin/automation/schedules/{sid}", data=edit_form(c, name="Nachts", action="command",
+                                                                   command="save", time="3:30"))
+    assert r.status_code == 303 and "/admin/automation" in r.headers["location"]
+    s = sched(sid)
+    assert (s["name"], s["action"], s["command"], s["time"], s["weekdays"]) == ("Nachts", "command", "save", "03:30", "1")
+    assert s["warn_minutes"] is None and s["last_run"] is None          # new time: the old appointment is forgotten
+    assert s["created_by"] == world.ids["olga"] and s["enabled"] == 1
+    entry = world.audit("schedule.update")[-1]
+    assert '"name": "Plan"' in entry["detail"] and "Nachts" in entry["detail"]
+
+
+def test_zeitplan_bearbeiten_prueft_wie_anlegen(world):
+    sid = schedule(world)
+    c = world.client(world.ids["olga"])
+    r = c.post(f"/admin/automation/schedules/{sid}", data=edit_form(c, weekdays="", time="25:00"))
+    assert f"/admin/automation/schedules/{sid}/edit" in r.headers["location"]
+    assert sched(sid)["time"] != "25:00" and sched(sid)["weekdays"]
+
+
+def test_zeitplan_bearbeiten_nur_mit_recht_fuer_die_neue_aktion(world):
+    uid = world.user("planer", grants={"srv-a": {"automation.manage", "power.restart"}})
+    sid = schedule(world, creator=uid)
+    c = world.client(uid)
+    assert c.get(f"/admin/automation/schedules/{sid}/edit").status_code == 200
+    c.post(f"/admin/automation/schedules/{sid}", data=edit_form(c, action="stop"))
+    assert sched(sid)["action"] == "restart"                          # no right to stop: unchanged
+
+
+def test_verlauf_filtert(world):
+    panel = Panel()
+    schedule(world, name="Nachts")
+    tick(panel)
+    from hatchtower import audit
+    audit.record("schedule.run", result="error", username="Automation", ip="intern", server="srv-b",
+                 detail="Anderer (Restart): Fehler")
+    c = world.client(world.ids["olga"])
+    html = c.get("/admin/automation/history").text
+    assert "Nachts (Restart)" in html and "Anderer (Restart)" in html
+    html = c.get("/admin/automation/history?result=error").text
+    assert "Nachts (Restart)" not in html and "Anderer (Restart)" in html
+    html = c.get("/admin/automation/history?q=Nachts&kind=run").text
+    assert "Nachts (Restart)" in html and "Anderer (Restart)" not in html
+    assert "Nachts" not in c.get("/admin/automation/history?kind=crash").text.split("<tbody>")[-1]
+    # users only see the servers they may automate
+    planer = world.client(world.user("planer", grants={"srv-a": {"automation.manage", "power.restart"}}))
+    html = planer.get("/admin/automation/history").text
+    assert "Nachts (Restart)" in html and "Anderer (Restart)" not in html

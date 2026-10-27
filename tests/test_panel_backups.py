@@ -178,11 +178,11 @@ def test_fehlende_datei_wird_markiert_und_wieder_vergessen(world, monkeypatch):
     assert r.status_code == 303 and "fehlt%20auf%20dem%20Wings-Node" in r.headers["location"]
     html = page(c)
     assert "Datei fehlt auf dem Node" in html and "Erneut versuchen" in html and "nicht als Volume eingebunden" in html
-    assert "Panel backups whose file is missing on the Wings node: 1" in world.client(world.ids["olga"]).get(
+    assert "Panel backups whose file is missing on the Wings node: 2" in world.client(world.ids["olga"]).get(
         "/admin/system/support").text
     state["gone"] = False                                   # file restored: the next download clears the mark
     assert c.get("/admin/backups/panel/srv-a/pb-1/download").status_code == 200
-    assert "Datei fehlt auf dem Node" not in page(c)
+    assert "pb-1" not in routes_backup.missing_files()
 
 
 def test_benutzter_link_markiert_nichts(world, monkeypatch):
@@ -191,10 +191,29 @@ def test_benutzter_link_markiert_nichts(world, monkeypatch):
     monkeypatch.setattr(world.ptero, "wings_stream", used)
     c = world.client(world.ids["olga"])
     c.get("/admin/backups/panel/srv-a/pb-1/download")
-    assert "Datei fehlt auf dem Node" not in page(c)
+    assert "pb-1" not in routes_backup.missing_files()
 
 
 def test_markierung_geht_wenn_das_backup_im_panel_geloescht_ist(world, monkeypatch):
     routes_backup.mark_missing("srv-a", "alt-uuid", "weg")
     page(world.client(world.ids["olga"]))                   # the panel lists only pb-1
     assert "alt-uuid" not in routes_backup.missing_files()
+
+
+
+def test_fehlendes_backup_loeschen(world, monkeypatch):
+    leser = world.client(world.user("lader", grants={"srv-a": {"backups.download"}}))
+    assert "/admin/backups/panel/srv-a/pb-weg/delete" not in page(leser)      # needs "manage backup jobs"
+    c = world.client(world.user("verwalter", grants={"srv-a": {"backups.manage"}}))
+    assert "/admin/backups/panel/srv-a/pb-weg/delete" in page(c)
+    r = c.post("/admin/backups/panel/srv-a/pb-weg/delete", data={"csrf": c.csrf})
+    assert r.status_code == 303
+    assert world.ptero.writes == [("DELETE", "/api/client/servers/srv-a/backups/pb-weg", None, None)]
+    assert "pb-weg" not in routes_backup.missing_files() and world.audit("backup.panel_delete")
+
+
+def test_vorhandenes_backup_wird_hier_nicht_geloescht(world):
+    c = world.client(world.ids["olga"])
+    assert "/admin/backups/panel/srv-a/pb-1/delete" not in page(c)
+    c.post("/admin/backups/panel/srv-a/pb-1/delete", data={"csrf": c.csrf})
+    assert world.ptero.writes == []

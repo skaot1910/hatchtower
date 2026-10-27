@@ -2462,7 +2462,7 @@ def own_schedule(request: Request, user: UserContext, sched_id: int):
 
 
 AUTOMATION_TABS = [("/admin/automation", "Zeitpläne"), ("/admin/automation/new", "Neuer Zeitplan"),
-                   ("/admin/automation/crash", "Neustart bei Absturz")]
+                   ("/admin/automation/crash", "Neustart bei Absturz"), ("/admin/automation/history", "Verlauf")]
 
 
 def automation_servers(names: dict) -> list:
@@ -2475,7 +2475,8 @@ def automation_servers(names: dict) -> list:
 
 
 def render_automation(request: Request, tab: str, **context):
-    return render(request, "admin_automation.html", tab=tab, page_tabs=AUTOMATION_TABS, page_tab=tab,
+    page_tab = "/admin/automation" if tab == "/admin/automation/edit" else tab
+    return render(request, "admin_automation.html", tab=tab, page_tabs=AUTOMATION_TABS, page_tab=page_tab,
                   page_tabs_label="Automationen", tz_offset=setup.utc_offset_label(settings.timezone), **context)
 
 
@@ -2509,18 +2510,45 @@ async def admin_automation(request: Request):
                                                    key=lambda kv: kv[1].casefold()))
 
 
-@app.get("/admin/automation/new", response_class=HTMLResponse)
-async def admin_automation_new(request: Request):
-    user, names = require_automation(request)
+def render_schedule_form(request: Request, user: UserContext, names: dict, values: dict, sched_id: int | None = None):
+    """Form for a new schedule or for editing one (values prefilled)."""
     servers = automation_servers(names)
     # Pro Server die Aktionen, die dieser Benutzer planen darf (blendet im Formular die übrigen aus)
     allowed_actions = {s["identifier"]: " ".join(a for a in automation.ACTIONS if user.schedule_allowed(s["identifier"], a))
                        for s in servers}
-    return render_automation(request, "/admin/automation/new", servers=servers,
+    return render_automation(request, "/admin/automation/new" if sched_id is None else "/admin/automation/edit",
+                             servers=servers, f=values, sched_id=sched_id,
                              weekdays=[i18n.t(d) for d in automation.WEEKDAYS],
                              actions={k: i18n.t(v) for k, v in automation.ACTIONS.items()},
                              allowed_actions=allowed_actions,
                              durations={m: automation.duration_text(m) for m in automation.DURATIONS})
+
+
+SCHEDULE_DEFAULTS = {"name": "", "identifier": "", "action": "start", "repeat": "weekly", "date": "", "time": "05:00",
+                     "command": "", "duration": 60, "weekdays": "0123456", "only_if_running": True,
+                     "warn_minutes": "", "warn_command": ""}
+
+
+@app.get("/admin/automation/new", response_class=HTMLResponse)
+async def admin_automation_new(request: Request):
+    user, names = require_automation(request)
+    return render_schedule_form(request, user, names, SCHEDULE_DEFAULTS)
+
+
+@app.get("/admin/automation/schedules/{sched_id}/edit", response_class=HTMLResponse)
+async def admin_schedule_edit(request: Request, sched_id: int):
+    user, names = require_automation(request)
+    row = own_schedule(request, user, sched_id)
+    if row is None or row["identifier"] not in names:
+        return back("/admin/automation", "Diesen Zeitplan gibt es nicht mehr.")
+    run_at = row["run_at"] or ""
+    values = {"name": row["name"], "identifier": row["identifier"], "action": row["action"],
+              "repeat": "once" if run_at else "weekly", "date": run_at[:10], "time": run_at[11:16] or row["time"],
+              "command": row["command"] or "", "duration": row["duration_minutes"] or 60,
+              "weekdays": row["weekdays"] or ("" if run_at else "0123456"),
+              "only_if_running": bool(row["only_if_running"]), "warn_minutes": row["warn_minutes"] or "",
+              "warn_command": row["warn_command"] or ""}
+    return render_schedule_form(request, user, names, values, sched_id)
 
 
 @app.get("/admin/automation/crash", response_class=HTMLResponse)
@@ -2537,6 +2565,62 @@ async def admin_automation_crash_page(request: Request):
     return render_automation(request, "/admin/automation/crash", servers=servers, crash=settings_rows,
                              crashes=crash_view,
                              crash_allowed={s["identifier"] for s in servers if crash_allowed(user, s["identifier"])})
+
+
+# History of the automations, read from the audit log (so it is kept as long as that, see Daten)
+HISTORY_KINDS = {
+    "run": ("Ausführungen", ("schedule.run",)),
+    "warn": ("Vorwarnungen", ("schedule.warn",)),
+    "crash": ("Abstürze", ("automation.crash",)),
+    "change": ("Änderungen", ("schedule.create", "schedule.update", "schedule.delete", "automation.settings")),
+}
+HISTORY_RESULTS = {"ok": "erfolgreich", "error": "Fehler", "blocked": "blockiert", "denied": "kein Recht"}
+HISTORY_PAGE = 50
+
+
+@app.get("/admin/automation/history", response_class=HTMLResponse)
+async def admin_automation_history(request: Request, page: int = 1, kind: str = "", server: str = "",
+                                   result: str = "", q: str = ""):
+    user, names = require_automation(request)
+    page, q = max(1, page), q.strip()[:100]
+    kind = kind if kind in HISTORY_KINDS else ""
+    result = result if result in HISTORY_RESULTS else ""
+    actions = list(HISTORY_KINDS[kind][1] if kind else (a for _l, keys in HISTORY_KINDS.values() for a in keys))
+    where, params = [f"action IN ({','.join('?' * len(actions))})"], list(actions)
+    if not user.is_owner:
+        # only the servers this user may automate (entries without a server, like the crash settings, are the owner's)
+        where.append(f"server IN ({','.join('?' * len(names)) or 'NULL'})")
+        params.extend(names)
+    if server:
+        where.append("server = ?")
+        params.append(server)
+    if result:
+        where.append("result = ?")
+        params.append(result)
+    if q:
+        where.append("detail LIKE ? ESCAPE '\\'")
+        params.append("%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
+    clause = " AND ".join(where)
+    with db.connect() as con:
+        total = con.execute(f"SELECT COUNT(*) FROM audit_log WHERE {clause}", params).fetchone()[0]
+        rows = con.execute(f"SELECT * FROM audit_log WHERE {clause} ORDER BY id DESC LIMIT ? OFFSET ?",
+                           [*params, HISTORY_PAGE, (page - 1) * HISTORY_PAGE]).fetchall()
+    kind_of = {a: k for k, (_l, keys) in HISTORY_KINDS.items() for a in keys}
+    entries = [{
+        "ts": fmt_dt(r["ts"], settings.timezone, seconds=True), "kind": kind_of.get(r["action"], ""),
+        "action": i18n.t(audit.ACTION_LABELS.get(r["action"], r["action"])),
+        "server": names.get(r["server"], r["server"]) if r["server"] else "–",
+        "username": r["username"] or "–", "detail": r["detail"] or "", "result": r["result"],
+    } for r in rows]
+    filter_query = f"kind={quote(kind)}&server={quote(server)}&result={quote(result)}&q={quote(q)}"
+    return render_automation(request, "/admin/automation/history", entries=entries, page=page, total=total,
+                             pages=max(1, -(-total // HISTORY_PAGE)), filter_query=filter_query,
+                             filter={"kind": kind, "server": server, "result": result, "q": q,
+                                     "active": any((kind, server, result, q))},
+                             kinds={k: i18n.t(label) for k, (label, _a) in HISTORY_KINDS.items()},
+                             results={k: i18n.t(v) for k, v in HISTORY_RESULTS.items()},
+                             filter_servers=sorted(names.items(), key=lambda kv: kv[1].casefold()),
+                             retention_days=retention.audit_days())
 
 
 @app.post("/admin/automation/crash")
@@ -2563,15 +2647,15 @@ async def admin_automation_crash(request: Request):
     return back("/admin/automation/crash", "Absturz-Neustart gespeichert")
 
 
-@app.post("/admin/automation/schedules")
-async def admin_schedule_create(request: Request, identifier: str = Form(""), name: str = Form(""),
-                                action: str = Form(""), command: str = Form(""), time_: str = Form("", alias="time"),
-                                only_if_running: str = Form(""), warn_minutes: str = Form(""),
-                                warn_command: str = Form(""), repeat: str = Form("weekly"), date: str = Form(""),
-                                duration: str = Form("60")):
-    owner, known = require_automation(request)
-    await check_csrf(request)
-    form = await request.form()
+def parse_schedule_form(owner: UserContext, known: dict, form) -> tuple[dict, list[str]]:
+    """Checks a schedule form (new or edited). Returns the column values and what is wrong."""
+    def field(key: str, default: str = "") -> str:
+        value = form.get(key, default)
+        return value if isinstance(value, str) else default
+    identifier, name, action, command = field("identifier"), field("name"), field("action"), field("command")
+    time_, only_if_running, warn_minutes = field("time"), field("only_if_running"), field("warn_minutes")
+    warn_command, repeat, date = field("warn_command"), field("repeat", "weekly"), field("date")
+    duration = field("duration", "60")
     days = "".join(sorted(d for d in form.getlist("weekdays") if d in "0123456" and len(d) == 1))
     problems = []
     if identifier not in known:
@@ -2618,21 +2702,64 @@ async def admin_schedule_create(request: Request, identifier: str = Form(""), na
             problems.append("Vorwarnung 1–60 Minuten")
         else:
             warn = int(warn_minutes)
+    values = {"identifier": identifier, "name": name.strip(), "action": action,
+              "command": (command.strip() if action == "command" else "") or None, "weekdays": days, "time": time_,
+              "only_if_running": 1 if only_if_running else 0, "warn_minutes": warn if warn and warn_command.strip() else None,
+              "warn_command": warn_command.strip() or None, "run_at": run_at, "duration_minutes": minutes}
+    return values, problems
+
+
+SCHEDULE_COLUMNS = ("identifier", "name", "action", "command", "weekdays", "time", "only_if_running", "warn_minutes",
+                    "warn_command", "run_at", "duration_minutes")
+
+
+def problems_text(problems: list[str]) -> str:
+    return i18n.t("Bitte prüfen: {list}", list=", ".join(i18n.t(x) for x in problems))
+
+
+@app.post("/admin/automation/schedules")
+async def admin_schedule_create(request: Request):
+    owner, known = require_automation(request)
+    await check_csrf(request)
+    v, problems = parse_schedule_form(owner, known, await request.form())
     if problems:
-        return back("/admin/automation/new", i18n.t("Bitte prüfen: {list}", list=", ".join(i18n.t(x) for x in problems)))
+        return back("/admin/automation/new", problems_text(problems))
     with db.connect() as con:
         con.execute(
-            "INSERT INTO schedules (identifier, name, action, command, weekdays, time, only_if_running,"
-            " warn_minutes, warn_command, enabled, created_by, created_at, run_at, duration_minutes)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
-            (identifier, name.strip(), action, command.strip() or None, days, time_, 1 if only_if_running else 0,
-             warn if warn and warn_command.strip() else None, warn_command.strip() or None, owner.id, db.utcnow(),
-             run_at, minutes),
+            f"INSERT INTO schedules ({', '.join(SCHEDULE_COLUMNS)}, enabled, created_by, created_at)"
+            f" VALUES ({', '.join('?' * len(SCHEDULE_COLUMNS))}, 1, ?, ?)",
+            (*(v[k] for k in SCHEDULE_COLUMNS), owner.id, db.utcnow()),
         )
-    audit.record("schedule.create", user_id=owner.id, username=owner.username, ip=ip_of(request), server=identifier,
-                 detail={"name": name.strip(), "action": action, "time": time_, "weekdays": days, "einmalig": run_at,
-                         **({"dauer_min": minutes} if minutes else {})})
+    audit.record("schedule.create", user_id=owner.id, username=owner.username, ip=ip_of(request),
+                 server=v["identifier"],
+                 detail={"name": v["name"], "action": v["action"], "time": v["time"], "weekdays": v["weekdays"],
+                         "einmalig": v["run_at"], **({"dauer_min": v["duration_minutes"]} if v["duration_minutes"] else {})})
     return back("/admin/automation", "Zeitplan angelegt")
+
+
+@app.post("/admin/automation/schedules/{sched_id}")
+async def admin_schedule_update(request: Request, sched_id: int):
+    """Edit a schedule: needs the right for the old and the new setting. It keeps its creator (it still only runs
+    while the creator has the rights for it) and whether it is paused."""
+    owner, known = require_automation(request)
+    await check_csrf(request)
+    row = own_schedule(request, owner, sched_id)
+    if row is None:
+        return back("/admin/automation", "Diesen Zeitplan gibt es nicht mehr.")
+    v, problems = parse_schedule_form(owner, known, await request.form())
+    if problems:
+        return back(f"/admin/automation/schedules/{sched_id}/edit", problems_text(problems))
+    changed = {k: v[k] for k in SCHEDULE_COLUMNS if v[k] != row[k]}
+    if not changed:
+        return back("/admin/automation", "Nichts geändert")
+    # a new time is a new appointment: forget which one already ran or was warned about
+    reset = ", last_run = NULL, last_warn = NULL" if {"weekdays", "time", "run_at"} & set(changed) else ""
+    with db.connect() as con:
+        con.execute(f"UPDATE schedules SET {', '.join(k + ' = ?' for k in SCHEDULE_COLUMNS)}{reset} WHERE id = ?",
+                    (*(v[k] for k in SCHEDULE_COLUMNS), sched_id))
+    audit.record("schedule.update", user_id=owner.id, username=owner.username, ip=ip_of(request),
+                 server=v["identifier"], detail={"name": row["name"], "geändert": changed})
+    return back("/admin/automation", "Zeitplan gespeichert")
 
 
 @app.post("/admin/automation/schedules/{sched_id}/toggle")

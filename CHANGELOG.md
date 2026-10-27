@@ -3,6 +3,19 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.42.0-pre.3 – 2026-10-27
+
+- Automations: new tab "History" with every schedule run, warning, crash and change to a schedule, filterable by
+  type, server, result and keyword (50 entries per page). Users without the owner role only see the servers they
+  may automate. It is read from the audit log, so it reaches back as far as the audit log is kept. Each schedule
+  has a "History" link that opens it filtered to that schedule
+- Schedules can be edited: "Edit" opens the same form as creating one, prefilled. It is checked the same way and
+  needs the permission for the old and the new action; the schedule keeps its creator and whether it is paused. A
+  new time or day counts as a new appointment. Every change is in the audit log with the changed fields
+- Backups made by the panel whose file is missing on the node can be deleted right in the list ("Delete", with
+  "Manage backup jobs"). This removes the dead entry in the panel; intact or locked backups are still deleted in
+  the panel itself
+
 ## 0.42.0-pre.2 – 2026-10-27
 
 - Update from the web interface no longer stuck on "An update is running": if the update helper was killed before

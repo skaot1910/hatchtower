@@ -238,6 +238,11 @@ class PteroClient:
         data = await self._get(f"/api/client/servers/{identifier}/backups/{uuid}/download", key="client")
         return (data or {}).get("attributes", {}).get("url", "")
 
+    async def delete_backup(self, identifier: str, uuid: str) -> None:
+        """Deletes one of the panel's backups. If the file on the node is already gone, the panel removes just
+        its entry (Wings answers 404, which the panel ignores when deleting)."""
+        await self._request("DELETE", f"/api/client/servers/{identifier}/backups/{uuid}", key="client")
+
     async def download_url(self, identifier: str, file: str) -> str:
         data = await self._get(
             f"/api/client/servers/{identifier}/files/download", key="client", params={"file": file}

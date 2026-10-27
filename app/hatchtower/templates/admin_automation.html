@@ -73,7 +73,9 @@
         <td data-label="{{ _("Vorwarnung") }}">{% if x.s.warn_minutes %}{{ _("{n} Min. vorher", n=x.s.warn_minutes) }}<div class="mono faint small">{{ x.s.warn_command }}</div>{% else %}<span class="faint">–</span>{% endif %}</td>
         <td class="faint small" data-label="{{ _("Zuletzt") }}">{{ x.s.last_result or '–' }}</td>
         <td class="num row-actions">
+          <a class="chip chip-sm chip-ghost" href="/admin/automation/history?server={{ x.s.identifier|urlencode }}&amp;q={{ x.s.name|urlencode }}">{{ _("Verlauf") }}</a>
           {% if x.editable %}
+          <a class="chip chip-sm" href="/admin/automation/schedules/{{ x.s.id }}/edit">{{ _("Bearbeiten") }}</a>
           <form method="post" action="/admin/automation/schedules/{{ x.s.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-ghost" type="submit">{{ _("Pausieren") if x.s.enabled else _("Aktivieren") }}</button></form>
           <form method="post" action="/admin/automation/schedules/{{ x.s.id }}/delete" data-confirm="{{ _("Zeitplan „{name}“ löschen?", name=x.s.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button></form>
           {% endif %}
@@ -89,57 +91,112 @@
 </section>
 {% endif %}
 
-{% if tab == "/admin/automation/new" %}
+{% if tab in ("/admin/automation/new", "/admin/automation/edit") %}
 <section class="card">
   <div class="group-head">
-    <h2 class="card-h">{{ _("Neuen Zeitplan anlegen") }}</h2>
+    <h2 class="card-h">{{ _("Zeitplan bearbeiten") if sched_id else _("Neuen Zeitplan anlegen") }}</h2>
     <p class="faint small">{{ _("Zeiten in {zone} ({offset})", zone=settings.timezone, offset=tz_offset) }}{% if user.is_owner %} · <a href="/admin/appearance#sprache-zeit">{{ _("ändern") }}</a>{% endif %}</p>
   </div>
-    <form method="post" action="/admin/automation/schedules" class="form schedule-form" id="schedule-form">
+    <form method="post" action="/admin/automation/schedules{% if sched_id %}/{{ sched_id }}{% endif %}" class="form schedule-form" id="schedule-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="form-grid">
-        <label>{{ _("Name") }}<input name="name" required maxlength="80" placeholder="{{ _("Nächtlicher Neustart") }}"></label>
+        <label>{{ _("Name") }}<input name="name" required maxlength="80" value="{{ f.name }}" placeholder="{{ _("Nächtlicher Neustart") }}"></label>
         <label>{{ _("Server") }}
           <select name="identifier" required id="sched-server">
             <option value="">– {{ _("wählen") }} –</option>
-            {% for s in servers %}<option value="{{ s.identifier }}" data-actions="{{ allowed_actions[s.identifier] }}">{{ s.name }}</option>{% endfor %}
+            {% for s in servers %}<option value="{{ s.identifier }}" data-actions="{{ allowed_actions[s.identifier] }}" {% if s.identifier == f.identifier %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
           </select>
         </label>
         <label>{{ _("Aktion") }}
           <select name="action" required id="sched-action">
-            {% for key, label in actions.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+            {% for key, label in actions.items() %}<option value="{{ key }}" {% if key == f.action %}selected{% endif %}>{{ label }}</option>{% endfor %}
           </select>
         </label>
         <label>{{ _("Wiederholung") }}
           <select name="repeat" id="sched-repeat">
             <option value="weekly">{{ _("Wöchentlich an Wochentagen") }}</option>
-            <option value="once">{{ _("Einmalig an einem Datum") }}</option>
+            <option value="once" {% if f.repeat == "once" %}selected{% endif %}>{{ _("Einmalig an einem Datum") }}</option>
           </select>
         </label>
-        <label id="sched-date" hidden>{{ _("Datum") }}<input name="date" type="date"></label>
-        <label>{{ _("Uhrzeit") }}<input name="time" type="time" required value="05:00"></label>
+        <label id="sched-date" hidden>{{ _("Datum") }}<input name="date" type="date" value="{{ f.date }}"></label>
+        <label>{{ _("Uhrzeit") }}<input name="time" type="time" required value="{{ f.time }}"></label>
       </div>
-      <label id="sched-command">{{ _("Befehl (nur bei Aktion „Befehl“)") }}<input name="command" maxlength="500" placeholder="save"></label>
+      <label id="sched-command">{{ _("Befehl (nur bei Aktion „Befehl“)") }}<input name="command" maxlength="500" value="{{ f.command }}" placeholder="save"></label>
       <div id="sched-update" hidden>
         <label>{{ _("Dauer des Update-Fensters") }}
           <select name="duration">
-            {% for m, label in durations.items() %}<option value="{{ m }}" {% if m == 60 %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            {% for m, label in durations.items() %}<option value="{{ m }}" {% if m == f.duration %}selected{% endif %}>{{ label }}</option>{% endfor %}
           </select>
         </label>
         <p class="faint small">{{ _("Das Update-Fenster startet den Server zur gewählten Zeit, damit er Spiel-Updates laden kann, und stoppt ihn nach der Dauer wieder. Es greift nur, wenn der Server in dem Moment aus ist. Startet ihn jemand während des Fensters in Hatchtower von Hand, bleibt er danach an.") }}</p>
       </div>
       <fieldset class="weekdays" id="sched-weekdays">
         <legend>{{ _("Wochentage") }}</legend>
-        {% for d in weekdays %}<label class="check"><input type="checkbox" name="weekdays" value="{{ loop.index0 }}" checked> {{ d }}</label>{% endfor %}
+        {% for d in weekdays %}<label class="check"><input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0|string in f.weekdays %}checked{% endif %}> {{ d }}</label>{% endfor %}
       </fieldset>
-      <label class="check" id="sched-only-running"><input type="checkbox" name="only_if_running" value="1" checked> {{ _("Nur ausführen, wenn der Server läuft (gilt nicht für Start)") }}</label>
+      <label class="check" id="sched-only-running"><input type="checkbox" name="only_if_running" value="1" {% if f.only_if_running %}checked{% endif %}> {{ _("Nur ausführen, wenn der Server läuft (gilt nicht für Start)") }}</label>
       <div class="form-grid" id="sched-warn">
-        <label>{{ _("Vorwarnung (Minuten vorher, optional)") }}<input name="warn_minutes" inputmode="numeric" placeholder="5"></label>
-        <label>{{ _("Vorwarn-Befehl") }}<input name="warn_command" maxlength="300" placeholder="{{ _("say Neustart in {minuten} Minuten!") }}"></label>
+        <label>{{ _("Vorwarnung (Minuten vorher, optional)") }}<input name="warn_minutes" inputmode="numeric" value="{{ f.warn_minutes }}" placeholder="5"></label>
+        <label>{{ _("Vorwarn-Befehl") }}<input name="warn_command" maxlength="300" value="{{ f.warn_command }}" placeholder="{{ _("say Neustart in {minuten} Minuten!") }}"></label>
       </div>
       <p class="faint small">{{ _("Einmalige Zeitpläne werden nach dem Ausführen automatisch pausiert.") }} {{ _("{platzhalter} wird durch die Minutenzahl ersetzt. Welcher Befehl Spielern eine Nachricht zeigt, hängt vom Spiel ab (z. B. „say …“ oder „broadcast …“). Verpasste Termine, etwa während eines Manager-Neustarts, werden nicht nachgeholt.", platzhalter="{minuten}") }}</p>
-      <button class="btn btn-primary" type="submit">{{ _("Zeitplan anlegen") }}</button>
+      {% if sched_id %}<p class="faint small">{{ _("Der Zeitplan bleibt pausiert bzw. aktiv wie bisher und läuft weiter mit den Rechten dessen, der ihn angelegt hat.") }}</p>{% endif %}
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">{{ _("Speichern") if sched_id else _("Zeitplan anlegen") }}</button>
+        {% if sched_id %}<a class="btn btn-ghost" href="/admin/automation">{{ _("Abbrechen") }}</a>{% endif %}
+      </div>
     </form>
+</section>
+{% endif %}
+
+{% if tab == "/admin/automation/history" %}
+<section class="card">
+  <div class="group-head">
+    <h2 class="card-h">{{ _("Verlauf") }}</h2>
+    <p class="faint small">{{ _("Ausführungen, Vorwarnungen, Abstürze und Änderungen an Zeitplänen") }} · {{ _("wird nach {n} Tagen gelöscht", n=retention_days) }}{% if user.is_owner %} (<a href="/admin/data">{{ _("ändern") }}</a>){% endif %}</p>
+  </div>
+  <form method="get" action="/admin/automation/history" class="filters list-filter">
+    <label class="sr-only" for="h-q">{{ _("Stichwort") }}</label>
+    <input type="search" id="h-q" name="q" value="{{ filter.q }}" maxlength="100" placeholder="{{ _("Zeitplan oder Stichwort") }}">
+    <label class="sr-only" for="h-kind">{{ _("Art") }}</label>
+    <select id="h-kind" name="kind"><option value="">{{ _("Alle Arten") }}</option>{% for key, label in kinds.items() %}<option value="{{ key }}" {% if key == filter.kind %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    {% if filter_servers|length > 1 %}
+    <label class="sr-only" for="h-server">{{ _("Server") }}</label>
+    <select id="h-server" name="server"><option value="">{{ _("Alle Server") }}</option>{% for ident, name in filter_servers %}<option value="{{ ident }}" {% if ident == filter.server %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+    {% endif %}
+    <label class="sr-only" for="h-result">{{ _("Ergebnis") }}</label>
+    <select id="h-result" name="result"><option value="">{{ _("Alle Ergebnisse") }}</option>{% for key, label in results.items() %}<option value="{{ key }}" {% if key == filter.result %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <button class="btn btn-sm" type="submit">{{ _("Filtern") }}</button>
+    {% if filter.active %}<a class="btn btn-ghost btn-sm" href="/admin/automation/history">{{ _("Filter zurücksetzen") }}</a>{% endif %}
+    <span class="faint small list-count">{{ _("{n} Einträge", n=total) }}</span>
+  </form>
+  {% if entries %}
+  <div class="table-card">
+  <table class="table audit stack-table">
+    <thead><tr><th>{{ _("Zeit") }}</th><th>{{ _("Art") }}</th><th>{{ _("Server") }}</th><th>{{ _("Details") }}</th><th>{{ _("Spalte|Benutzer") }}</th><th>{{ _("Ergebnis") }}</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr>
+        <td class="nowrap faint">{{ e.ts }}</td>
+        <td data-label="{{ _("Art") }}">{{ e.action }}</td>
+        <td data-label="{{ _("Server") }}">{{ e.server }}</td>
+        <td class="detail mono">{{ e.detail }}</td>
+        <td data-label="{{ _("Spalte|Benutzer") }}">{{ e.username }}</td>
+        <td data-label="{{ _("Ergebnis") }}"><span class="result result-{{ e.result }}">{{ results.get(e.result, e.result) }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if pages > 1 %}
+  <nav class="pager">
+    {% if page > 1 %}<a class="chip chip-sm" href="?page={{ page - 1 }}&amp;{{ filter_query }}">{{ _("← Neuer") }}</a>{% endif %}
+    <span class="faint small">{{ _("Seite {page} von {pages}", page=page, pages=pages) }}</span>
+    {% if page < pages %}<a class="chip chip-sm" href="?page={{ page + 1 }}&amp;{{ filter_query }}">{{ _("Älter →") }}</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% elif filter.active %}<p class="faint">{{ _("Kein Eintrag passt zum Filter.") }}</p>
+  {% else %}<p class="faint">{{ _("Noch nichts passiert.") }}</p>{% endif %}
 </section>
 {% endif %}
 {% endblock %}

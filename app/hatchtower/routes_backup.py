@@ -296,12 +296,14 @@ async def panel_backups(user, names: dict, only: str = "") -> list[dict]:
         if not result:
             continue
         can_download = has(user, ident, "backups.download")
+        can_delete = has(user, ident, "backups.manage")
         forget_missing(ident, {b["uuid"] for b in result})      # deleted in the panel: the mark goes too
         out.append({"ident": ident, "server": names[ident], "error": None, "backups": [{
             **b, "size": fmt_size(b["bytes"]) if b["bytes"] else "",
             "at": fmt_dt(b["completed"] or b["created"], settings.timezone),
             "missing": fmt_dt(missing[b["uuid"]], settings.timezone) if b["uuid"] in missing else None,
-            "can_download": can_download and b["successful"] and bool(b["completed"])} for b in result]})
+            "can_download": can_download and b["successful"] and bool(b["completed"]),
+            "can_delete": can_delete and b["uuid"] in missing and not b["locked"]} for b in result]})
     return out
 
 
@@ -334,6 +336,35 @@ def forget_missing(ident: str, existing: set[str] | None = None, uuid: str | Non
 def file_missing(exc: PteroError) -> bool:
     """Wings: 404 "The requested backup was not found on this server." – unlike a used link ("resource")."""
     return exc.status == 404 and "backup" in str(exc).lower()
+
+
+@app.post("/admin/backups/panel/{ident}/{uuid}/delete")
+async def panel_backup_delete(request: Request, ident: str, uuid: str):
+    """Remove a panel backup whose file is gone from the node, so the dead entry leaves the list (and the panel's
+    backup limit). Only for backups marked as missing: everything else is deleted in the panel itself."""
+    user = require_backups(request, "backups.manage")
+    await check_csrf(request)
+    names = server_names()
+    if ident not in names or not has(user, ident, "backups.manage"):
+        deny(request, user, "backups.manage", ident if ident in names else None)
+    found = await panel_backups_of(ident)
+    backup = next((b for b in found if b["uuid"] == uuid), None) if isinstance(found, list) else None
+    if backup is None or uuid not in missing_files():
+        return back(STORED + "#panel-backups", "Hier lassen sich nur Backups löschen, deren Datei auf dem Node fehlt.")
+    if backup["locked"]:
+        return back(STORED + "#panel-backups", i18n.t(
+            "„{backup}“ ist im Panel gesperrt. Entsperre es dort zuerst.", backup=backup["name"] or uuid))
+    label = {"backup": backup["name"] or uuid, "panel": settings.panel.name}
+    try:
+        await app.state.ptero.delete_backup(ident, uuid)
+    except PteroError as exc:
+        audit_user(request, user, "backup.panel_delete", result="error", server=ident, detail={**label, "fehler": str(exc)})
+        return back(STORED + "#panel-backups", i18n.t("Löschen in {panel} fehlgeschlagen: {grund}",
+                                                      panel=settings.panel.name, grund=exc))
+    forget_missing(ident, uuid=uuid)
+    _panel_cache.pop(ident, None)
+    audit_user(request, user, "backup.panel_delete", server=ident, detail=label)
+    return back(STORED + "#panel-backups", i18n.t("„{backup}“ aus {panel} gelöscht", **label))
 
 
 @app.get("/admin/backups/panel/{ident}/{uuid}/download")

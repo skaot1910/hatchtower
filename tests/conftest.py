@@ -104,7 +104,11 @@ class FakePtero(PteroClient):
             return {"data": [{"attributes": {"uuid": "pb-1", "name": "Panel-Sicherung", "bytes": 1234,
                                              "is_successful": True, "is_locked": False,
                                              "created_at": "2026-10-20T10:00:00+00:00",
-                                             "completed_at": "2026-10-20T10:01:00+00:00"}}],
+                                             "completed_at": "2026-10-20T10:01:00+00:00"}},
+                             {"attributes": {"uuid": "pb-weg", "name": "Verwaiste Sicherung", "bytes": 99,
+                                             "is_successful": True, "is_locked": False,
+                                             "created_at": "2026-10-19T10:00:00+00:00",
+                                             "completed_at": "2026-10-19T10:01:00+00:00"}}],
                     "meta": {"pagination": {"total_pages": 1}}}
         if "/backups/" in path and path.endswith("/download"):
             return {"attributes": {"url": "https://wings.test/backup?token=t"}}
@@ -344,9 +348,11 @@ def world(monkeypatch, tmp_path) -> World:
         db.set_setting(key, value, None)
     (tmp_path / "logos" / ("f" * 32 + ".webp")).write_bytes(b"RIFF")
     invite = accounts.create("invite", data={"role": "user"}, created_by=1)
+    from hatchtower import routes_backup
+    routes_backup.mark_missing("srv-a", "pb-weg", "Wings antwortet mit HTTP 404")    # file gone on the node
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
-        "job_id": str(jid), "direct_job_id": str(djid), "uuid": "pb-1", "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
+        "job_id": str(jid), "direct_job_id": str(djid), "uuid": "pb-1", "missing_uuid": "pb-weg", "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
         "token_hash": accounts._hash(invite), "kind": "login", "page": "impressum", "key": "hell", "mode": "simple", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,

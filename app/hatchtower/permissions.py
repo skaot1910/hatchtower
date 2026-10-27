@@ -92,7 +92,8 @@ PERMISSIONS: tuple[Permission, ...] = (
                note="Ersetzt Dateien auf dem Server – auch ohne die Rechte unter „Dateien“."),
     Permission("backups.manage", "Backup-Jobs verwalten", "Backups",
                "Backup-Jobs und Direktdownload-Jobs anlegen, ändern und löschen, dabei Dateien und Ordner auswählen,"
-               " und gespeicherte Backups löschen. Jobs mit mehreren Servern nur, wenn das Recht für alle gilt;"
+               " und gespeicherte Backups löschen, dazu Backups des Panels, deren Datei auf dem Node fehlt. Jobs mit"
+               " mehreren Servern nur, wenn das Recht für alle gilt;"
                " Stoppen vor dem Backup nur mit den Steuerrechten dazu.",
                requires=("server.view", "backups.view", "backups.list", "sftp.view")),
     Permission("backups.direct", "Direktdownload aus dem Livesystem", "Direktdownload",

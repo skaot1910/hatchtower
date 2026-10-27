@@ -188,7 +188,7 @@ def test_reiter_nur_mit_recht(world, monkeypatch):
         "/admin/backups", "/admin/backups/stored", "/admin/backups/downloads", "/admin/backups/restores"]
     planer = world.client(world.user("planer", grants={"srv-a": {"automation.manage"}}))
     assert tabs(page(planer, "/admin/automation")) == ["/admin/automation", "/admin/automation/new",
-                                                       "/admin/automation/crash"]
+                                                       "/admin/automation/crash", "/admin/automation/history"]
 
 
 def test_download_verlauf_zaehlt_wiederholte_anfragen_einmal(world):

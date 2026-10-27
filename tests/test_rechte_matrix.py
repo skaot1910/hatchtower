@@ -817,7 +817,8 @@ def test_backups_mit_genau_diesem_recht(world, route):
     response = send(world, world.client(uid), route)
     assert_ok(response)
     assert "Bitte%20pr" not in response.headers.get("location", ""), response.headers.get("location")
-    assert world.ptero.writes == []
+    if not route.write:          # writing ones may write later (a restore runs in the background)
+        assert world.ptero.writes == []
 
 
 @pytest.mark.parametrize("route", BACKUP, ids=ids(BACKUP))
