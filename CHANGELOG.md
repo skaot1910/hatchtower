@@ -3,6 +3,13 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.42.0-pre.4 – 2026-10-27
+
+- New backup job: the servers come first. Pick the servers the job is for (owners can also pick "All servers,
+  including future ones") and whether they are backed up completely or only certain folders and files, then name
+  and target. Complete servers are added right away; for folders and files the file browser of the first picked
+  server opens next. Creating a job without a server is no longer possible
+
 ## 0.42.0-pre.3 – 2026-10-27
 
 - Automations: new tab "History" with every schedule run, warning, crash and change to a schedule, filterable by
