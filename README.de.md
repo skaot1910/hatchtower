@@ -72,14 +72,20 @@ deshalb Hatchtower: eine kleine, sichere Haustür, hinter der das Panel im Heimn
 
 - **Einfache Ansicht** für Freunde: Status, Adresse, Beitritts-Passwort, Starten/Neustarten – auch am Handy
 - **Übersicht** mit CPU, RAM und Speicher live, Favoriten und Tags; Serverseite mit Verlauf, Verfügbarkeit und **Live-Konsole**
+- **Spielstand mit einem Klick**: „Spielstand herunterladen“ auf der Serverseite, als ZIP des aktuellen Stands
 - **Reiter Spieler**: Ist jemand online? Aus der Query des Spiels (Steam, Minecraft) oder der Konsole, sonst aus dem
   Netzwerk-Traffic geschätzt – immer mit der Quelle, die entschieden hat, und einem kurzen Verlauf
 - **Dateiverwaltung**: ansehen, hochladen, herunterladen (auch als ZIP), bearbeiten, umbenennen, löschen
 - **Rechte pro Benutzer und Server**, Rechtegruppen im direkten Vergleich und **Einladungslinks**
-- **Automationen**: Neustart nach Absturz, geplantes Starten/Stoppen/Neustarten mit Vorwarnung im Spiel
-- **Backups** auf ein Laufwerk oder eine SMB-Freigabe, nach dem Schreiben geprüft und mit wenigen Klicks **wiederherstellbar**
-- **Benachrichtigungen** in der Oberfläche (Glocke mit Verlauf), per Discord/Webhook und E-Mail; **Audit-Log**,
+- **Automationen**: Neustart nach Absturz, geplantes Starten/Stoppen/Neustarten mit Vorwarnung im Spiel, Zeitpläne
+  bearbeitbar, Verlauf aller Ausführungen
+- **Backups** auf ein Laufwerk oder eine SMB-Freigabe, nach dem Schreiben geprüft und mit wenigen Klicks
+  **wiederherstellbar**; auch die Backups des Panels lassen sich herunterladen
+- **Benachrichtigungen** in der Oberfläche (Glocke mit Filtern), per Discord/Webhook und E-Mail; **Audit-Log**,
   optionale **öffentliche Statusseite**
+- **Support-Bericht** ohne Keys und Passwörter, um Hilfe zu bekommen
+- **Spenden-Knopf** und Unterstützerliste (optional, z. B. mit PayPal), um Serverkosten mit Freunden zu teilen
+- **Als App nutzbar** auf Handy und Tablet (zum Home-Bildschirm hinzufügen)
 - **Server-Administration** (optional): Server anlegen, Ressourcen, Ports und Startparameter ändern
 - **Read-Only-Modus**, eigener Name und Logo, dunkles und helles Farbschema, Deutsch und Englisch
 
@@ -111,9 +117,9 @@ Alle Screenshots zeigen ein Test-Panel mit erfundenen Servern und Benutzern.
 
 <img src="docs/screenshots/permission-groups.png" alt="Rechtegruppen in einer Tabelle verglichen" width="100%">
 
-**Backups**
+**Backups** – gespeichert, geprüft, bereit zum Wiederherstellen oder Herunterladen.
 
-<img src="docs/screenshots/backups.png" alt="Backup-Seite" width="100%">
+<img src="docs/screenshots/backups.png" alt="Gespeicherte Backups mit Prüfung" width="100%">
 
 <table>
   <tr>
@@ -234,8 +240,14 @@ Jedes Recht wird bei jeder Anfrage auf dem Server geprüft – ein ausgeblendete
 
 1. **Backup-Ziel** (nur Owner): ein Laufwerk unter `/mnt`, `/media` oder `/srv` oder eine **SMB-Freigabe**.
 2. **Backup-Job**: was (ganzer Server oder Ordner), wohin und wann (von Hand oder nach Zeitplan).
-   Auf Wunsch wird der Server vorher gestoppt und danach wieder gestartet.
-3. Jeder Lauf schreibt **ein ZIP pro Server** und prüft es direkt danach.
+   Auf Wunsch wird der Server vorher gestoppt und danach wieder gestartet oder vorher ein Speicherbefehl gesendet.
+3. Jeder Lauf schreibt **ein ZIP pro Server** und prüft es direkt danach. Eine Liste im ZIP
+   (`HATCHTOWER-PATHS.txt`) zeigt, woher jede Datei stammt.
+
+Ein Job **ohne Ziel** ist ein **Direkt-Download**: Er liest den aktuellen Stand vom Server und speichert nichts –
+praktisch für Freunde, die nur ihren Spielstand wollen. Backups, die das Panel selbst anlegt, stehen getrennt
+daneben und lassen sich ebenfalls über Hatchtower herunterladen. Rechte legen fest, wer was sehen, herunterladen,
+starten oder wiederherstellen darf.
 
 **Wiederherstellen** (*Backups → gespeichertes Backup → Wiederherstellen*): entweder **in einen eigenen Ordner**
 (sicher, überschreibt nichts) oder **an den ursprünglichen Ort** (ersetzt Dateien, löscht nichts).
@@ -260,6 +272,7 @@ hatchtower update
 ```
 
 Vorher wird die Datenbank gesichert; startet die neue Version nicht, geht Hatchtower automatisch zurück.
+Vorab-Versionen gibt es nur, wenn unter **System → Updates** **Vorab-Versionen erhalten** eingeschaltet ist.
 Was sich geändert hat, steht unter [Releases](https://github.com/skaot1910/hatchtower/releases).
 
 <details>
@@ -290,12 +303,14 @@ Danach die Hatchtower-API-Keys im Panel löschen. Backups auf dem Backup-Laufwer
 | Backup-Ziel nicht beschreibbar | Den `chown`-Befehl aus der Meldung auf dem **Proxmox-Host** ausführen |
 | Owner-Passwort vergessen | `hatchtower reset-password` |
 | Etwas anderes | `hatchtower selftest`, `journalctl -u hatchtower -f` |
+| Hilfe holen | Support-Bericht anhängen (**System → Status** oder `hatchtower support`) – ohne Keys und Passwörter |
 
 ## 12. Sicherheit
 
 - Aus dem Internet nur über einen **Reverse-Proxy mit HTTPS** (Caddy, Nginx, Pangolin …) und dessen IP unter
   **System → Netzwerk → Reverse-Proxy-IPs** eintragen – siehe [Reverse-Proxy und Pangolin](docs/reverse-proxy.de.md).
 - Das **Panel privat lassen**; nur Hatchtower muss erreichbar sein.
+- Zu Hause laufen Downloads nach außen über deinen Upload; begrenzen unter **System → Netzwerk**.
 - Den Client-Key schützen (eigener Benutzer, Allowed IPs, 2FA).
 - Die Einrichtung gleich nach der Installation abschließen und nur nötige Rechte vergeben.
 
@@ -327,6 +342,7 @@ für Ingame-Servernamen und Spielerzahl) und mit den Webhooks und dem Mailserver
 |---|---|
 | `hatchtower update` | Neueste Version installieren (`--check` prüft nur) |
 | `hatchtower selftest` | Verbindung zu Panel und Wings prüfen |
+| `hatchtower support` | Support-Bericht schreiben (Adressen ersetzt, `--full` behält sie) |
 | `hatchtower version` | Installierte Version anzeigen |
 | `hatchtower reset-password` | Passwort zurücksetzen und Konto entsperren |
 | `hatchtower setup-token` | Neuer Einrichtungscode (nur solange es kein Konto gibt) |

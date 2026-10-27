@@ -69,14 +69,20 @@ door that keeps the panel inside the home network.
 
 - **Simple view** for friends: status, address, join password, start/restart – also on phones
 - **Overview** with live CPU, RAM and disk, favourites and tags; server page with history, uptime and **live console**
+- **Save game in one click**: "Download save game" on the server page, as a ZIP of the current state
 - **Players tab**: is anyone online? Read from the game's query (Steam, Minecraft) or console, otherwise estimated
   from network traffic – always showing which source decided, with a short history
 - **File manager**: view, upload, download (also as ZIP), edit, rename, delete
 - **Permissions per user and server**, permission groups compared side by side, and **invite links**
-- **Automations**: restart after a crash, scheduled starts/stops/restarts with in-game warning
-- **Backups** to a drive or SMB share, checked after writing and **restorable** in a few clicks
-- **Notifications** in the web interface (bell with history), via Discord/webhook and email; **audit log**,
+- **Automations**: restart after a crash, scheduled starts/stops/restarts with in-game warning, editable schedules
+  and a history of every run
+- **Backups** to a drive or SMB share, checked after writing and **restorable** in a few clicks; the panel's own
+  backups can be downloaded too
+- **Notifications** in the web interface (bell with filters), via Discord/webhook and email; **audit log**,
   optional **public status page**
+- **Support report** without keys or passwords, for asking for help
+- **Donate button** and supporter list (optional, e.g. with PayPal) to share server costs with your friends
+- **Works as an app** on phones and tablets (add to home screen)
 - **Server administration** (optional): create servers, change resources, ports and startup parameters
 - **Read-only mode**, own name and logo, dark and light theme, English and German
 
@@ -108,9 +114,9 @@ All screenshots use a test panel with made-up servers and users.
 
 <img src="docs/screenshots/permission-groups.png" alt="Permission groups compared in one table" width="100%">
 
-**Backups**
+**Backups** – stored, verified and ready to restore or download.
 
-<img src="docs/screenshots/backups.png" alt="Backups page" width="100%">
+<img src="docs/screenshots/backups.png" alt="Stored backups with verification" width="100%">
 
 <table>
   <tr>
@@ -230,8 +236,14 @@ Every permission is checked on the server for every request – hiding a button 
 
 1. **Backup target** (owners only): a drive under `/mnt`, `/media` or `/srv`, or an **SMB share**.
 2. **Backup job**: what (whole server or folders), where and when (manually or on a schedule).
-   Optionally the server is stopped first and restarted afterwards.
-3. Each run writes **one ZIP per server**, verified right after writing.
+   Optionally the server is stopped first and restarted afterwards, or a save command is sent first.
+3. Each run writes **one ZIP per server**, verified right after writing. A list inside the ZIP
+   (`HATCHTOWER-PATHS.txt`) shows where each file came from.
+
+A job **without a target** is a **direct download**: it reads the current state from the server and stores
+nothing – handy for friends who only want their save game. Backups made by the panel itself are listed
+separately and can be downloaded through Hatchtower as well. Permissions decide who may see, download, start or
+restore what.
 
 **Restore** (*Backups → stored backup → Restore*): either **into a separate folder** (safe, overwrites
 nothing) or **to the original place** (replaces files, deletes nothing).
@@ -255,6 +267,7 @@ hatchtower update
 ```
 
 The database is backed up first; if the new version does not start, Hatchtower rolls back automatically.
+Pre-releases are only offered if you switch on **Receive pre-releases** under **System → Updates**.
 What changed is listed under [Releases](https://github.com/skaot1910/hatchtower/releases).
 
 <details>
@@ -285,12 +298,14 @@ Then delete the Hatchtower API keys in your panel. Backups on your backup drive 
 | Backup target not writable | Run the `chown` command from the message on the **Proxmox host** |
 | Forgot owner password | `hatchtower reset-password` |
 | Anything else | `hatchtower selftest`, `journalctl -u hatchtower -f` |
+| Asking for help | Attach a support report (**System → Status** or `hatchtower support`) – it contains no keys or passwords |
 
 ## 12. Security
 
 - From the internet only via a **reverse proxy with HTTPS** (Caddy, Nginx, Pangolin …) and enter its IP
   under **System → Network → Reverse proxy IPs** – see [Reverse proxy and Pangolin](docs/reverse-proxy.md).
 - Keep the **panel private**; only Hatchtower needs to be reachable.
+- At home, downloads to the outside use your upload; cap them under **System → Network** if needed.
 - Protect the client key (dedicated user, Allowed IPs, 2FA).
 - Finish the setup right after installing and give people only the permissions they need.
 
@@ -321,6 +336,7 @@ webhooks and mail server you set up.
 |---|---|
 | `hatchtower update` | Install the newest version (`--check` only checks) |
 | `hatchtower selftest` | Check the connection to panel and Wings |
+| `hatchtower support` | Write a support report (addresses replaced, `--full` keeps them) |
 | `hatchtower version` | Show the installed version |
 | `hatchtower reset-password` | Reset a password and unlock the account |
 | `hatchtower setup-token` | New setup code (only while no account exists) |
