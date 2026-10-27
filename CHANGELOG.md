@@ -3,6 +3,14 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.42.0-pre.1 – 2026-10-27
+
+- Path list in every ZIP: backups (stored and direct downloads) and ZIP downloads of a selection in the file manager
+  now contain `HATCHTOWER-PATHS.txt` with the server, the date and the full server path of each selected file or
+  folder (folders end in `/`), so single files and folders can be put back where they came from. Only the selected
+  entries are listed, not their contents; jobs with several servers get one list per server folder. Restoring a
+  backup skips the list
+
 ## 0.41.1 – 2026-10-25
 
 - Sign-in pages in the home-screen app on iPad: with a hardware keyboard, WebKit wrongly believes an on-screen
