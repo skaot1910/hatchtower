@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.42.0-pre.2 – 2026-10-27
+
+- Update from the web interface no longer stuck on "An update is running": if the update helper was killed before
+  it could record the result (e.g. the container was restarted during the update), the leftover state is now
+  recognised as interrupted – when no helper process runs any more, or at the latest after 35 minutes. The progress
+  page reports the interruption with the running version, and a new update can be started again
+- Restarting the service waits at most a few seconds for open connections (console, status, downloads) instead of
+  up to 90 seconds, so updates no longer hang at "Starting the service" while browser tabs are open
+
 ## 0.42.0-pre.1 – 2026-10-27
 
 - Path list in every ZIP: backups (stored and direct downloads) and ZIP downloads of a selection in the file manager
