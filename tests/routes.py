@@ -85,6 +85,7 @@ ROUTES: tuple[Route, ...] = (
 
     # -- Angemeldet, eigenes Konto ----------------------------------------------------------
     R("GET", "/", "login", "Übersicht (nur sichtbare Server); ?als= nur für Owner"),
+    R("GET", "/donate", "login", "Spendenseite mit Unterstützerliste (nur wenn der Owner sie eingeschaltet hat)"),
     R("GET", "/api/overview", "login", "Live-Werte der Übersicht (nur sichtbare Server)"),
     R("GET", "/theme/{key}", "login", "Theme umschalten"),
     R("GET", "/view/{mode}", "login", "Einfache oder vollständige Ansicht umschalten"),
@@ -375,6 +376,12 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/admin/announcements", "owner", "Ankündigungen"),
     R("POST", "/admin/announcements", "owner", "Ankündigung speichern", csrf="form", form={"text": "Gekapert"}),
     R("POST", "/admin/announcements/{ann_id}/delete", "owner", "Ankündigung löschen", csrf="form"),
+    R("GET", "/admin/donations", "owner", "Community → Spenden: Button, Unterstützerliste, eingetragene Spenden"),
+    R("POST", "/admin/donations", "owner", "Spenden-Einstellungen speichern", csrf="form",
+      form={"url": "https://evil.example/pay", "in_app": "1", "on_status": "1", "history": "1", "field__amount": "1"}),
+    R("POST", "/admin/donations/entry", "owner", "Spende eintragen oder ändern", csrf="form",
+      form={"donor": "Gekapert", "day": "2026-01-01", "amount": "5"}),
+    R("POST", "/admin/donations/{donation_id}/delete", "owner", "Spende löschen", csrf="form"),
 
     # -- Owner: System ----------------------------------------------------------------------
     R("GET", "/admin/system", "owner", "System → Zustand: Verbindung, Monitoring, Selbsttest"),

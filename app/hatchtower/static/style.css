@@ -1527,6 +1527,43 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
   background: var(--accent-strong); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
   box-shadow: 0 0 0 2px var(--side-bg); }
 .bell + .menu-toggle { margin-left: 0; }
+/* Donate pill: own row under the brand in the sidebar, compact between brand and bell in the phone bar */
+.donate-pill { order: 3; flex: 1 0 100%; display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 4px;
+  padding: 7px 12px; border-radius: var(--radius-pill); font-size: 13.5px; font-weight: 600; color: var(--text); text-decoration: none;
+  border: 1px solid color-mix(in srgb, #e5487d 45%, transparent); background: color-mix(in srgb, #e5487d 14%, transparent);
+  transition: background var(--ease), border-color var(--ease); }
+.donate-pill:hover, .donate-pill.active { color: var(--strong); border-color: #e5487d; background: color-mix(in srgb, #e5487d 24%, transparent); }
+.donate-pill .ico-ui { width: 16px; height: 16px; color: #e5487d; fill: currentColor; vertical-align: 0; }
+.sidebar-top:has(.donate-pill) { flex-wrap: wrap; }
+@media (max-width: 900px) {
+  .sidebar-top:has(.donate-pill) { flex-wrap: nowrap; }
+  .donate-pill { order: 0; flex: none; margin: 0 0 0 auto; height: 44px; padding: 0 13px; font-size: 14px; }
+  .donate-pill + .bell { margin-left: 0; }
+}
+@media (max-width: 400px) {
+  .sidebar-top:has(.donate-pill) { gap: 8px; }
+  .donate-pill { padding: 0 10px; gap: 5px; font-size: 13px; }
+  .sidebar-top:has(.donate-pill) .brand-titles .brand-text { font-size: 15px; overflow-wrap: normal; }
+}
+
+/* Donation box (status page and /donate): link and supporter list */
+.donate-box { margin-top: 18px; }
+.donate-head { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.donate-head > div { flex: 1; min-width: 220px; }
+.donate-head .card-h { margin-bottom: 4px; }
+.donate-head p { margin: 0; }
+.donate-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 50%;
+  color: #e5487d; background: color-mix(in srgb, #e5487d 15%, transparent); }
+.donate-icon .ico-ui { width: 22px; height: 22px; }
+.donate-btn { display: inline-flex; align-items: center; gap: 7px; }
+.donate-btn .ico-ui { width: 17px; height: 17px; }
+.donate-icon .ico-heart, .donate-btn .ico-heart { fill: currentColor; }
+.donate-sub { margin: 18px 0 8px; font-size: 14px; font-weight: 600; }
+.donate-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.donate-list li { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--line-2); background: var(--card-2); }
+.donate-name { font-weight: 600; }
+.donate-amount { color: var(--accent-text); font-weight: 600; }
 .inbox-list { list-style: none; margin: 0; padding: 0; overflow: hidden; }
 .inbox-item { display: flex; gap: 12px; align-items: flex-start; padding: 14px var(--card-pad-x); border-bottom: 1px solid var(--line); }
 .inbox-item:last-child { border-bottom: 0; }

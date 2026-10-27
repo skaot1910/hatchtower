@@ -14,7 +14,7 @@ import ipaddress
 import json
 import posixpath
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from importlib import metadata
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -22,7 +22,7 @@ from urllib.parse import quote, urlsplit
 from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
-from . import (APP_NAME, __version__, accounts, audit, db, downloads, extras, i18n, legal, logarchive, mailer, notify, retention,
+from . import (APP_NAME, __version__, accounts, audit, db, donations, downloads, extras, i18n, legal, logarchive, mailer, notify, retention,
                security, setup, statusfeed, themes, transfer)
 from .main import (BACKUP_SUFFIX, LoginRequired, announce_new_user, app, apply_connection, back, check_csrf,
                    check_csrf_header, clean_path,
@@ -177,7 +177,13 @@ async def status_page(request: Request):
     return render(request, "status.html", user=None, logged_in=logged_in, servers=servers,
                   title=db.get_setting("status_title") or load_brand()["name"],
                   public_announcements=extras.active_announcements(public_only=True),
-                  fields=fields, summary=status_summary(servers, fields))
+                  fields=fields, summary=status_summary(servers, fields), donate=status_donate())
+
+
+def status_donate() -> dict | None:
+    """Donation box at the end of the status page (link, text and the chosen supporter details)."""
+    cfg = donations.config()
+    return {"cfg": cfg, "supporters": donations.public_entries(cfg)} if cfg["on_status"] else None
 
 
 def status_summary(servers: list[dict], fields: set[str]) -> dict | None:
@@ -1393,6 +1399,93 @@ async def admin_announcement_delete(request: Request, ann_id: int):
         con.execute("DELETE FROM announcements WHERE id = ?", (ann_id,))
     owner_audit(request, owner, "announcement.delete", detail={"id": ann_id})
     return back("/admin/announcements", "Ankündigung gelöscht")
+
+
+# == Community: Spenden ================================================================================
+
+DONATIONS = "/admin/donations"
+
+
+@app.get("/donate", response_class=HTMLResponse)
+async def donate_page(request: Request):
+    current_user(request)
+    cfg = donations.config()
+    if not cfg["in_app"]:
+        return not_found(request)
+    return render(request, "donate.html", cfg=cfg, supporters=donations.public_entries(cfg))
+
+
+@app.get("/admin/donations", response_class=HTMLResponse)
+async def admin_donations(request: Request, edit: int | None = None):
+    require_owner(request)
+    rows = donations.entries()
+    editing = next((r for r in rows if r["id"] == edit), None)
+    return render(request, "admin_donations.html", cfg=donations.config(), donate_url=db.get_setting("donate_url"),
+                  field_names=donations.FIELDS, currencies=donations.CURRENCIES, rows=rows, editing=editing,
+                  totals=donations.totals(), today=date.today().isoformat(),
+                  status_on=status_enabled(), status_url=f"{link_base(request)}/status")
+
+
+@app.post("/admin/donations")
+async def admin_donations_save(request: Request, url: str = Form(""), text: str = Form(""), in_app: str = Form(""),
+                               on_status: str = Form(""), history: str = Form("")):
+    owner = require_owner(request)
+    await check_csrf(request)
+    form = await request.form()
+    clean = donations.clean_url(url)
+    if clean is None:
+        return back(DONATIONS, "Bitte einen Link mit https:// eingeben, z. B. https://www.paypal.com/donate/?hosted_button_id=…")
+    text = " ".join(text.split())[:300]
+    fields = [f for f in donations.FIELDS if form.get(f"field__{f}")]
+    db.set_setting("donate_url", clean, owner.id)
+    db.set_setting("donate_text", text, owner.id)
+    db.set_setting("donate_in_app", "1" if in_app else "0", owner.id)
+    db.set_setting("donate_on_status", "1" if on_status else "0", owner.id)
+    db.set_setting("donate_history", "1" if history else "0", owner.id)
+    db.set_setting("donate_fields", ",".join(fields), owner.id)
+    owner_audit(request, owner, "settings.donations", detail={"link": bool(clean), "app": bool(in_app),
+                                                               "statusseite": bool(on_status),
+                                                               "liste": bool(history), "angaben": fields})
+    return back(DONATIONS, "Spenden-Einstellungen gespeichert")
+
+
+@app.post("/admin/donations/entry")
+async def admin_donation_save(request: Request, entry_id: str = Form(""), donor: str = Form(""),
+                              amount: str = Form(""), currency: str = Form("EUR"), day: str = Form(""),
+                              note: str = Form("")):
+    owner = require_owner(request)
+    await check_csrf(request)
+    donor = " ".join(donor.split())[:60] or None
+    note = " ".join(note.split())[:200] or None
+    try:
+        cents = donations.parse_amount(amount)
+    except ValueError:
+        return back(DONATIONS + "#spende-form", "Betrag bitte als Zahl angeben, z. B. 5 oder 7,50")
+    try:
+        donated_on = donations.parse_day(day)
+    except ValueError:
+        return back(DONATIONS + "#spende-form", "Bitte ein gültiges Datum angeben (nicht in der Zukunft)")
+    currency = currency if currency in donations.CURRENCIES else "EUR"
+    with db.connect() as con:
+        if entry_id.isdigit():
+            con.execute("UPDATE donations SET donor = ?, amount_cents = ?, currency = ?, donated_on = ?, note = ?"
+                        " WHERE id = ?", (donor, cents, currency, donated_on, note, int(entry_id)))
+        else:
+            con.execute("INSERT INTO donations (donor, amount_cents, currency, donated_on, note, created_by, created_at)"
+                        " VALUES (?, ?, ?, ?, ?, ?, ?)", (donor, cents, currency, donated_on, note, owner.id, db.utcnow()))
+    owner_audit(request, owner, "donation.save", detail={"name": donor, "datum": donated_on,
+                                                          "betrag": donations.fmt_amount(cents, currency) or None})
+    return back(DONATIONS + "#spenden", "Spende gespeichert")
+
+
+@app.post("/admin/donations/{donation_id}/delete")
+async def admin_donation_delete(request: Request, donation_id: int):
+    owner = require_owner(request)
+    await check_csrf(request)
+    with db.connect() as con:
+        con.execute("DELETE FROM donations WHERE id = ?", (donation_id,))
+    owner_audit(request, owner, "donation.delete", detail={"id": donation_id})
+    return back(DONATIONS + "#spenden", "Spende gelöscht")
 
 
 # == Community: Rechtliches (Impressum, Datenschutzerklärung) ===============================

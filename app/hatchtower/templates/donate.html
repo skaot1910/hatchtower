@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% import "_donate.html" as dn with context %}
+{% block title %}{{ _("Spenden") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Spenden") }}</h1></div>
+  {% if user.is_owner %}<a class="btn btn-ghost btn-sm" href="/admin/donations">{{ _("Einstellungen") }}</a>{% endif %}
+</div>
+{{ dn.box(cfg, supporters) }}
+{% endblock %}

@@ -89,6 +89,7 @@ Grundregeln:
 | Methode | Pfad | CSRF | Zweck |
 |---|---|---|---|
 | GET | `/` | – | Übersicht (nur sichtbare Server); ?als= nur für Owner |
+| GET | `/donate` | – | Spendenseite mit Unterstützerliste (nur wenn der Owner sie eingeschaltet hat) |
 | GET | `/api/overview` | – | Live-Werte der Übersicht (nur sichtbare Server) |
 | GET | `/theme/{key}` | – | Theme umschalten |
 | GET | `/view/{mode}` | – | Einfache oder vollständige Ansicht umschalten |
@@ -270,6 +271,10 @@ Grundregeln:
 | GET | `/admin/announcements` | – | Ankündigungen |
 | POST | `/admin/announcements` | Formular | Ankündigung speichern |
 | POST | `/admin/announcements/{ann_id}/delete` | Formular | Ankündigung löschen |
+| GET | `/admin/donations` | – | Community → Spenden: Button, Unterstützerliste, eingetragene Spenden |
+| POST | `/admin/donations` | Formular | Spenden-Einstellungen speichern |
+| POST | `/admin/donations/entry` | Formular | Spende eintragen oder ändern |
+| POST | `/admin/donations/{donation_id}/delete` | Formular | Spende löschen |
 | GET | `/admin/system` | – | System → Zustand: Verbindung, Monitoring, Selbsttest |
 | GET | `/admin/system/support` | – | Support-Bericht als Textdatei (ohne Keys, Passwörter, Tokens; Benutzer nur als Nummern) |
 | GET | `/admin/network` | – | System → Netzwerk |

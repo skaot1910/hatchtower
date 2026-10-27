@@ -677,6 +677,20 @@ MIGRATIONS: list[str] = [
         detail      TEXT
     );
     """,
+    # 39: donations the owner records by hand (a donation link reports nothing back); shown on the status page
+    #     and the in-app donation page with the details chosen in the settings
+    """
+    CREATE TABLE donations (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        donor        TEXT,
+        amount_cents INTEGER,
+        currency     TEXT NOT NULL DEFAULT 'EUR',
+        donated_on   TEXT NOT NULL,
+        note         TEXT,
+        created_by   INTEGER,
+        created_at   TEXT NOT NULL
+    );
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

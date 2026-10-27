@@ -340,10 +340,13 @@ def world(monkeypatch, tmp_path) -> World:
                           " (?, 'crash', 'server', 'srv-a', 'weg')", (db.utcnow(),)).lastrowid
         hid = con.execute("INSERT INTO notify_webhooks (title, url_enc, events, created_at) VALUES ('Alarm', ?, 'crash', ?)",
                           (main.vault.encrypt(FEED_URL), db.utcnow())).lastrowid
+        did = con.execute("INSERT INTO donations (donor, amount_cents, currency, donated_on, created_at)"
+                          " VALUES ('Mia', 500, 'EUR', '2026-10-01', ?)", (db.utcnow(),)).lastrowid
     (tmp_path / "bk" / "Welt" / "Server_srv-a").mkdir(parents=True)
     (tmp_path / "bk" / "Welt" / "Server_srv-a" / "alt.zip").write_bytes(b"PK\x05\x06" + b"\x00" * 18)
     for key, value in {"brand_logo_login": "f" * 32 + ".webp", "mail_password_enc": main.vault.encrypt("smtp"),
                        "status_enabled": "1", "legal_impressum_enabled": "1",
+                       "donate_url": "https://www.paypal.com/donate/?hosted_button_id=X", "donate_in_app": "1",
                        "legal_impressum_text": "Hallo"}.items():
         db.set_setting(key, value, None)
     (tmp_path / "logos" / ("f" * 32 + ".webp")).write_bytes(b"RIFF")
@@ -352,7 +355,7 @@ def world(monkeypatch, tmp_path) -> World:
     routes_backup.mark_missing("srv-a", "pb-weg", "Wings antwortet mit HTTP 404")    # file gone on the node
     w.args = {
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
-        "job_id": str(jid), "direct_job_id": str(djid), "uuid": "pb-1", "missing_uuid": "pb-weg", "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid),
+        "job_id": str(jid), "direct_job_id": str(djid), "uuid": "pb-1", "missing_uuid": "pb-weg", "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid), "donation_id": str(did),
         "token_hash": accounts._hash(invite), "kind": "login", "page": "impressum", "key": "hell", "mode": "simple", "code": "en",
         "filename": "f" * 32 + ".webp",
         "@invite": invite,

@@ -32,7 +32,7 @@ URL_TABLES = ("status_feeds", "notify_webhooks")    # Webhook-Adresse steht vers
 TABLES = ("users", "perm_groups", "perm_group_items", "user_server_permissions", "user_server_groups",
           "favorites", "server_meta", "automation_settings", "schedules", "announcements",
           "user_default_access", "backup_targets", "backup_jobs", "backup_job_items", "status_feeds",
-          "status_feed_servers", "notify_webhooks")
+          "status_feed_servers", "notify_webhooks", "donations")
 LOGO_NAME = re.compile(r"^[0-9a-f]{32}\.webp$")
 MAX_IMPORT_BYTES = 50 * 1024 * 1024
 

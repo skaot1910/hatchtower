@@ -1,0 +1,24 @@
+{# Donation box: text, link and the supporter list with the details the owner chose (status page and /donate) #}
+{% import "_icons.html" as ic %}
+{% macro box(cfg, supporters) %}
+<section class="card donate-box">
+  <div class="donate-head">
+    <span class="donate-icon" aria-hidden="true">{{ ic.icon("heart") }}</span>
+    <div>
+      <h2 class="card-h">{{ _("Unterstützen") }}</h2>
+      <p class="muted">{{ cfg.text or _("Die Server laufen bei uns zu Hause – Strom und Hardware kosten Geld. Wenn du magst, hilf mit einer Spende.") }}</p>
+    </div>
+    <a class="btn btn-primary donate-btn" href="{{ cfg.url }}" target="_blank" rel="noopener noreferrer">{{ ic.icon("heart") }} {{ _("Spenden") }}</a>
+  </div>
+  {% if cfg.history %}
+  <h3 class="donate-sub">{{ _("Danke an alle Unterstützer") }}</h3>
+  {% if supporters %}
+  <ul class="donate-list">
+    {% for s in supporters %}
+    <li><span class="donate-name">{{ s.name }}</span>{% if s.amount %}<span class="donate-amount">{{ s.amount }}</span>{% endif %}{% if s.day %}<span class="faint small">{{ s.day }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="faint small">{{ _("Noch keine Spenden – vielleicht bist du die erste Person?") }}</p>{% endif %}
+  {% endif %}
+</section>
+{% endmacro %}

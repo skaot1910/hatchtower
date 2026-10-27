@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Spenden") }} · {{ brand.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _("Spenden") }}</h1><p class="muted">{{ _("Ein Spenden-Button (z. B. PayPal), damit deine Community bei Strom und Hardware mithelfen kann, und eine Liste der Unterstützer.") }}</p></div>
+  {% if cfg.in_app %}<a class="btn btn-ghost" href="/donate">{{ _("Spendenseite öffnen") }}</a>{% endif %}
+</div>
+
+<form method="post" action="/admin/donations" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <section class="card">
+    <h2 class="card-h">{{ _("Spenden-Button") }}</h2>
+    <label>{{ _("Spendenlink (leer = ausblenden)") }}
+      <input name="url" type="url" value="{{ donate_url }}" maxlength="300" placeholder="https://www.paypal.com/donate/?hosted_button_id=…" spellcheck="false" autocomplete="off">
+    </label>
+    <p class="faint small">{{ _("Den Link bekommst du bei PayPal unter „Spenden-Button erstellen“ oder als PayPal.Me-Link (https://paypal.me/…). Andere https-Links (z. B. Ko-fi) gehen auch.") }}</p>
+    <label>{{ _("Text dazu (optional)") }}<textarea name="text" rows="2" maxlength="300" placeholder="{{ _("Die Server laufen bei uns zu Hause – Strom und Hardware kosten Geld. Wenn du magst, hilf mit einer Spende.") }}">{{ cfg.text }}</textarea></label>
+    <div class="toggle-list">
+      <label class="check"><input type="checkbox" name="in_app" value="1" {% if cfg.app_set %}checked{% endif %}> {{ _("In Hatchtower zeigen (Herz oben neben der Glocke, für alle angemeldeten Benutzer)") }}</label>
+      <label class="check"><input type="checkbox" name="on_status" value="1" {% if cfg.status_set %}checked{% endif %}> {{ _("Auf der öffentlichen Statusseite zeigen") }}</label>
+    </div>
+    {% if not status_on %}<p class="faint small">{{ _("Die Statusseite ist gerade ausgeschaltet.") }} <a href="/admin/statuspage">{{ _("Zur Statusseite") }}</a></p>
+    {% else %}<p class="faint small">{{ _("Statusseite:") }} <span class="mono copyable" data-copy="{{ status_url }}">{{ status_url }}</span></p>{% endif %}
+  </section>
+  <section class="card">
+    <h2 class="card-h">{{ _("Unterstützerliste") }}</h2>
+    <label class="check"><input type="checkbox" name="history" value="1" {% if cfg.history %}checked{% endif %}> {{ _("Liste der letzten {n} Spenden unter dem Button zeigen", n=20) }}</label>
+    <p class="faint small">{{ _("Diese Angaben zeigen (gilt für alle Einträge):") }}</p>
+    <div class="toggle-list">
+      {% for key, label in field_names.items() %}<label class="check"><input type="checkbox" name="field__{{ key }}" value="1" {% if key in cfg.fields %}checked{% endif %}> {{ _(label) }}</label>{% endfor %}
+    </div>
+    <p class="faint small">{{ _("Ohne Name erscheint jede Spende als „Anonym“, ebenso Einträge ohne Namen. Namen bitte nur mit Einverständnis der Spender veröffentlichen. Die Notiz ist immer nur für dich.") }}</p>
+  </section>
+  <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+</form>
+
+<section class="card" id="spende-form">
+  <h2 class="card-h">{% if editing %}{{ _("Spende bearbeiten") }}{% else %}{{ _("Spende eintragen") }}{% endif %}</h2>
+  <p class="faint small">{{ _("PayPal meldet Spenden nicht an Hatchtower. Trag sie hier ein, wenn du die Zahlung bei PayPal siehst.") }}</p>
+  <form method="post" action="/admin/donations/entry" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if editing %}<input type="hidden" name="entry_id" value="{{ editing.id }}">{% endif %}
+    <div class="form-grid">
+      <label>{{ _("Name (leer = anonym)") }}<input name="donor" maxlength="60" value="{{ (editing.donor or '') if editing else '' }}"></label>
+      <label>{{ _("Datum") }}<input name="day" type="date" required max="{{ today }}" value="{{ editing.donated_on if editing else today }}"></label>
+      <label>{{ _("Betrag (optional)") }}<input name="amount" inputmode="decimal" maxlength="10" value="{{ editing.amount_input if editing else '' }}" placeholder="5,00"></label>
+      <label>{{ _("Währung") }}
+        <select name="currency">
+          {% for c in currencies %}<option value="{{ c }}" {% if (editing and editing.currency == c) or (not editing and loop.first) %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <label>{{ _("Notiz (nur für dich)") }}<input name="note" maxlength="200" value="{{ (editing.note or '') if editing else '' }}"></label>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
+      {% if editing %}<a class="btn btn-ghost" href="/admin/donations#spenden">{{ _("Abbrechen") }}</a>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="card" id="spenden">
+  <h2 class="card-h">{{ _("Bisherige Spenden") }}</h2>
+  {% if totals %}<p class="muted small">{{ _("Summe:") }} {{ totals|join(" · ") }}</p>{% endif %}
+  {% if rows %}
+  <div class="table-card">
+  <table class="table stack-table">
+    <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Datum") }}</th><th class="num">{{ _("Betrag") }}</th><th>{{ _("Notiz") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.donor or _("Anonym") }}</td>
+        <td class="nowrap" data-label="{{ _("Datum") }}">{{ r.day_text }}</td>
+        <td class="num nowrap" data-label="{{ _("Betrag") }}">{{ r.amount_text or "–" }}</td>
+        <td class="faint small" data-label="{{ _("Notiz") }}">{{ r.note or "" }}</td>
+        <td class="num row-actions">
+          <a class="chip chip-sm" href="/admin/donations?edit={{ r.id }}#spende-form">{{ _("Bearbeiten") }}</a>
+          <form method="post" action="/admin/donations/{{ r.id }}/delete" data-confirm="{{ _("Spende löschen?") }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm chip-danger" type="submit">{{ _("Löschen") }}</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="faint">{{ _("Noch keine Spenden eingetragen.") }}</p>{% endif %}
+</section>
+{% endblock %}

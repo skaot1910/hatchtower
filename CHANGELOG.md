@@ -3,6 +3,16 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.42.0-pre.5 – 2026-10-27
+
+- Donations: owners can add a donate link (e.g. a PayPal donate button or PayPal.Me link) under Community →
+  Donate, with an optional short text. It can be shown in Hatchtower (a "Donate" button at the top of the sidebar,
+  in the top bar on phones) and/or at the end of the public status page; each place can be switched on separately
+- Supporter list: owners record donations by hand (PayPal does not report them to Hatchtower) with name (optional),
+  date, amount and currency, plus a private note. One setting decides which details the public list shows (name,
+  date, amount); without the name every donation shows as "Anonymous". The last 20 donations are listed, totals per
+  currency are only visible to owners. Changes are in the audit log and donations are part of the data export
+
 ## 0.42.0-pre.4 – 2026-10-27
 
 - New backup job: the servers come first. Pick the servers the job is for (owners can also pick "All servers,

@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile as FormFile
 
-from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, downloads, extras, fileindex, i18n, inbox, legal, logarchive, logbuffer, logos,
+from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, donations, downloads, extras, fileindex, i18n, inbox, legal, logarchive, logbuffer, logos,
                mailer, retention, security, notify, serverlog, setup, statusfeed, themes, updates, zipdownload)
 from .config import apply_db_values, format_proxies, is_trusted_proxy, load_settings, parse_proxies
 from .panels import PANELS, make_client
@@ -69,6 +69,7 @@ NAV_SECTIONS = {
         ("/admin/appearance", "Erscheinungsbild", ()),
         ("/admin/statuspage", "Statusseite", ()),
         ("/admin/announcements", "Ankündigungen", ()),
+        ("/admin/donations", "Spenden", ()),
         ("/admin/legal", "Rechtliches", ()),
     ],
     "system": [
@@ -378,6 +379,7 @@ def render(request: Request, template: str, status: int = 200, **context) -> HTM
         context.setdefault("update_available", getattr(app.state, "updates", None) is not None and app.state.updates.available)
         context.setdefault("status_page_on", db.get_setting("status_enabled") == "1")
         context.setdefault("inbox_unread", inbox.unread_count(context["user"]))
+        context.setdefault("donate_in_app", donations.in_app())
         if context["user"].is_owner:
             context.setdefault("proxy_warning", untrusted_proxy())
     user = context.get("user")

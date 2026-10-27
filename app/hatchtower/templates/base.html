@@ -41,6 +41,7 @@
       {% if brand.custom and brand.show_name %}<span class="brand-tagline">{{ brand.custom }}</span>{% endif %}
     </span>
   </a>
+  {% if donate_in_app %}<a class="donate-pill{% if request.url.path == '/donate' %} active{% endif %}" href="/donate" title="{{ _("Die Server laufen bei uns zu Hause – Strom und Hardware kosten Geld. Wenn du magst, hilf mit einer Spende.") }}">{{ ic.icon("heart") }}<span>{{ _("Spenden") }}</span></a>{% endif %}
   <a class="bell{% if inbox_unread %} has-unread{% endif %}{% if request.url.path.startswith('/notifications') %} active{% endif %}" href="/notifications" title="{{ _("Benachrichtigungen") }}" aria-label="{{ _("Benachrichtigungen") }}{% if inbox_unread %}: {{ _("{n} ungelesen", n=inbox_unread) }}{% endif %}">{{ ic.icon("bell") }}{% if inbox_unread %}<span class="bell-count" aria-hidden="true">{{ inbox_unread if inbox_unread < 100 else "99+" }}</span>{% endif %}</a>
   <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="topbar-menu" aria-label="{{ _("Menü öffnen") }}"><span></span><span></span><span></span></button>
   </div>

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_mark.html" as hm %}
 {% import "_lang.html" as lng with context %}
+{% import "_donate.html" as dn with context %}
 {% block title %}{{ title }} · {{ _("Serverstatus") }}{% endblock %}
 {% block body_class %}status-page{% endblock %}
 {% block content %}
@@ -73,5 +74,6 @@
   <div class="empty"><p class="muted">{{ _("Gerade werden keine Server angezeigt.") }}</p></div>
   {% endif %}
 
+  {% if donate %}{{ dn.box(donate.cfg, donate.supporters) }}{% endif %}
 </div>
 {% endblock %}
