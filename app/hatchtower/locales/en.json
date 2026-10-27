@@ -2717,6 +2717,7 @@
   "Ordner öffnen": "Open folder",
   "Ordner": "Folder",
   "Herunterladen": "Download",
-  "Weitere Treffer – Suche genauer eingrenzen.": "More matches – narrow down the search."
+  "Weitere Treffer – Suche genauer eingrenzen.": "More matches – narrow down the search.",
+  "Das Update wurde unterbrochen (z. B. durch einen Neustart). Hatchtower läuft mit Version {v} – Details siehe Protokoll.": "The update was interrupted (e.g. by a restart). Hatchtower runs version {v} – see the log for details."
  }
 }

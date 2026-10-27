@@ -1555,6 +1555,8 @@
           if (s.log) { logEl.textContent = s.log; logEl.scrollTop = logEl.scrollHeight; }
           if (s.state === "failed") {
             finish(tr("Hatchtower läuft weiter mit der bisherigen Version – Details siehe Protokoll."), "bad");
+          } else if (s.state === "interrupted") {
+            finish(tr("Das Update wurde unterbrochen (z. B. durch einen Neustart). Hatchtower läuft mit Version {v} – Details siehe Protokoll.", { v: s.running_version }), "bad");
           } else if (s.state === "done" && s.running_version !== oldVersion) {
             finish(tr("Hatchtower läuft jetzt mit Version {v}.", { v: s.running_version }), "ok");
           } else if (s.state === "done" && sawRestart) {

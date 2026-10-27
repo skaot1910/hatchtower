@@ -8,9 +8,11 @@ User=hatchtower
 Group=hatchtower
 WorkingDirectory=/opt/hatchtower/app
 EnvironmentFile=/etc/hatchtower/hatchtower.env
-ExecStart=/opt/hatchtower/venv/bin/uvicorn hatchtower.main:app --host ${HATCHTOWER_BIND} --port ${HATCHTOWER_PORT} --workers 1 --no-proxy-headers --no-server-header --log-level warning
+ExecStart=/opt/hatchtower/venv/bin/uvicorn hatchtower.main:app --host ${HATCHTOWER_BIND} --port ${HATCHTOWER_PORT} --workers 1 --no-proxy-headers --no-server-header --log-level warning --timeout-graceful-shutdown 5
 Restart=on-failure
 RestartSec=5
+# Open console/status connections must not hold up a restart (e.g. during an update)
+TimeoutStopSec=20
 
 NoNewPrivileges=true
 PrivateTmp=true

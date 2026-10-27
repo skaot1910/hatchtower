@@ -52,3 +52,31 @@ def test_route_speichert_einstellung(world, monkeypatch):
     o.post("/admin/system/update-channel", data={"csrf": o.csrf})
     assert db.get_setting(updates.PRERELEASE_SETTING) == "0" and not upd.available
     assert [a["action"] for a in world.audit("system.update_channel")]
+
+
+# -- Update aus der Oberfläche: hängengebliebener Zustand ---------------------------------------
+
+def _state(tmp_path, monkeypatch, started, helper):
+    from datetime import datetime, timedelta, timezone
+    from hatchtower import updates
+    monkeypatch.setattr(updates, "STATUS_DIR", tmp_path / "status")
+    monkeypatch.setattr(updates, "_helper_running", lambda: helper)
+    when = (datetime.now(timezone.utc) - timedelta(seconds=started)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    (tmp_path / "update.state").write_text(f"state=running\nfrom=0.41.1\nto=\nstarted={when}\nfinished=\n")
+    return updates.read_state(tmp_path)["state"]
+
+
+def test_update_ohne_helfer_gilt_als_unterbrochen(tmp_path, monkeypatch):
+    assert _state(tmp_path, monkeypatch, 120, helper=False) == "interrupted"
+    assert _state(tmp_path, monkeypatch, 120, helper=True) == "running"
+    assert _state(tmp_path, monkeypatch, 3, helper=False) == "running"      # helper just starting
+    assert _state(tmp_path, monkeypatch, 120, helper=None) == "running"     # processes not visible: trust the file
+    assert _state(tmp_path, monkeypatch, 40 * 60, helper=None) == "interrupted"
+    assert _state(tmp_path, monkeypatch, 40 * 60, helper=True) == "interrupted"
+
+
+def test_nach_unterbrochenem_update_neu_anfragbar(tmp_path, monkeypatch):
+    from hatchtower import updates
+    _state(tmp_path, monkeypatch, 120, helper=False)
+    assert updates.request_update(tmp_path, "latest")
+    assert updates.read_state(tmp_path)["state"] == "requested"

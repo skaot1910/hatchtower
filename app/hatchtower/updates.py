@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -32,6 +33,8 @@ HELPER_UNIT = Path("/etc/systemd/system/hatchtower-update.path")
 # Status und Protokoll schreibt root dorthin (für den Dienst nur lesbar); ältere Versionen schrieben in den Datenordner
 STATUS_DIR = Path("/var/lib/hatchtower-update")
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
+PROC = Path("/proc")
+STALE_AFTER = 35 * 60             # hatchtower-update.service gives up after 30 min (TimeoutStartSec)
 NOTES_MAX = 20_000
 
 
@@ -206,6 +209,37 @@ def _files(data_dir: Path) -> tuple[Path, Path, Path]:
     return data_dir / "update.request", status / "update.state", status / "update.log"
 
 
+def _helper_running() -> bool | None:
+    """Whether "hatchtower run-update-request" runs right now; None if other users' processes are hidden here."""
+    try:
+        if not (PROC / "1" / "cmdline").exists():
+            return None                       # /proc mounted with hidepid: root's processes are not visible
+        for pid in PROC.iterdir():
+            if pid.name.isdigit():
+                try:
+                    if b"run-update-request" in (pid / "cmdline").read_bytes():
+                        return True
+                except OSError:
+                    continue
+    except OSError:
+        return None
+    return False
+
+
+def _interrupted(started: str) -> bool:
+    """A "running" left behind by an update that was killed (e.g. the container restarted meanwhile): the helper
+    writes "done" or "failed" itself, so "running" without a helper process – or for far too long – is stale."""
+    try:
+        age = time.time() - datetime.fromisoformat(started).timestamp()
+    except ValueError:
+        age = None
+    if age is not None and age > STALE_AFTER:
+        return True
+    if age is not None and age < 10:
+        return False                          # just started: give the helper a moment
+    return _helper_running() is False
+
+
 def read_state(data_dir: Path) -> dict:
     request, state_file, log_file = _files(data_dir)
     state: dict = {}
@@ -215,6 +249,8 @@ def read_state(data_dir: Path) -> dict:
             state[key] = value
     except OSError:
         pass
+    if state.get("state") == "running" and _interrupted(state.get("started", "")):
+        state["state"] = "interrupted"
     if request.exists():
         state = {**state, "state": "requested"}
     try:
