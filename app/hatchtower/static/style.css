@@ -536,6 +536,7 @@ a.file-link:hover { color: var(--accent-text); }
 .perm-group { border: 0; border-top: 1px solid var(--line); padding: 10px 0 0; margin: 0; display: grid; gap: 6px; }
 .perm-group legend { float: left; width: 100%; margin-bottom: 4px; color: var(--strong); font-size: 13px; font-weight: 650; padding: 0; }
 .perm-group .check { display: flex; gap: 8px; align-items: flex-start; color: var(--text); font-size: 13.5px; }
+.server-picks { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
 .access-mini { margin-bottom: 4px; }
 
 /* Rechtegruppen */

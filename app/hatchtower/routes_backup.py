@@ -209,7 +209,9 @@ async def backups_page(request: Request):
 @app.get("/admin/backups/new", response_class=HTMLResponse)
 async def backups_new_page(request: Request):
     user = require_backups(request, "backups.manage")
-    return render_backups(request, user, "/admin/backups/new", targets=load_targets())
+    servers = sorted(((i, n) for i, n in server_names().items() if has(user, i, "backups.manage")),
+                     key=lambda kv: kv[1].lower())
+    return render_backups(request, user, "/admin/backups/new", targets=load_targets(), servers=servers)
 
 
 @app.get("/admin/backups/stored", response_class=HTMLResponse)
@@ -709,16 +711,43 @@ def valid_target(value: str) -> tuple[bool, int | None]:
 
 
 @app.post("/admin/backups/jobs")
-async def backup_job_create(request: Request, name: str = Form(""), target_id: str = Form("")):
+async def backup_job_create(request: Request, name: str = Form(""), target_id: str = Form(""),
+                            all_servers: str = Form(""), scope: str = Form("whole")):
+    """Creates a job for the servers picked first: each server complete, or (scope "pick") open the file browser
+    to choose folders and files next."""
     user = require_backups(request, "backups.manage")
     await check_csrf(request)
     name = " ".join(name.split())
     ok, tid = valid_target(target_id)
     if not name or len(name) > 80 or not ok:
         return back("/admin/backups/new", "Bitte Name (1–80 Zeichen) und Ziel angeben")
+    names = server_names()
+    every = bool(all_servers) and user.is_owner
+    picked = [] if every else list(dict.fromkeys(
+        i for i in (await request.form()).getlist("servers") if isinstance(i, str) and i in names))
+    for ident in picked:
+        if not has(user, ident, "backups.manage"):
+            deny(request, user, "backups.manage", ident)
+    if not every and not picked:
+        return back("/admin/backups/new", "Bitte mindestens einen Server auswählen")
     job_id = create_job(user, name, tid)
     audit_user(request, user, "backup.job.create", detail={"job": name, "ziel": tid or "download"})
-    return job_back(job_id, "Backup-Job angelegt. Jetzt Server und Ordner hinzufügen.")
+    if every:
+        with db.connect() as con:
+            con.execute("UPDATE backup_jobs SET all_servers = 1 WHERE id = ?", (job_id,))
+        return job_back(job_id, "Backup-Job angelegt. Er sichert alle Server komplett.")
+    if scope == "pick":
+        first = next((i for i in picked if has(user, i, "sftp.view")), None)
+        if first:
+            return back(browser_url(job_id, first), i18n.t(
+                "Backup-Job angelegt. Wähle jetzt die Ordner und Dateien von {server} aus.", server=names[first]))
+        return job_back(job_id, "Backup-Job angelegt. Jetzt Ordner und Dateien hinzufügen.")
+    job = backups.load_job(job_id)
+    for ident in picked:
+        error = add_items(user, job, ident, ["/"])
+        if error:
+            return job_back(job_id, error)
+    return job_back(job_id, "Backup-Job angelegt. Zeitplan und weitere Einstellungen findest du hier.")
 
 
 @app.get("/admin/backups/jobs/{job_id}", response_class=HTMLResponse)

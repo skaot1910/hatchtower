@@ -301,7 +301,7 @@ ROUTES: tuple[Route, ...] = (
     R("GET", "/admin/backups/targets", "owner", "Backups: Backup-Ziele"),
     R("GET", "/api/backups/status", "backup", "Fortschritt laufender Backups", perm="backups.view"),
     R("POST", "/admin/backups/jobs", "backup", "Backup-Job anlegen", perm="backups.manage", csrf="form",
-      form={"name": "Nachts", "target_id": ""}),
+      form={"name": "Nachts", "target_id": "", "servers": "srv-a"}),
     R("GET", "/admin/backups/jobs/{job_id}", "backup",
       "Backup-Job bearbeiten (Recht für alle Server des Jobs), mit Dateibrowser (zusätzlich „Dateien ansehen“)",
       perm="backups.manage"),

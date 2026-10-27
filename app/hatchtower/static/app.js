@@ -1853,6 +1853,16 @@
   // ---- Einrichtung: Panel-Auswahl ------------------------------------------------
   // Zeigt zur gewählten Panel-Art die passende Anleitung und Beschriftung des Key-Felds.
   var SINGLE_KEY_PANELS = ["calagopus"];
+  // New backup job: "all servers" makes the server list and the scope choice moot
+  function startBackupJobNew() {
+    var all = document.querySelector("[data-job-all]");
+    if (!all) return;
+    var parts = document.querySelectorAll("[data-job-servers] input, [data-job-scope] input");
+    function sync() { parts.forEach(function (el) { el.disabled = all.checked; }); }
+    all.addEventListener("change", sync);
+    sync();
+  }
+
   function startPanelChoice() {
     document.querySelectorAll("[data-panel-form]").forEach(function (form) {
       function update() {
@@ -1940,5 +1950,6 @@
     startPermissions();
     startGroupEditor();
     startPanelChoice();
+    startBackupJobNew();
   });
 })();

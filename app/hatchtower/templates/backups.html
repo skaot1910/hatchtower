@@ -199,6 +199,18 @@
     {% endif %}
     <form method="post" action="/admin/backups/jobs" class="form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
+      <fieldset class="perm-group">
+        <legend>{{ _("Welche Server?") }}</legend>
+        {% if user.is_owner %}<label class="check"><input type="checkbox" name="all_servers" value="1" data-job-all> {{ _("Alle Server, auch künftige – jeweils komplett") }}</label>{% endif %}
+        <div class="server-picks" data-job-servers>
+          {% for ident, name in servers %}<label class="check"><input type="checkbox" name="servers" value="{{ ident }}"{% if servers|length == 1 %} checked{% endif %}> {{ name }}</label>{% endfor %}
+        </div>
+      </fieldset>
+      <fieldset class="perm-group" data-job-scope>
+        <legend>{{ _("Was sichern?") }}</legend>
+        <label class="check"><input type="radio" name="scope" value="whole" checked> {{ _("Die ausgewählten Server komplett") }}</label>
+        <label class="check"><input type="radio" name="scope" value="pick"> {{ _("Nur bestimmte Ordner und Dateien (wählst du gleich danach aus)") }}</label>
+      </fieldset>
       <div class="form-grid">
         <label>{{ _("Name") }}<input name="name" required maxlength="80" placeholder="{{ _("Spielstände nachts") }}"></label>
         <label>{{ _("Ziel") }}
@@ -208,7 +220,7 @@
           </select>
         </label>
       </div>
-      <p class="faint small">{{ _("Danach wählst du Server, Ordner und Dateien, Zeitplan und ob der Server vorher gestoppt wird. Dateien und Ordner kannst du auch direkt im Datei-Explorer eines Servers auswählen und zu einem Job hinzufügen.") }}</p>
+      <p class="faint small">{{ _("Danach legst du Zeitplan und Aufbewahrung fest und ob der Server vorher gestoppt wird. Dateien und Ordner kannst du auch direkt im Datei-Explorer eines Servers auswählen und zu einem Job hinzufügen.") }}</p>
       <button class="btn btn-primary" type="submit">{{ _("Anlegen") }}</button>
     </form>
 </section>

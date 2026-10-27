@@ -896,8 +896,25 @@ def test_alle_server_nur_fuer_owner(world):
 def test_backup_jobs_geloeschter_benutzer_verschwinden(world):
     uid = world.user("planer", grants={"srv-a": {"backups.manage"}})
     c = world.client(uid)
-    c.post("/admin/backups/jobs", data={"csrf": c.csrf, "name": "Meins", "target_id": ""})
+    c.post("/admin/backups/jobs", data={"csrf": c.csrf, "name": "Meins", "target_id": "",
+                                           "servers": "srv-a"})
     assert any(j["created_by"] == uid for j in backup_jobs())
     o = world.client(world.ids["olga"])
     assert_ok(o.post(f"/admin/users/{uid}/delete", data={"csrf": o.csrf}))
     assert all(j["created_by"] != uid for j in backup_jobs())
+
+
+def test_backup_job_anlegen_mit_serverauswahl(world):
+    uid = world.user("auswahl", grants={"srv-a": {"backups.manage"}})
+    c = world.client(uid)
+    r = c.post("/admin/backups/jobs", data={"csrf": c.csrf, "name": "Leer", "target_id": ""})
+    assert "/admin/backups/new" in r.headers["location"]
+    assert not any(j["name"] == "Leer" for j in backup_jobs())
+    c.post("/admin/backups/jobs", data={"csrf": c.csrf, "name": "Ganz", "target_id": "", "servers": "srv-a",
+                                        "all_servers": "1"})
+    job = next(j for j in backup_jobs() if j["name"] == "Ganz")
+    assert job["all_servers"] == 0                         # only owners may pick "all servers"
+    assert backups.job_items(job["id"]) == {"srv-a": ["/"]}
+    before = world.snapshot()
+    assert_denied(world, c.post("/admin/backups/jobs", data={"csrf": c.csrf, "name": "Fremd", "target_id": "",
+                                                             "servers": "srv-b"}), before, uid)
