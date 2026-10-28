@@ -3,6 +3,11 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.0-pre.3 – 2026-10-29
+
+- The login page now forwards to the start page when you are already signed in (e.g. when `/login` is bookmarked),
+  so "stay signed in" also works for that bookmark
+
 ## 0.43.0-pre.2 – 2026-10-28
 
 - "Stay signed in" reworked: without it, the sign-in now ends when the browser is closed (session cookie), after one

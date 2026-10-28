@@ -486,6 +486,9 @@ def get_server_or_deny(request: Request, user: UserContext, ident: str) -> dict:
 async def login_page(request: Request):
     if not setup.users_exist():
         return RedirectResponse("/setup", status_code=303)
+    # Already signed in (e.g. /login bookmarked): go straight to the start page
+    if security.load_session(request.cookies.get(security.SESSION_COOKIE), settings, touch=False) is not None:
+        return RedirectResponse("/", status_code=303)
     token = security.prelogin_token(settings.secret_key)
     response = render(request, "login.html", prelogin=token, error=None,
                       remember_days=security.REMEMBER_DAYS, remember=False)
