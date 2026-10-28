@@ -487,19 +487,22 @@ async def login_page(request: Request):
     if not setup.users_exist():
         return RedirectResponse("/setup", status_code=303)
     token = security.prelogin_token(settings.secret_key)
-    response = render(request, "login.html", prelogin=token, error=None)
+    response = render(request, "login.html", prelogin=token, error=None,
+                      remember_days=security.REMEMBER_DAYS, remember=False)
     response.set_cookie(security.PRELOGIN_COOKIE, token, httponly=True, samesite="strict",
                         secure=is_https(request), max_age=900)
     return response
 
 
 @app.post("/login")
-async def login(request: Request, username: str = Form(""), password: str = Form(""), prelogin: str = Form("")):
+async def login(request: Request, username: str = Form(""), password: str = Form(""), prelogin: str = Form(""),
+                remember: str = Form("")):
     ip = ip_of(request)
 
     def fail(message: str) -> HTMLResponse:
         token = security.prelogin_token(settings.secret_key)
-        response = render(request, "login.html", status=400, prelogin=token, error=message)
+        response = render(request, "login.html", status=400, prelogin=token, error=message,
+                          remember_days=security.REMEMBER_DAYS, remember=remember == "1")
         response.set_cookie(security.PRELOGIN_COOKIE, token, httponly=True, samesite="strict",
                             secure=is_https(request), max_age=900)
         return response
@@ -534,11 +537,14 @@ async def login(request: Request, username: str = Form(""), password: str = Form
     with db.connect() as con:
         con.execute("UPDATE users SET failed_logins = 0, locked_until = NULL, last_login_at = ? WHERE id = ?",
                     (now, row["id"]))
-    token, _ = security.create_session(row["id"], ip, request.headers.get("user-agent", ""))
-    audit.record("login", user_id=row["id"], username=row["username"], ip=ip)
+    stay = remember == "1"
+    token, _ = security.create_session(row["id"], ip, request.headers.get("user-agent", ""), remember=stay)
+    audit.record("login", user_id=row["id"], username=row["username"], ip=ip,
+                 detail="angemeldet bleiben" if stay else None)
     response = RedirectResponse("/", status_code=303)
+    max_age = security.REMEMBER_DAYS * 86400 if stay else settings.session_max_hours * 3600
     response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="strict",
-                        secure=is_https(request), max_age=settings.session_max_hours * 3600)
+                        secure=is_https(request), max_age=max_age)
     response.delete_cookie(security.PRELOGIN_COOKIE)
     return response
 

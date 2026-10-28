@@ -3,6 +3,12 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.0-pre.1 – 2026-10-28
+
+- "Stay signed in" on the login page: when ticked, the session lasts 30 days and is not ended after 30 minutes
+  without activity. Without it, sessions behave as before (30 minutes idle, at most 12 hours). Signing out, changing
+  the password or locking the account still ends such sessions; the audit log notes logins with "stay signed in"
+
 ## 0.42.0 – 2026-10-27
 
 Includes everything from 0.42.0-pre.1 to 0.42.0-pre.5.

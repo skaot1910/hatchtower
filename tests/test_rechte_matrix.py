@@ -324,6 +324,20 @@ def test_login_mit_vorab_token_funktioniert(world):
     assert security.SESSION_COOKIE in r.headers["set-cookie"]
 
 
+def test_angemeldet_bleiben_ueberdauert_leerlauf(world):
+    old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(timespec="seconds")
+    for remember, survives in (("", False), ("1", True)):
+        c, token = world.anonymous_with_prelogin()
+        r = c.post("/login", data={"username": "olga", "password": "Sehr-Langes-Passwort-123", "prelogin": token,
+                                   "remember": remember})
+        cookie = r.headers["set-cookie"]
+        assert (f"Max-Age={security.REMEMBER_DAYS * 86400}" in cookie) == survives
+        session = r.cookies[security.SESSION_COOKIE]
+        with db.connect() as con:
+            con.execute("UPDATE sessions SET created_at = ?, last_seen = ?", (old, old))
+        assert (security.load_session(session, main.settings) is not None) == survives
+
+
 def test_einrichtung_ist_nach_dem_ersten_konto_gesperrt(world):
     c, token = world.anonymous_with_prelogin()
     from hatchtower import setup

@@ -25,6 +25,8 @@ _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(24))
 
 SESSION_COOKIE = "hatchtower_session"
 PRELOGIN_COOKIE = "hatchtower_prelogin"
+# "Stay signed in": such sessions skip the idle timeout and last this many days
+REMEMBER_DAYS = 30
 
 
 # -- Passwörter ----------------------------------------------------------
@@ -91,15 +93,15 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def create_session(user_id: int, ip: str, user_agent: str) -> tuple[str, str]:
+def create_session(user_id: int, ip: str, user_agent: str, remember: bool = False) -> tuple[str, str]:
     token = secrets.token_urlsafe(32)
     csrf = secrets.token_urlsafe(32)
     now = db.utcnow()
     with db.connect() as con:
         con.execute(
-            "INSERT INTO sessions (token_hash, user_id, csrf, created_at, last_seen, ip, user_agent)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (_token_hash(token), user_id, csrf, now, now, ip, user_agent[:200]),
+            "INSERT INTO sessions (token_hash, user_id, csrf, created_at, last_seen, ip, user_agent, remember)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (_token_hash(token), user_id, csrf, now, now, ip, user_agent[:200], int(remember)),
         )
     return token, csrf
 
@@ -122,11 +124,12 @@ def load_session(token: str | None, settings: Settings, touch: bool = True):
             return None
         created = datetime.fromisoformat(row["created_at"])
         last_seen = datetime.fromisoformat(row["last_seen"])
-        expired = (
-            now - last_seen > timedelta(minutes=settings.session_idle_minutes)
-            or now - created > timedelta(hours=settings.session_max_hours)
-            or not row["is_active"]
-        )
+        if row["remember"]:
+            timed_out = now - created > timedelta(days=REMEMBER_DAYS)
+        else:
+            timed_out = (now - last_seen > timedelta(minutes=settings.session_idle_minutes)
+                         or now - created > timedelta(hours=settings.session_max_hours))
+        expired = timed_out or not row["is_active"]
         if expired:
             con.execute("DELETE FROM sessions WHERE token_hash = ?", (th,))
             return None
