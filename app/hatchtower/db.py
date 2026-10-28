@@ -691,7 +691,7 @@ MIGRATIONS: list[str] = [
         created_at   TEXT NOT NULL
     );
     """,
-    # 40: "stay signed in" on the login page: such sessions last security.REMEMBER_DAYS without idle timeout
+    # 40: "stay signed in" on the login page: such sessions last up to security.REMEMBER_DAYS
     """
     ALTER TABLE sessions ADD COLUMN remember INTEGER NOT NULL DEFAULT 0;
     """,

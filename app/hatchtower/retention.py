@@ -67,8 +67,9 @@ def cleanup() -> dict[str, int]:
         removed["notify"] = con.execute("DELETE FROM notify_log WHERE sent_at < ?", (now - 7 * 86400,)).rowcount
         # Sessions: at most as old as the longest allowed session ("stay signed in" lasts longer)
         removed["sessions"] = con.execute(
-            "DELETE FROM sessions WHERE (remember = 0 AND created_at < ?) OR created_at < ?",
-            (_iso_before(2), _iso_before(security.REMEMBER_DAYS + 1))).rowcount
+            "DELETE FROM sessions WHERE (remember = 0 AND created_at < ?) OR created_at < ? OR last_seen < ?",
+            (_iso_before(2), _iso_before(security.REMEMBER_DAYS + 1),
+             _iso_before(security.REMEMBER_IDLE_DAYS + 1))).rowcount
         # Abgelaufene Ankündigungen nach 30 Tagen entfernen
         removed["announcements"] = con.execute(
             "DELETE FROM announcements WHERE ends_at IS NOT NULL AND ends_at < ?", (_iso_before(30),)).rowcount

@@ -90,6 +90,25 @@
 </section>
 {% endif %}
 
+<section class="card narrow" id="geraete">
+  <h2 class="card-h">{{ _("Angemeldete Geräte") }}</h2>
+  <p class="muted small">{{ _("Ohne „Angemeldet bleiben“ endet eine Anmeldung mit dem Browser, spätestens nach einem Tag. Mit Haken bleibt sie bis zu {n} Tage bestehen, bei {idle} Tagen ohne Nutzung endet sie vorher.", n=remember_days, idle=remember_idle_days) }}</p>
+  <ul class="device-list">
+  {% for d in devices %}
+    <li class="device">
+      <div class="device-info">
+        <strong>{{ d.device or _("Unbekanntes Gerät") }}</strong>{% if d.current %} <span class="badge badge-ok">{{ _("Dieses Gerät") }}</span>{% endif %}{% if d.remember %} <span class="badge">{{ _("angemeldet bleiben") }}</span>{% endif %}
+        <div class="faint small">{{ d.ip }} · {{ _("angemeldet {when}", when=d.created) }} · {{ _("zuletzt aktiv {when}", when=d.seen) }}</div>
+      </div>
+      <form method="post" action="/account/sessions/{{ d.id }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="chip chip-sm" type="submit">{{ _("Abmelden") }}</button></form>
+    </li>
+  {% endfor %}
+  </ul>
+  {% if devices|length > 1 %}
+  <form method="post" action="/account/sessions/revoke-others"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-ghost" type="submit">{{ _("Alle anderen Geräte abmelden") }}</button></form>
+  {% endif %}
+</section>
+
 <section class="card narrow">
   <h2 class="card-h">{{ _("Deine Daten") }}</h2>
   <p class="muted small">{{ _("Lade alles herunter, was Hatchtower zu deinem Konto gespeichert hat: Kontodaten, Rechte, Sitzungen und deine Einträge im Audit-Log.") }}</p>

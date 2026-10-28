@@ -47,7 +47,7 @@ class Settings:
     poll_interval: int = 10
     sync_interval: int = 300
     session_idle_minutes: int = 30
-    session_max_hours: int = 12
+    session_max_hours: int = 24
 
     @property
     def read_only(self) -> bool:

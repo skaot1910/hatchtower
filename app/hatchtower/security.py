@@ -25,8 +25,9 @@ _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(24))
 
 SESSION_COOKIE = "hatchtower_session"
 PRELOGIN_COOKIE = "hatchtower_prelogin"
-# "Stay signed in": such sessions skip the idle timeout and last this many days
-REMEMBER_DAYS = 30
+# "Stay signed in": such sessions last at most REMEMBER_DAYS and end after REMEMBER_IDLE_DAYS without use
+REMEMBER_DAYS = 90
+REMEMBER_IDLE_DAYS = 30
 
 
 # -- Passwörter ----------------------------------------------------------
@@ -125,7 +126,8 @@ def load_session(token: str | None, settings: Settings, touch: bool = True):
         created = datetime.fromisoformat(row["created_at"])
         last_seen = datetime.fromisoformat(row["last_seen"])
         if row["remember"]:
-            timed_out = now - created > timedelta(days=REMEMBER_DAYS)
+            timed_out = (now - last_seen > timedelta(days=REMEMBER_IDLE_DAYS)
+                         or now - created > timedelta(days=REMEMBER_DAYS))
         else:
             timed_out = (now - last_seen > timedelta(minutes=settings.session_idle_minutes)
                          or now - created > timedelta(hours=settings.session_max_hours))
@@ -136,6 +138,24 @@ def load_session(token: str | None, settings: Settings, touch: bool = True):
         if touch and (now - last_seen).total_seconds() > 30:
             con.execute("UPDATE sessions SET last_seen = ? WHERE token_hash = ?", (db.utcnow(), th))
         return row
+
+
+def session_id(token: str | None) -> str:
+    """Identifier of a session as shown on the account page (the stored hash, never the token itself)."""
+    return _token_hash(token) if token else ""
+
+
+def device_name(user_agent: str | None) -> str | None:
+    """Short device description from the user agent ("Safari · iPad"), None if nothing is recognised."""
+    ua = user_agent or ""
+    browser = next((name for key, name in (("Edg/", "Edge"), ("OPR/", "Opera"), ("Firefox/", "Firefox"),
+                                           ("FxiOS", "Firefox"), ("CriOS", "Chrome"), ("Chrome/", "Chrome"),
+                                           ("Safari/", "Safari")) if key in ua), None)
+    system = next((name for key, name in (("iPad", "iPad"), ("iPhone", "iPhone"), ("Android", "Android"),
+                                          ("Windows", "Windows"), ("Mac OS X", "macOS"), ("CrOS", "ChromeOS"),
+                                          ("Linux", "Linux")) if key in ua), None)
+    parts = [p for p in (browser, system) if p]
+    return " · ".join(parts) or None
 
 
 def delete_session(token: str | None) -> None:

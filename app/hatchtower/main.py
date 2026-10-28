@@ -542,9 +542,9 @@ async def login(request: Request, username: str = Form(""), password: str = Form
     audit.record("login", user_id=row["id"], username=row["username"], ip=ip,
                  detail="angemeldet bleiben" if stay else None)
     response = RedirectResponse("/", status_code=303)
-    max_age = security.REMEMBER_DAYS * 86400 if stay else settings.session_max_hours * 3600
+    # Without "stay signed in" a browser-session cookie: the login ends with the browser (server side after a day)
     response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="strict",
-                        secure=is_https(request), max_age=max_age)
+                        secure=is_https(request), max_age=security.REMEMBER_DAYS * 86400 if stay else None)
     response.delete_cookie(security.PRELOGIN_COOKIE)
     return response
 
@@ -570,8 +570,7 @@ def setup_steps(panel=None, repair: bool = False) -> list[tuple[str, str]]:
 def login_response(request: Request, user_id: int, username: str, target: str) -> RedirectResponse:
     token, _ = security.create_session(user_id, ip_of(request), request.headers.get("user-agent", ""))
     response = RedirectResponse(target, status_code=303)
-    response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="strict",
-                        secure=is_https(request), max_age=settings.session_max_hours * 3600)
+    response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="strict", secure=is_https(request))
     return response
 
 
@@ -1903,7 +1902,19 @@ async def logo_file(request: Request, filename: str):
 
 # -- Eigenes Konto ------------------------------------------------------------
 
-def account_context(user: UserContext) -> dict:
+def account_sessions(request: Request, user: UserContext) -> list[dict]:
+    """Signed-in devices of the user, this device first, then by last use."""
+    current = security.session_id(request.cookies.get(security.SESSION_COOKIE))
+    with db.connect() as con:
+        rows = con.execute("SELECT token_hash, created_at, last_seen, ip, user_agent, remember FROM sessions"
+                           " WHERE user_id = ? ORDER BY last_seen DESC", (user.id,)).fetchall()
+    devices = [{"id": r["token_hash"], "device": security.device_name(r["user_agent"]), "ip": r["ip"] or "",
+                "created": fmt_dt(r["created_at"], settings.timezone), "seen": fmt_dt(r["last_seen"], settings.timezone),
+                "remember": bool(r["remember"]), "current": r["token_hash"] == current} for r in rows]
+    return sorted(devices, key=lambda d: not d["current"])
+
+
+def account_context(user: UserContext, request: Request) -> dict:
     from . import mailer, notify
     with db.connect() as con:
         me = con.execute("SELECT email, email_verified, notify_email, notify_events, no_email FROM users WHERE id = ?",
@@ -1911,6 +1922,8 @@ def account_context(user: UserContext) -> dict:
         pending = con.execute("SELECT email FROM tokens WHERE purpose = 'verify' AND user_id = ? AND expires_at > ?",
                               (user.id, db.utcnow())).fetchone()
     return {"themes": themes.THEMES, "me": me, "pending_email": pending["email"] if pending else None,
+            "devices": account_sessions(request, user), "remember_days": security.REMEMBER_DAYS,
+            "remember_idle_days": security.REMEMBER_IDLE_DAYS,
             "mail_ready": mailer.load_config(vault).ready, "events": notify.events_for(user.is_owner), "audit_days": retention.audit_days(),
             "my_events": set((me["notify_events"] if me["notify_events"] is not None else ",".join(notify.EVENTS)).split(","))}
 
@@ -1918,7 +1931,7 @@ def account_context(user: UserContext) -> dict:
 @app.get("/account", response_class=HTMLResponse)
 async def account(request: Request):
     user = current_user(request)
-    return render(request, "account.html", error=None, **account_context(user))
+    return render(request, "account.html", error=None, **account_context(user, request))
 
 
 @app.post("/account/theme")
@@ -1948,6 +1961,37 @@ async def account_language(request: Request, language: str = Form("")):
     return back("/account", i18n.t("Sprache: {name}", name=i18n.LANGUAGES[chosen]))
 
 
+@app.post("/account/sessions/{session_id}/revoke")
+async def account_session_revoke(request: Request, session_id: str):
+    user = current_user(request)
+    await check_csrf(request)
+    with db.connect() as con:
+        row = con.execute("SELECT user_agent FROM sessions WHERE token_hash = ? AND user_id = ?",
+                          (session_id, user.id)).fetchone()
+        if row is None:
+            return back("/account#geraete", "Diese Anmeldung gibt es nicht mehr")
+        con.execute("DELETE FROM sessions WHERE token_hash = ? AND user_id = ?", (session_id, user.id))
+    audit.record("session.revoke", user_id=user.id, username=user.username, ip=ip_of(request),
+                 detail=security.device_name(row["user_agent"]) or "unbekanntes Gerät")
+    if session_id == security.session_id(request.cookies.get(security.SESSION_COOKIE)):
+        response = RedirectResponse("/login", status_code=303)
+        response.delete_cookie(security.SESSION_COOKIE)
+        return response
+    return back("/account#geraete", "Gerät abgemeldet")
+
+
+@app.post("/account/sessions/revoke-others")
+async def account_session_revoke_others(request: Request):
+    user = current_user(request)
+    await check_csrf(request)
+    current = security.session_id(request.cookies.get(security.SESSION_COOKIE))
+    with db.connect() as con:
+        n = con.execute("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", (user.id, current)).rowcount
+    audit.record("session.revoke", user_id=user.id, username=user.username, ip=ip_of(request),
+                 detail=f"alle anderen ({n})")
+    return back("/account#geraete", i18n.t("{n} andere Geräte abgemeldet", n=n))
+
+
 @app.post("/account/password")
 async def account_password(request: Request, current: str = Form(""), new: str = Form(""), repeat: str = Form("")):
     user = current_user(request)
@@ -1955,12 +1999,12 @@ async def account_password(request: Request, current: str = Form(""), new: str =
     with db.connect() as con:
         row = con.execute("SELECT password_hash FROM users WHERE id = ?", (user.id,)).fetchone()
     if not security.verify_password(row["password_hash"], current):
-        return render(request, "account.html", status=400, **account_context(user), error="Das aktuelle Passwort stimmt nicht.")
+        return render(request, "account.html", status=400, **account_context(user, request), error="Das aktuelle Passwort stimmt nicht.")
     if new != repeat:
-        return render(request, "account.html", status=400, **account_context(user), error="Die neuen Passwörter stimmen nicht überein.")
+        return render(request, "account.html", status=400, **account_context(user, request), error="Die neuen Passwörter stimmen nicht überein.")
     problem = security.password_message(new, user.username)
     if problem:
-        return render(request, "account.html", status=400, **account_context(user), error=problem)
+        return render(request, "account.html", status=400, **account_context(user, request), error=problem)
     with db.connect() as con:
         con.execute("UPDATE users SET password_hash = ? WHERE id = ?", (security.hash_password(new), user.id))
     security.delete_user_sessions(user.id)

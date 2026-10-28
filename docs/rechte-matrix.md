@@ -104,6 +104,8 @@ Grundregeln:
 | POST | `/account/email` | Formular | Eigene E-Mail-Adresse ändern oder entfernen |
 | POST | `/account/notify` | Formular | Eigene Benachrichtigungen |
 | POST | `/account/delete` | Formular | Eigenes Konto löschen (Passwort nötig) |
+| POST | `/account/sessions/{session_id}/revoke` | Formular | Eigenes Gerät abmelden (nur eigene Sitzungen) |
+| POST | `/account/sessions/revoke-others` | Formular | Alle anderen eigenen Geräte abmelden |
 | GET | `/account/export` | – | Eigene Daten herunterladen (Art. 15 DSGVO) |
 | GET | `/notifications` | – | Benachrichtigungen (Glocke): nur Meldungen zu sichtbaren Servern, Verwaltung nur Owner |
 | POST | `/notifications/read-all` | Formular | Eigene Benachrichtigungen als gelesen markieren |

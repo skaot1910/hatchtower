@@ -353,7 +353,9 @@ def world(monkeypatch, tmp_path) -> World:
     invite = accounts.create("invite", data={"role": "user"}, created_by=1)
     from hatchtower import routes_backup
     routes_backup.mark_missing("srv-a", "pb-weg", "Wings antwortet mit HTTP 404")    # file gone on the node
+    victim_session, _ = security.create_session(victim, "192.0.2.9", "Mozilla/5.0 (iPad) Safari/605.1", remember=True)
     w.args = {
+        "session_id": security.session_id(victim_session),
         "ident": "srv-a", "user_id": str(victim), "group_id": str(gid), "sched_id": str(sid), "ann_id": str(aid),
         "job_id": str(jid), "direct_job_id": str(djid), "uuid": "pb-1", "missing_uuid": "pb-weg", "feed_id": str(fid), "hook_id": str(hid), "entry_id": str(eid), "run_id": str(rid), "target_id": str(tid), "donation_id": str(did),
         "token_hash": accounts._hash(invite), "kind": "login", "page": "impressum", "key": "hell", "mode": "simple", "code": "en",

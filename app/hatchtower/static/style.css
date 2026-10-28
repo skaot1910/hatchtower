@@ -1806,3 +1806,9 @@ body.has-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); gri
   .server-guide dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .server-guide dd + dt { margin-top: 10px; }
 }
+
+/* Account: signed-in devices */
+.device-list { list-style: none; margin: 0 0 12px; padding: 0; }
+.device { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.device:last-child { border-bottom: 0; }
+.device-info { min-width: 0; overflow-wrap: anywhere; }

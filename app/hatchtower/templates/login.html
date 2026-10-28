@@ -22,7 +22,7 @@
       <label>{{ _("Passwort") }}
         <input name="password" type="password" autocomplete="current-password" required>
       </label>
-      <label class="check"><input type="checkbox" name="remember" value="1"{% if remember %} checked{% endif %}> {{ _("Angemeldet bleiben ({n} Tage)", n=remember_days) }}</label>
+      <label class="check"><input type="checkbox" name="remember" value="1"{% if remember %} checked{% endif %}> {{ _("Angemeldet bleiben") }}</label>
       <button class="btn btn-primary btn-block" type="submit">{{ _("Anmelden") }}</button>
     </form>
     {% if forgot_enabled %}<p class="login-extra"><a href="/forgot">{{ _("Passwort vergessen?") }}</a></p>{% endif %}

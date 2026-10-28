@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.0-pre.2 – 2026-10-28
+
+- "Stay signed in" reworked: without it, the sign-in now ends when the browser is closed (session cookie), after one
+  day at the latest (30 minutes without activity as before). With it, the sign-in lasts up to 90 days and ends after
+  30 days without use
+- Account → "Signed-in devices": lists every device you are signed in on (browser and system, IP address, signed in
+  and last active, "stay signed in"), marks this device, and signs out single devices or all other devices at once.
+  Both are recorded in the audit log
+
 ## 0.43.0-pre.1 – 2026-10-28
 
 - "Stay signed in" on the login page: when ticked, the session lasts 30 days and is not ended after 30 minutes

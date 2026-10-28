@@ -13,6 +13,7 @@ ACTION_LABELS = {
     "login": "Anmeldung",
     "logout": "Abmeldung",
     "password.change": "Eigenes Passwort geändert",
+    "session.revoke": "Gerät abgemeldet",
     "user.create": "Benutzer angelegt",
     "user.update": "Benutzer geändert",
     "user.disable": "Benutzer deaktiviert",

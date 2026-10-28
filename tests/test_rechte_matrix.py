@@ -324,18 +324,59 @@ def test_login_mit_vorab_token_funktioniert(world):
     assert security.SESSION_COOKIE in r.headers["set-cookie"]
 
 
-def test_angemeldet_bleiben_ueberdauert_leerlauf(world):
-    old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(timespec="seconds")
-    for remember, survives in (("", False), ("1", True)):
-        c, token = world.anonymous_with_prelogin()
-        r = c.post("/login", data={"username": "olga", "password": "Sehr-Langes-Passwort-123", "prelogin": token,
-                                   "remember": remember})
-        cookie = r.headers["set-cookie"]
-        assert (f"Max-Age={security.REMEMBER_DAYS * 86400}" in cookie) == survives
-        session = r.cookies[security.SESSION_COOKIE]
-        with db.connect() as con:
-            con.execute("UPDATE sessions SET created_at = ?, last_seen = ?", (old, old))
-        assert (security.load_session(session, main.settings) is not None) == survives
+def _login(world, remember: str):
+    c, token = world.anonymous_with_prelogin()
+    r = c.post("/login", data={"username": "olga", "password": "Sehr-Langes-Passwort-123", "prelogin": token,
+                               "remember": remember})
+    return c, r
+
+
+def _age_sessions(created_days: int, seen_days: int) -> None:
+    now = datetime.now(timezone.utc)
+    with db.connect() as con:
+        con.execute("UPDATE sessions SET created_at = ?, last_seen = ? WHERE user_id = (SELECT id FROM users"
+                    " WHERE username = 'olga')",
+                    ((now - timedelta(days=created_days)).isoformat(), (now - timedelta(days=seen_days)).isoformat()))
+
+
+@pytest.mark.parametrize("remember,created,seen,valid", [
+    ("", 0, 0, True), ("", 2, 0, False),            # without: browser session, one day at most
+    ("1", 2, 2, True), ("1", 89, 29, True),         # with: 90 days, 30 days without use
+    ("1", 89, 31, False), ("1", 91, 0, False)])
+def test_angemeldet_bleiben_laufzeiten(world, remember, created, seen, valid):
+    _, r = _login(world, remember)
+    cookie = next(c for c in r.headers.get_list("set-cookie") if c.startswith(security.SESSION_COOKIE))
+    assert ("Max-Age" in cookie) == (remember == "1")
+    if remember:
+        assert f"Max-Age={security.REMEMBER_DAYS * 86400}" in cookie
+    session = r.cookies[security.SESSION_COOKIE]
+    _age_sessions(created, seen)
+    assert (security.load_session(session, main.settings) is not None) == valid
+
+
+def test_geraete_einzeln_und_alle_anderen_abmelden(world):
+    first, _ = _login(world, "1")
+    second, _ = _login(world, "")
+    third, _ = _login(world, "")
+    page = first.get("/account").text
+    assert "Dieses Gerät" in page and page.count("/account/sessions/") >= 4
+    # einzelnes Gerät
+    target = security.session_id(second.cookies[security.SESSION_COOKIE])
+    csrf = re.search(r'name="csrf" value="([^"]+)"', page).group(1)
+    first.post(f"/account/sessions/{target}/revoke", data={"csrf": csrf})
+    assert security.load_session(second.cookies[security.SESSION_COOKIE], main.settings) is None
+    assert security.load_session(third.cookies[security.SESSION_COOKIE], main.settings) is not None
+    # fremde Sitzung (anderer Benutzer) bleibt
+    foreign = world.args["session_id"]
+    first.post(f"/account/sessions/{foreign}/revoke", data={"csrf": csrf})
+    with db.connect() as con:
+        assert con.execute("SELECT 1 FROM sessions WHERE token_hash = ?", (foreign,)).fetchone()
+    # alle anderen
+    first.post("/account/sessions/revoke-others", data={"csrf": csrf})
+    assert security.load_session(third.cookies[security.SESSION_COOKIE], main.settings) is None
+    assert security.load_session(first.cookies[security.SESSION_COOKIE], main.settings) is not None
+    with db.connect() as con:
+        assert con.execute("SELECT 1 FROM sessions WHERE token_hash = ?", (foreign,)).fetchone()
 
 
 def test_einrichtung_ist_nach_dem_ersten_konto_gesperrt(world):
