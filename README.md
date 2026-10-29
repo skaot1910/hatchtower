@@ -9,6 +9,8 @@
 **A simple, safe web page for your game servers – for you and your friends,
 without putting your server panel on the internet.**
 
+*Hatchtower is a self-hosted game server web panel/dashboard for Pterodactyl, Pelican and Calagopus (Minecraft, Valheim and more). It is not related to Watchtower, the Docker container updater.*
+
 **Hatchtower does not replace Pterodactyl, Pelican or Calagopus.** It sits on top of your existing panel and
 controls it through the panel's API – your panel keeps running as before.
 
