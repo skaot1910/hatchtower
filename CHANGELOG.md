@@ -3,6 +3,15 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.0-pre.5 – 2026-11-04
+
+- User ids are never reused: a new user no longer appears to own the audit entries of a deleted one (database
+  migration, runs automatically on update)
+- Downloading a file that no longer exists shows "File not found" (404) instead of a raw Wings error (502)
+- Log lines are always in German, whatever language the interface uses, so they are easier to search
+- The daily cleanup of the console archive uses an index on time
+- Removed 48 stale English translations; a test now reports translations that are no longer used
+
 ## 0.43.0-pre.4 – 2026-11-04
 
 - Database backups (daily and before updates) wait for the running service instead of failing with "database is
