@@ -103,3 +103,24 @@ def test_webhook_anlegen_und_aendern(world):
         h = con.execute("SELECT * FROM notify_webhooks WHERE id = ?", (h["id"],)).fetchone()
     assert (h["title"], h["servers"], h["enabled"], h["url_enc"]) == ("Neu", "", 0, old_url)   # Adresse bleibt
     assert owner.get("/admin/notify").status_code == 200
+
+
+def test_zustellung_haelt_den_task_fest(world, monkeypatch):
+    """The event loop only keeps weak references to tasks: emit() must hold on to the delivery until it is done."""
+    from hatchtower import main
+
+    async def run():
+        gate = asyncio.Event()
+
+        async def deliver(*_args):
+            await gate.wait()
+
+        monkeypatch.setattr(notify, "deliver", deliver)
+        notify.emit(main.vault, "crash", "srv-gc", "x")
+        assert len(notify._background) == 1
+        gate.set()
+        for _ in range(3):
+            await asyncio.sleep(0)
+        assert not notify._background
+
+    asyncio.run(run())

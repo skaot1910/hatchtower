@@ -19,6 +19,7 @@ from .permissions import load_grants
 from .views import fmt_gb
 
 log = logging.getLogger("hatchtower.notify")
+_background: set[asyncio.Task] = set()
 
 EVENTS = {
     "crash": "Server unerwartet beendet",
@@ -290,9 +291,12 @@ def emit(vault, event: str, ident: str | None, detail: str = "") -> None:
         return
     inbox.from_notify(event, ident, detail)
     try:
-        asyncio.get_running_loop().create_task(deliver(vault, event, ident, detail))
+        task = asyncio.get_running_loop().create_task(deliver(vault, event, ident, detail))
     except RuntimeError:
-        pass
+        return
+    # The event loop only keeps weak references: without this a delivery could vanish mid-way
+    _background.add(task)
+    task.add_done_callback(_background.discard)
 
 
 class ResourceWatch:
