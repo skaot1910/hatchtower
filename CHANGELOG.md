@@ -3,6 +3,14 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.0-pre.4 – 2026-11-04
+
+- Database backups (daily and before updates) wait for the running service instead of failing with "database is
+  locked"; a failed daily backup no longer leaves an empty file behind
+- CSS and JavaScript are cached by the browser and sent compressed, so pages load faster, especially on phones
+- System → Status answers quickly even when the panel is down
+- Notification deliveries can no longer get lost mid-way
+
 ## 0.43.0-pre.3 – 2026-10-29
 
 - The login page now forwards to the start page when you are already signed in (e.g. when `/login` is bookmarked),
