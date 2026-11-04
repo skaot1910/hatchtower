@@ -14,6 +14,10 @@ from typing import Iterator
 
 _db_path: Path | None = None
 
+# Marks a migration that rebuilds a table: with foreign keys on, DROP TABLE would delete every dependent row
+# (ON DELETE CASCADE). init() runs it with foreign keys off and checks them before the commit.
+FOREIGN_KEYS_OFF = "-- foreign keys off\n"
+
 MIGRATIONS: list[str] = [
     # 1: Grundschema
     """
@@ -695,6 +699,46 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE sessions ADD COLUMN remember INTEGER NOT NULL DEFAULT 0;
     """,
+    # 41: user ids are never reused (AUTOINCREMENT, starting above every id the audit log knows); index for the
+    # daily cleanup of the console archive (ts < ?)
+    FOREIGN_KEYS_OFF + """
+    CREATE TABLE users_new (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        username        TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        password_hash   TEXT NOT NULL,
+        role            TEXT NOT NULL CHECK (role IN ('owner', 'user')),
+        is_active       INTEGER NOT NULL DEFAULT 1,
+        created_at      TEXT NOT NULL,
+        last_login_at   TEXT,
+        failed_logins   INTEGER NOT NULL DEFAULT 0,
+        locked_until    TEXT,
+        theme           TEXT,
+        language        TEXT,
+        email           TEXT,
+        email_verified  INTEGER NOT NULL DEFAULT 0,
+        notify_email    INTEGER NOT NULL DEFAULT 0,
+        notify_events   TEXT,
+        note            TEXT,
+        no_email        INTEGER NOT NULL DEFAULT 0,
+        view_mode       TEXT,
+        view_locked     INTEGER NOT NULL DEFAULT 0,
+        inbox_read_upto INTEGER NOT NULL DEFAULT 0,
+        review_pending  INTEGER NOT NULL DEFAULT 0
+    );
+    INSERT INTO users_new (id, username, password_hash, role, is_active, created_at, last_login_at, failed_logins,
+                           locked_until, theme, language, email, email_verified, notify_email, notify_events, note,
+                           no_email, view_mode, view_locked, inbox_read_upto, review_pending)
+        SELECT id, username, password_hash, role, is_active, created_at, last_login_at, failed_logins,
+               locked_until, theme, language, email, email_verified, notify_email, notify_events, note,
+               no_email, view_mode, view_locked, inbox_read_upto, review_pending FROM users;
+    DROP TABLE users;
+    ALTER TABLE users_new RENAME TO users;
+    INSERT INTO sqlite_sequence (name, seq) SELECT 'users', 0
+        WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'users');
+    UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT MAX(user_id) FROM audit_log), 0))
+        WHERE name = 'users';
+    CREATE INDEX IF NOT EXISTS idx_console_lines_ts ON console_lines(ts);
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)
@@ -733,7 +777,26 @@ def init(path: Path) -> None:
             logging.getLogger("hatchtower.db").warning(
                 "Datenbank-Version %s ist neuer als diese Hatchtower-Version (%s)", version, len(MIGRATIONS))
         for index, sql in enumerate(MIGRATIONS[version:], start=version + 1):
-            con.executescript(f"BEGIN; {sql}; PRAGMA user_version = {index}; COMMIT;")
+            if sql.startswith(FOREIGN_KEYS_OFF):
+                _rebuild(con, index, sql)
+            else:
+                con.executescript(f"BEGIN; {sql}; PRAGMA user_version = {index}; COMMIT;")
+
+
+def _rebuild(con: sqlite3.Connection, index: int, sql: str) -> None:
+    """A migration that rebuilds a table. The foreign_keys pragma only switches outside a transaction."""
+    con.execute("PRAGMA foreign_keys=OFF")
+    try:
+        con.executescript(f"BEGIN; {sql}; PRAGMA user_version = {index};")
+        broken = [tuple(r) for r in con.execute("PRAGMA foreign_key_check") if r[2] == "users"]
+        if broken:
+            raise RuntimeError(f"Migration {index}: foreign keys broken {broken[:5]}")
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.execute("PRAGMA foreign_keys=ON")
 
 
 @contextmanager
