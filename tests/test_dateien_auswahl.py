@@ -126,3 +126,23 @@ def test_zip_auswahl_enthaelt_pfadliste():
     assert "Survival (srv-a)" in note and "Ausgewählt im Ordner: /world/playerdata" in note
     assert "\n/world/playerdata/a.dat\n" in note
     assert "\n/world/playerdata/alt/\n" in note and "b.dat" not in note
+
+
+def test_download_einer_fehlenden_datei_ist_404(world, monkeypatch):
+    async def gone(url, range_header=None):
+        raise PteroError("Wings antwortet mit HTTP 404: The requested resource was not found on this server.", 404)
+    monkeypatch.setattr(world.ptero, "wings_stream", gone)
+    c = world.client(world.user("lader", grants={"srv-a": {"sftp.download"}}))
+    r = c.get("/servers/srv-a/files/download", params={"file": "/weg.txt"})
+    assert r.status_code == 404
+    assert "Datei nicht gefunden" in r.text and "HTTP 404" not in r.text
+    entry = world.audit("files.download")[-1]
+    assert entry["result"] == "error" and "not found" in entry["detail"]
+
+
+def test_andere_wings_fehler_bleiben_502(world, monkeypatch):
+    async def broken(url, range_header=None):
+        raise PteroError("Wings antwortet mit HTTP 500", 500)
+    monkeypatch.setattr(world.ptero, "wings_stream", broken)
+    c = world.client(world.user("lader", grants={"srv-a": {"sftp.download"}}))
+    assert c.get("/servers/srv-a/files/download", params={"file": "/a.txt"}).status_code == 502

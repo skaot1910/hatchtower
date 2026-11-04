@@ -1412,6 +1412,10 @@ async def files_download(request: Request, ident: str, file: str):
                               downloads.device(request.headers.get("user-agent")), exc)
         audit.record("files.download", result="error", user_id=user.id, username=user.username,
                      ip=ip_of(request), server=ident, detail=f"{path}: {exc}")
+        if exc.status == 404:
+            return render(request, "error.html", status=404, title="Datei nicht gefunden",
+                          message=i18n.t("„{name}“ gibt es nicht (mehr) – vielleicht wurde die Datei gerade gelöscht"
+                                         " oder umbenannt.", name=posixpath.basename(path) or path))
         return render(request, "error.html", status=502, title="Download fehlgeschlagen", message=str(exc))
     if downloads.counts(part):
         audit.record("files.download", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,

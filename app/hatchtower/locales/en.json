@@ -175,6 +175,8 @@
   "Dir wurden noch keine Server freigegeben.": "No servers have been shared with you yet.",
   "Do": "Thu",
   "Download fehlgeschlagen": "Download failed",
+  "Datei nicht gefunden": "File not found",
+  "„{name}“ gibt es nicht (mehr) – vielleicht wurde die Datei gerade gelöscht oder umbenannt.": "“{name}” does not exist (any more) – perhaps the file was just deleted or renamed.",
   "Du hast noch keine Rechtegruppen.": "You don't have any permission groups yet.",
   "Du kannst dich nicht selbst löschen": "You cannot delete yourself",
   "Eigene Bündel von Rechten, z. B. „Moderator“ oder „Admin Valheim“. Eine Gruppe weist du unter Benutzer pro Server zu. Änderst du eine Gruppe, gilt das sofort für alle, die sie haben.": "Your own bundles of permissions, e.g. “Moderator” or “Admin Valheim”. You assign a group per server under Users. If you change a group, it applies immediately to everyone who has it.",
