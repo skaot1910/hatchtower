@@ -113,7 +113,11 @@ BK=""
 if [ "$FRESH" -eq 0 ] && [ -f "$DATA_DIR/hatchtower.db" ]; then
   BK="$BACKUP_DIR/vor-update-$(date +%F_%H-%M).db"
   say "Backing up the database: $BK"
-  sqlite3 "$DATA_DIR/hatchtower.db" ".backup '$BK'"
+  # Wait while the running service holds a lock (it does briefly all the time) instead of failing at once
+  if ! sqlite3 -cmd ".timeout 30000" "$DATA_DIR/hatchtower.db" ".backup '$BK'"; then
+    rm -f -- "$BK"
+    fail "Could not back up the database, nothing was changed. Please try the update again."
+  fi
   chown -h hatchtower:hatchtower "$BK"
   # Nur die letzten fünf Sicherungen vor Updates behalten
   ls -1t "$BACKUP_DIR"/vor-update-*.db 2>/dev/null | tail -n +6 | while read -r old; do rm -f -- "$old"; done

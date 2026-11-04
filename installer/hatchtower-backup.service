@@ -4,4 +4,5 @@ Description=Hatchtower – daily database backup
 [Service]
 Type=oneshot
 User=hatchtower
-ExecStart=/bin/sh -c 'test -f /var/lib/hatchtower/hatchtower.db && sqlite3 /var/lib/hatchtower/hatchtower.db ".backup /var/backups/hatchtower/hatchtower-$(date +%%F).db"; find /var/backups/hatchtower -maxdepth 1 -name "hatchtower-*.db" -mtime +14 -delete'
+# Waits while Hatchtower holds a lock; writes to .part first so a failed run leaves no empty file behind
+ExecStart=/bin/sh -c 'T=/var/backups/hatchtower/hatchtower-$(date +%%F).db; rc=0; if [ -f /var/lib/hatchtower/hatchtower.db ]; then sqlite3 -cmd ".timeout 60000" /var/lib/hatchtower/hatchtower.db ".backup $$T.part" && mv -f "$$T.part" "$$T" || { rm -f "$$T.part"; rc=1; }; fi; find /var/backups/hatchtower -maxdepth 1 -name "hatchtower-*.db" -mtime +14 -delete; exit $$rc'
