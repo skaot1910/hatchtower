@@ -20,7 +20,7 @@ from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed, InvalidStatus, WebSocketException
 
 from .i18n import t
-from .ptero import PteroClient, PteroError, ReadOnlyViolation
+from .ptero import PteroClient, PteroError, ReadOnlyViolation, fail
 
 log = logging.getLogger("hatchtower.wings")
 
@@ -87,7 +87,7 @@ async def open_socket(client: PteroClient, token: str, socket_url: str) -> tuple
             raise WingsRejected(t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=code), code) from exc
         except (OSError, WebSocketException) as exc:
             log.warning("Wings nicht erreichbar (Websocket): %s", exc.__class__.__name__)
-            raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+            raise fail("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__) from exc
         if _origins.get(key) != origin:
             if origin != panel_url:
                 log.info("Wings akzeptiert die Konsole mit Origin %s (statt der Panel-Adresse)", origin)

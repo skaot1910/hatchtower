@@ -20,7 +20,7 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 
 from .config import Settings
-from .i18n import panel_name, t
+from .i18n import panel_name, t, untranslated
 
 log = logging.getLogger("hatchtower.ptero")
 
@@ -32,9 +32,20 @@ class ReadOnlyViolation(RuntimeError):
 
 
 class PteroError(RuntimeError):
-    def __init__(self, message: str, status: int | None = None):
+    """str(exc) is shown to the user (translated); log_text is the same message in German for log lines."""
+    def __init__(self, message: str, status: int | None = None, log_text: str | None = None):
         super().__init__(message)
         self.status = status
+        self.log_text = log_text or message
+
+
+def fail(text: str, status: int | None = None, **values) -> PteroError:
+    """PteroError with a translated text for the user and the German one for logs."""
+    return PteroError(t(text, **values), status, untranslated(text, **values))
+
+
+def response_error(response: httpx.Response, source: str | None = None) -> PteroError:
+    return PteroError(_error_text(response, source), response.status_code, _error_text(response, source, untranslated))
 
 
 class AdminKeyMissing(PteroError):
@@ -106,7 +117,7 @@ class PteroClient:
                     method, path, params=params, headers=headers, json=json_body, content=content
                 )
             except httpx.HTTPError as exc:
-                raise PteroError(t("{panel} nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+                raise fail("{panel} nicht erreichbar: {grund}", grund=exc.__class__.__name__) from exc
             limit, remaining = response.headers.get("x-ratelimit-limit", ""), response.headers.get("x-ratelimit-remaining", "")
             # Some routes have a limit of their own (Pterodactyl and Pelican: 5 per minute for /websocket);
             # it says nothing about the general limit the rest of Hatchtower shares
@@ -122,7 +133,7 @@ class PteroClient:
                 wait = 2.0
             await asyncio.sleep(max(wait, 1.0))
         if response.status_code >= 400:
-            raise PteroError(_error_text(response), response.status_code)
+            raise response_error(response)
         if raw:
             return response.content
         if response.status_code == 204 or not response.content:
@@ -130,7 +141,7 @@ class PteroClient:
         try:
             return response.json()
         except ValueError as exc:
-            raise PteroError(t("{panel} lieferte kein JSON (falsche URL?)"), response.status_code) from exc
+            raise fail("{panel} lieferte kein JSON (falsche URL?)", response.status_code) from exc
 
     async def _get(self, path: str, *, key: str, params: dict | None = None) -> Any:
         return await self._request("GET", path, key=key, params=params)
@@ -322,9 +333,9 @@ class PteroClient:
                     files=[("files", (name, fileobj, "application/octet-stream")) for name, fileobj in files],
                 )
             except httpx.HTTPError as exc:
-                raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+                raise fail("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__) from exc
         if response.status_code >= 400:
-            raise PteroError(_error_text(response), response.status_code)
+            raise response_error(response)
 
     async def _upload_url(self, identifier: str) -> str:
         data = await self._get(f"/api/client/servers/{identifier}/files/upload", key="client")
@@ -422,7 +433,7 @@ class PteroClient:
             else:
                 egg = next((e for e in await self.admin_eggs() if e["id"] == str(egg_id)), None)
                 if egg is None:
-                    raise PteroError(t("Dieses Egg gibt es im Panel nicht."), 404)
+                    raise fail("Dieses Egg gibt es im Panel nicht.", 404)
                 path = f"/api/application/nests/{egg['nest']}/eggs/{egg_id}"
             data = await self._admin("GET", path, params={"include": "variables"})
             return _admin_egg((data or {}).get("attributes") or {})
@@ -551,13 +562,13 @@ class PteroClient:
         """Prüft, dass eine URL auf einen bekannten Wings-Node zeigt, und setzt ggf. die
         in der Oberfläche hinterlegte andere Adresse für diesen Node ein."""
         if not url:
-            raise PteroError(t("Keine signierte URL erhalten"))
+            raise fail("Keine signierte URL erhalten")
         if not self._wings_hosts:
             await self.list_nodes()
         parts = urlsplit(str(url))
         host = parts.hostname or ""
         if host not in self._wings_hosts:
-            raise PteroError(t("URL zeigt nicht auf einen bekannten Wings-Node"))
+            raise fail("URL zeigt nicht auf einen bekannten Wings-Node")
         override = self.settings.node_overrides.get(host)
         if not override:
             return str(url)
@@ -584,28 +595,29 @@ class PteroClient:
             response = await http.send(request, stream=True)
         except httpx.HTTPError as exc:
             await http.aclose()
-            raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+            raise fail("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__) from exc
         if response.status_code >= 400 and response.status_code != 416:
             # keep Wings' own reason (e.g. "backup not found" vs. a used link), it tells what went wrong
             try:
                 await response.aread()
-                message = _error_text(response, "Wings")
+                error = response_error(response, "Wings")
             except httpx.HTTPError:
-                message = t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=response.status_code)
+                error = fail("{quelle} antwortet mit HTTP {code}", response.status_code, quelle="Wings",
+                             code=response.status_code)
             finally:
                 await response.aclose()
                 await http.aclose()
             parts = urlsplit(url)
             log.warning("Download von Wings fehlgeschlagen: %s://%s%s → %s", parts.scheme, parts.netloc, parts.path,
-                        message)
-            raise PteroError(message, response.status_code)
+                        error.log_text)
+            raise error
 
         async def body() -> AsyncIterator[bytes]:
             try:
                 async for chunk in response.aiter_bytes(65536):
                     yield chunk
             except httpx.HTTPError as exc:
-                raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+                raise fail("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__) from exc
             finally:
                 await response.aclose()
                 await http.aclose()
@@ -621,14 +633,15 @@ class PteroClient:
             async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as http:
                 async with http.stream("GET", url) as response:
                     if response.status_code >= 400:
-                        raise PteroError(t("{quelle} antwortet mit HTTP {code}", quelle="Wings", code=response.status_code), response.status_code)
+                        raise fail("{quelle} antwortet mit HTTP {code}", response.status_code, quelle="Wings",
+                                   code=response.status_code)
                     async for chunk in response.aiter_bytes(65536):
                         yield chunk
         except httpx.HTTPError as exc:
-            raise PteroError(t("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__)) from exc
+            raise fail("Wings nicht erreichbar: {grund}", grund=exc.__class__.__name__) from exc
 
 
-def _error_text(response: httpx.Response, source: str | None = None) -> str:
+def _error_text(response: httpx.Response, source: str | None = None, translate=None) -> str:
     """Fehlermeldung aus einer Panel- oder Wings-Antwort, ohne Rohdaten durchzureichen."""
     detail = request_id = ""
     try:
@@ -644,7 +657,7 @@ def _error_text(response: httpx.Response, source: str | None = None) -> str:
     except ValueError:
         pass
     source = source or ("Wings" if request_id or "/upload/" in str(response.request.url) else panel_name())
-    text = t("{quelle} antwortet mit HTTP {code}", quelle=source, code=response.status_code)
+    text = (translate or t)("{quelle} antwortet mit HTTP {code}", quelle=source, code=response.status_code)
     if detail:
         text += f": {detail[:200]}"
     if request_id:

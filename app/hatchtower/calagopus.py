@@ -17,8 +17,7 @@ import posixpath
 from typing import Any
 from urllib.parse import urlsplit
 
-from .i18n import t
-from .ptero import PteroClient, PteroError, ServerInfo, _num, _variable
+from .ptero import PteroClient, PteroError, ServerInfo, _num, _variable, fail
 
 PER_PAGE = 100
 MAX_PAGES = 50
@@ -240,7 +239,7 @@ class CalagopusClient(PteroClient):
         async def load():
             egg = next((e for e in await self.admin_eggs() if e["id"] == egg_id), None)
             if egg is None:
-                raise PteroError(t("Dieses Egg gibt es im Panel nicht."), 404)
+                raise fail("Dieses Egg gibt es im Panel nicht.", 404)
             base = f"/api/admin/nests/{egg['nest']}/eggs/{egg_id}"
             e = ((await self._admin("GET", base)) or {}).get("egg") or {}
             variables = ((await self._admin("GET", f"{base}/variables")) or {}).get("variables") or []

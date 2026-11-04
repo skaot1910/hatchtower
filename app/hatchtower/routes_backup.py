@@ -390,7 +390,7 @@ async def panel_backup_download(request: Request, ident: str, uuid: str):
         first = await anext(stream, b"")
     except PteroError as exc:
         downloads.log.warning("Download Panel-Backup %s (%s) fehlgeschlagen: %s: %s", backup["name"], ident,
-                              downloads.device(request.headers.get("user-agent")), exc)
+                              downloads.device(request.headers.get("user-agent")), exc.log_text)
         if downloads.counts(part):
             audit_user(request, user, "backup.panel_download", result="error", server=ident,
                        detail={"backup": backup["name"], "panel": settings.panel.name, "fehler": str(exc)})
@@ -440,7 +440,7 @@ async def fresh_link_stream(get_url, part: str | None):
     except PteroError as exc:
         if exc.status != 404:
             raise
-        downloads.log.info("Wings antwortet mit 404, neuer Versuch mit frischem Link: %s", exc)
+        downloads.log.info("Wings antwortet mit 404, neuer Versuch mit frischem Link: %s", exc.log_text)
         return await client.wings_stream(await get_url(), part)
 
 

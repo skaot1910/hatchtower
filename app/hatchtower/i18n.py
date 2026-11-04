@@ -100,6 +100,15 @@ def t(text: str, **values) -> str:
     return found.format(**values) if values else found
 
 
+def untranslated(text: str, **values) -> str:
+    """The German source text with placeholders filled in, for log lines: logs stay in one language."""
+    token = _current.set(DEFAULT)
+    try:
+        return t(text, **values)
+    finally:
+        _current.reset(token)
+
+
 def browser_catalog() -> dict[str, str]:
     """Übersetzungen für Texte, die im Browser (app.js) entstehen."""
     return _js_catalogs.get(_current.get(), {})

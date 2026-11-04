@@ -153,7 +153,7 @@ class Monitor:
                 try:
                     await self.refresh(ident)
                 except PteroError as exc:
-                    log.info("Beobachtung von %s: %s", ident, exc)
+                    log.info("Beobachtung von %s: %s", ident, exc.log_text)
             await asyncio.sleep(1)
 
     async def refresh(self, identifier: str) -> None:
@@ -188,7 +188,7 @@ class Monitor:
                 raise
             except PteroError as exc:
                 self.last_error = str(exc)
-                log.warning("Monitoring: %s", exc)
+                log.warning("Monitoring: %s", exc.log_text)
                 self._panel_failed(exc)
             except Exception as exc:
                 self.last_error = i18n.Msg("Interner Fehler: {typ}", typ=exc.__class__.__name__)
@@ -228,7 +228,7 @@ class Monitor:
                         await self.client.startup_variables(server.identifier)
                     )
                 except PteroError as exc:
-                    log.info("Startup-Variablen von %s nicht lesbar: %s", server.identifier, exc)
+                    log.info("Startup-Variablen von %s nicht lesbar: %s", server.identifier, exc.log_text)
 
         now = db.utcnow()
         with db.connect() as con:

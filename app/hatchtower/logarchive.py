@@ -152,7 +152,7 @@ class LogArchive:
                     self._store(ident, buffer, fresh())
                 raise
             except PteroError as exc:
-                log.info("Konsolen-Archiv %s: %s", ident, exc)
+                log.info("Konsolen-Archiv %s: %s", ident, exc.log_text)
             except Exception:
                 log.exception("Konsolen-Archiv %s", ident)
             if buffer:

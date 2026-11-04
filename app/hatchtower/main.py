@@ -1409,7 +1409,7 @@ async def files_download(request: Request, ident: str, file: str):
         status, wings_headers, stream = await app.state.ptero.wings_stream(url, part)
     except PteroError as exc:
         downloads.log.warning("Download Datei %s (%s) fehlgeschlagen: %s: %s", path, ident,
-                              downloads.device(request.headers.get("user-agent")), exc)
+                              downloads.device(request.headers.get("user-agent")), exc.log_text)
         audit.record("files.download", result="error", user_id=user.id, username=user.username,
                      ip=ip_of(request), server=ident, detail=f"{path}: {exc}")
         if exc.status == 404:
