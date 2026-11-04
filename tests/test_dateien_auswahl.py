@@ -146,3 +146,12 @@ def test_andere_wings_fehler_bleiben_502(world, monkeypatch):
     monkeypatch.setattr(world.ptero, "wings_stream", broken)
     c = world.client(world.user("lader", grants={"srv-a": {"sftp.download"}}))
     assert c.get("/servers/srv-a/files/download", params={"file": "/a.txt"}).status_code == 502
+
+
+def test_wings_500_fuer_fehlende_datei_wird_404(world, monkeypatch):
+    async def broken(url, range_header=None):
+        raise PteroError("Wings antwortet mit HTTP 500: An unexpected error was encountered", 500)
+    monkeypatch.setattr(world.ptero, "wings_stream", broken)
+    c = world.client(world.user("lader", grants={"srv-a": {"sftp.download"}}))
+    r = c.get("/servers/srv-a/files/download", params={"file": "/gibt-es-nicht.txt"})
+    assert r.status_code == 404 and "Datei nicht gefunden" in r.text

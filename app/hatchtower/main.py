@@ -1396,6 +1396,15 @@ async def api_files_reindex(request: Request, ident: str):
     return {"index": index_state_view(st)}
 
 
+async def file_gone(ident: str, path: str) -> bool:
+    """Some Wings versions answer 500 instead of 404 for a missing file: look at the folder to tell."""
+    try:
+        files = await app.state.ptero.list_files(ident, posixpath.dirname(path) or "/")
+    except PteroError as exc:
+        return exc.status == 404              # the folder is gone too
+    return not any(f["name"] == posixpath.basename(path) for f in files)
+
+
 @app.get("/servers/{ident}/files/download")
 async def files_download(request: Request, ident: str, file: str):
     user = current_user(request)
@@ -1412,7 +1421,7 @@ async def files_download(request: Request, ident: str, file: str):
                               downloads.device(request.headers.get("user-agent")), exc.log_text)
         audit.record("files.download", result="error", user_id=user.id, username=user.username,
                      ip=ip_of(request), server=ident, detail=f"{path}: {exc}")
-        if exc.status == 404:
+        if exc.status == 404 or await file_gone(ident, path):
             return render(request, "error.html", status=404, title="Datei nicht gefunden",
                           message=i18n.t("„{name}“ gibt es nicht (mehr) – vielleicht wurde die Datei gerade gelöscht"
                                          " oder umbenannt.", name=posixpath.basename(path) or path))
