@@ -18,6 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.datastructures import UploadFile as FormFile
 
 from . import (APP_NAME, __version__, audit, automation, backups, db, diagnose, donations, downloads, extras, fileindex, i18n, inbox, legal, logarchive, logbuffer, logos,
@@ -48,9 +49,12 @@ templates.env.globals.update(app_name=APP_NAME, version=__version__, settings=se
                              languages=i18n.LANGUAGES, all_themes=themes.THEMES)
 LANG_COOKIE = "hatchtower_lang"
 PUBLIC_LANGUAGE = "en"   # login page and other public pages until a language is chosen there
-# Cache-Parameter für CSS/JS, ohne die Versionsnummer öffentlich zu zeigen
+# Cache parameter for CSS/JS without showing the version number. It also covers the file contents, so a deploy
+# without a version bump still reaches browsers that keep /static/ files for a year (see security_headers).
+_STATIC_DIGEST = __import__("hashlib").sha256(
+    b"".join(p.read_bytes() for p in sorted((BASE / "static").iterdir()) if p.is_file())).hexdigest()
 templates.env.filters["hash_version"] = lambda v: __import__("hashlib").sha256(
-    f"{v}:{settings.secret_key}".encode()).hexdigest()[:10]
+    f"{v}:{settings.secret_key}:{_STATIC_DIGEST}".encode()).hexdigest()[:10]
 
 # Bereiche der Owner-Navigation mit ihren Reitern: (Adresse, Name, weitere Pfad-Anfänge des Reiters)
 NAV_SECTIONS = {
@@ -168,7 +172,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=APP_NAME, lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
+# CSS/JS are ~200 KB uncompressed; HTML stays uncompressed (no BREACH risk for pages with CSRF tokens)
+app.mount("/static", GZipMiddleware(StaticFiles(directory=str(BASE / "static")), minimum_size=1024), name="static")
 
 
 # -- Infrastruktur ---------------------------------------------------------
@@ -264,7 +269,12 @@ async def security_headers(request: Request, call_next):
     if is_https(request):
         response.headers["Strict-Transport-Security"] = "max-age=31536000"
     if "cache-control" not in response.headers:
-        response.headers["Cache-Control"] = "no-store"
+        if request.url.path.startswith("/static/"):
+            # Versioned URLs (?v=, see hash_version) never change; others are revalidated (ETag) instead of reloaded
+            immutable = "v" in request.query_params and response.status_code == 200
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+        else:
+            response.headers["Cache-Control"] = "no-store"
     return response
 
 
