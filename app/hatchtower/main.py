@@ -2949,14 +2949,12 @@ async def admin_system(request: Request):
     require_owner(request)
     record_finished_update()
     ptero: PteroClient = app.state.ptero
-    checks = []
 
-    async def check(label: str, coro):
+    async def check(label: str, coro) -> dict:
         try:
-            detail = await coro
-            checks.append({"label": label, "ok": True, "detail": detail})
+            return {"label": label, "ok": True, "detail": await coro}
         except Exception as exc:
-            checks.append({"label": label, "ok": False, "detail": str(exc) or exc.__class__.__name__})
+            return {"label": label, "ok": False, "detail": str(exc) or exc.__class__.__name__}
 
     async def app_api():
         nodes = await ptero.list_nodes()
@@ -2969,13 +2967,19 @@ async def admin_system(request: Request):
         res = await ptero.resources(servers[0].identifier)
         return i18n.t("Status von „{name}“ lesbar: {state}", name=servers[0].name, state=res["state"])
 
+    async def wings_nodes():
+        try:
+            return await setup.node_checks(ptero, settings.node_overrides) if settings.configured else []
+        except PteroError:
+            return []
+
     single = settings.panel.single_key
-    await check("Admin-API (nur lesen)" if single else "Application-API (nur lesen)", app_api())
-    await check("Server-API (nur lesen)" if single else "Client-API (nur lesen)", client_api())
-    try:
-        node_list = await setup.node_checks(ptero, settings.node_overrides) if settings.configured else []
-    except PteroError:
-        node_list = []
+    # In parallel: with the panel down, each check would otherwise wait for its own connect timeout in turn
+    app_check, client_check, node_list = await asyncio.gather(
+        check("Admin-API (nur lesen)" if single else "Application-API (nur lesen)", app_api()),
+        check("Server-API (nur lesen)" if single else "Client-API (nur lesen)", client_api()),
+        wings_nodes())
+    checks = [app_check, client_check]
     for n in node_list:
         checks.append({"label": f"Wings {n['name']}", "ok": n["daemon_ok"],
                        "detail": f"{n['host']}:{n['daemon_port']} " + i18n.t("erreichbar" if n["daemon_ok"] else "nicht erreichbar")})

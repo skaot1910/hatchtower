@@ -99,3 +99,37 @@ def test_systemseite_zeigt_drosselung(world):
     page = world.client(world.ids["olga"]).get("/admin/system").text
     assert "alle 30 s" in page and "verlängert wegen des Rate-Limits" in page
     assert "30 von 128 Anfragen pro Minute frei" in page
+
+
+def test_systemseite_prueft_gleichzeitig(world, monkeypatch):
+    """Panel down: the checks run at the same time instead of each waiting for its own connect timeout in turn."""
+    from hatchtower import main, setup
+    ptero = main.app.state.ptero
+    started: list[str] = []
+
+    async def arrive(name):
+        started.append(name)
+        for _ in range(100):
+            if len(started) == 3:
+                return
+            await asyncio.sleep(0.01)
+        raise RuntimeError("nacheinander statt gleichzeitig")
+
+    async def nodes():
+        await arrive("app")
+        return [{"name": "n1", "fqdn": "n1.test"}]
+    servers = ptero.list_servers
+
+    async def client_servers(*a, **kw):
+        await arrive("client")
+        return await servers(*a, **kw)
+
+    async def node_checks(*_args):
+        await arrive("wings")
+        return [{"name": "n1", "host": "n1.test", "daemon_port": 8080, "daemon_ok": True}]
+    monkeypatch.setattr(ptero, "list_nodes", nodes)
+    monkeypatch.setattr(ptero, "list_servers", client_servers)
+    monkeypatch.setattr(setup, "node_checks", node_checks)
+    page = world.client(world.ids["olga"]).get("/admin/system").text
+    assert sorted(started) == ["app", "client", "wings"]
+    assert "nacheinander" not in page and "n1.test:8080" in page
