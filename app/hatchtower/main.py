@@ -556,7 +556,7 @@ async def login(request: Request, username: str = Form(""), password: str = Form
                  detail="angemeldet bleiben" if stay else None)
     response = RedirectResponse("/", status_code=303)
     # Without "stay signed in" a browser-session cookie: the login ends with the browser (server side after a day)
-    response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="strict",
+    response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="lax",
                         secure=is_https(request), max_age=security.REMEMBER_DAYS * 86400 if stay else None)
     response.delete_cookie(security.PRELOGIN_COOKIE)
     return response
@@ -583,7 +583,7 @@ def setup_steps(panel=None, repair: bool = False) -> list[tuple[str, str]]:
 def login_response(request: Request, user_id: int, username: str, target: str) -> RedirectResponse:
     token, _ = security.create_session(user_id, ip_of(request), request.headers.get("user-agent", ""))
     response = RedirectResponse(target, status_code=303)
-    response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="strict", secure=is_https(request))
+    response.set_cookie(security.SESSION_COOKIE, token, httponly=True, samesite="lax", secure=is_https(request))
     return response
 
 

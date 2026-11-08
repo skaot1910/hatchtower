@@ -183,7 +183,7 @@ def test_sitzungscookie_ist_geschuetzt(world):
     r = c.post("/login", data={"username": "olga", "password": "Sehr-Langes-Passwort-123", "prelogin": token})
     assert r.status_code == 303
     cookie = r.headers["set-cookie"].lower()
-    assert "httponly" in cookie and "samesite=strict" in cookie
+    assert "httponly" in cookie and "samesite=lax" in cookie
 
 
 # == Owner-Bereich ================================================================================
