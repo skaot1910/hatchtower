@@ -3,6 +3,10 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.0-pre.6 – 2026-11-08
+
+- "Stay signed in" now also works for Android web apps and shortcuts in Chrome: the session cookie uses SameSite=Lax instead of Strict, so it is no longer dropped when the app is started from outside
+
 ## 0.43.0-pre.5 – 2026-11-04
 
 - User ids are never reused: a new user no longer appears to own the audit entries of a deleted one (database
