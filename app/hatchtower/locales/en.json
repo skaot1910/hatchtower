@@ -2312,6 +2312,8 @@
   "Oben in der Seitenleiste stehen immer das Hatchtower-Logo und „Hatchtower“, dein eigener Name klein darunter. Auf der Login-Seite steht er groß, mit „läuft mit Hatchtower“ darunter. Jeder Benutzer kann sein Theme und seine Sprache unter „Konto“ wählen.": "The sidebar always shows the Hatchtower logo and “Hatchtower”, with your own name in small letters below. On the login page your name is shown large, with “powered by Hatchtower” below. Every user can choose their theme and language under “Account”.",
   "Logo": "Logo",
   "vermutlich belegt": "probably occupied",
+  "Spieler online": "Players online",
+  "Spielerzahl in der Übersicht anzeigen": "Show player count on the overview",
   "1 Spieler online": "1 player online",
   "{n} Spieler online": "{n} players online",
   "vermutlich leer": "probably empty",

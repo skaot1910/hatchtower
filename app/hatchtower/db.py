@@ -739,6 +739,10 @@ MIGRATIONS: list[str] = [
         WHERE name = 'users';
     CREATE INDEX IF NOT EXISTS idx_console_lines_ts ON console_lines(ts);
     """,
+    # player count on the overview cards, can be switched off per server
+    """
+    ALTER TABLE server_meta ADD COLUMN show_players INTEGER NOT NULL DEFAULT 1;
+    """,
 ]
 
 RETENTION_CHOICES = (1, 3, 7, 14, 30, 60, 90)

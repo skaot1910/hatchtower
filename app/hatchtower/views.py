@@ -174,6 +174,7 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
         "time_label": time_label,
         "time_value": time_value,
         "players": players,
+        "players_text": players_text(row) if row["show_players"] != 0 and user.can(ident, "server.players") else "",
         **cpu_view(cpu, row["limit_cpu"] or 0),
         "mem_text": fmt_gb(row["memory_bytes"]) + (" / " + fmt_gb(memory_limit) + " GB" if memory_limit else " GB"),
         "mem_pct": pct(row["memory_bytes"] or 0, memory_limit),
@@ -201,6 +202,24 @@ def server_view(row, user: UserContext, vault: Vault, tz: str, public_host: str 
     }
 
 
+def players_text(row) -> str:
+    """Short player count for the overview card: exact only from query or console, empty when nothing is known."""
+    if (row["state"] or "") != "running" or is_stale(row["updated_at"]):
+        return ""
+    source, n = row["presence_source"], row["presence_players"]
+    if source in ("query", "console") and n is not None:
+        top = row["max_players"] if source == "query" else None
+        if source == "console":
+            try:
+                top = (json.loads(row["presence_info"] or "{}").get("console") or {}).get("max")
+            except ValueError:
+                top = None
+        return f"{n} / {top}" if top else str(n)
+    if source == "traffic" and row["presence"] == "busy":
+        return t("vermutlich belegt")
+    return ""
+
+
 PRESENCE_SOURCES = {"query": "Query-Protokoll", "console": "Konsole", "traffic": "Netzwerk-Traffic (Schätzung)"}
 
 
@@ -223,7 +242,9 @@ def presence_badge(presence: str | None, source: str | None, players: int | None
 SERVER_QUERY = """
 SELECT s.*, st.state, st.last_started_at, st.last_stopped_at, st.cpu, st.memory_bytes, st.disk_bytes,
        st.players, st.max_players, st.query_name, st.updated_at,
-       m.logo_file, m.ingame_name, m.game_name, m.password_enc, m.public_address, m.query_port, m.tags, m.on_status
+       st.presence, st.presence_source, st.presence_players, st.presence_info,
+       m.logo_file, m.ingame_name, m.game_name, m.password_enc, m.public_address, m.query_port, m.tags, m.on_status,
+       m.show_players
 FROM servers s
 LEFT JOIN server_state st ON st.identifier = s.identifier
 LEFT JOIN server_meta m ON m.identifier = s.identifier

@@ -57,7 +57,7 @@
 
   // ---- Live-Werte -----------------------------------------------------------
   var FIELDS = ["state_label", "cpu_label", "cpu_text", "mem_text", "disk_text", "ingame_name", "address",
-                "time_label", "time_value", "updated_at"];
+                "time_label", "time_value", "updated_at", "players_text"];
 
   function updateScope(scope, s) {
     FIELDS.forEach(function (f) {
@@ -67,6 +67,7 @@
       });
     });
     scope.querySelectorAll("[data-f-title]").forEach(function (el) { el.title = s[el.dataset.fTitle] || ""; });
+    scope.querySelectorAll("[data-players]").forEach(function (el) { el.hidden = !s.players_text; });
     ["cpu_pct", "mem_pct", "disk_pct"].forEach(function (f) {
       scope.querySelectorAll('[data-f="' + f + '"]').forEach(function (el) { paintBar(el, s[f]); });
     });

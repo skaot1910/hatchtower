@@ -3,46 +3,42 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
-## 0.43.0-pre.6 – 2026-11-08
+## 0.43.0 – 2026-11-22
 
-- "Stay signed in" now also works for Android web apps and shortcuts in Chrome: the session cookie uses SameSite=Lax instead of Strict, so it is no longer dropped when the app is started from outside
+Includes everything from 0.43.0-pre.1 to 0.43.0-pre.6. Database migrations 40–42 run on their own.
 
-## 0.43.0-pre.5 – 2026-11-04
+**Overview**
+- Server cards show the number of players online next to the status (e.g. "3 / 20"), taken from the game query or the
+  console. When only the network traffic suggests that someone is on, the card says "probably occupied"; when nothing
+  is known, nothing is shown. Only users with the "View players" right see it
+- Server settings → "Show player count on the overview" switches the count off per server
 
-- User ids are never reused: a new user no longer appears to own the audit entries of a deleted one (database
-  migration, runs automatically on update)
-- Downloading a file that no longer exists shows "File not found" (404) instead of a raw Wings error (502)
-- Log lines are always in German, whatever language the interface uses, so they are easier to search
-- The daily cleanup of the console archive uses an index on time
-- Removed 48 stale English translations; a test now reports translations that are no longer used
-
-## 0.43.0-pre.4 – 2026-11-04
-
-- Database backups (daily and before updates) wait for the running service instead of failing with "database is
-  locked"; a failed daily backup no longer leaves an empty file behind
-- CSS and JavaScript are cached by the browser and sent compressed, so pages load faster, especially on phones
-- System → Status answers quickly even when the panel is down
-- Notification deliveries can no longer get lost mid-way
-
-## 0.43.0-pre.3 – 2026-10-29
-
-- The login page now forwards to the start page when you are already signed in (e.g. when `/login` is bookmarked),
-  so "stay signed in" also works for that bookmark
-
-## 0.43.0-pre.2 – 2026-10-28
-
+**Sign-in**
+- "Stay signed in" on the login page: when ticked, the session lasts 30 days and is not ended after 30 minutes
+  without activity. Without it, sessions behave as before (30 minutes idle, at most 12 hours). Signing out, changing
+  the password or locking the account still ends such sessions; the audit log notes logins with "stay signed in"
 - "Stay signed in" reworked: without it, the sign-in now ends when the browser is closed (session cookie), after one
   day at the latest (30 minutes without activity as before). With it, the sign-in lasts up to 90 days and ends after
   30 days without use
 - Account → "Signed-in devices": lists every device you are signed in on (browser and system, IP address, signed in
   and last active, "stay signed in"), marks this device, and signs out single devices or all other devices at once.
   Both are recorded in the audit log
+- The login page now forwards to the start page when you are already signed in (e.g. when `/login` is bookmarked),
+  so "stay signed in" also works for that bookmark
+- "Stay signed in" now also works for Android web apps and shortcuts in Chrome: the session cookie uses SameSite=Lax instead of Strict, so it is no longer dropped when the app is started from outside
 
-## 0.43.0-pre.1 – 2026-10-28
-
-- "Stay signed in" on the login page: when ticked, the session lasts 30 days and is not ended after 30 minutes
-  without activity. Without it, sessions behave as before (30 minutes idle, at most 12 hours). Signing out, changing
-  the password or locking the account still ends such sessions; the audit log notes logins with "stay signed in"
+**Reliability and speed**
+- Database backups (daily and before updates) wait for the running service instead of failing with "database is
+  locked"; a failed daily backup no longer leaves an empty file behind
+- CSS and JavaScript are cached by the browser and sent compressed, so pages load faster, especially on phones
+- System → Status answers quickly even when the panel is down
+- Notification deliveries can no longer get lost mid-way
+- User ids are never reused: a new user no longer appears to own the audit entries of a deleted one (database
+  migration, runs automatically on update)
+- Downloading a file that no longer exists shows "File not found" (404) instead of a raw Wings error (502)
+- Log lines are always in German, whatever language the interface uses, so they are easier to search
+- The daily cleanup of the console archive uses an index on time
+- Removed 48 stale English translations; a test now reports translations that are no longer used
 
 ## 0.42.0 – 2026-10-27
 

@@ -117,7 +117,7 @@
       {{ c.bulk_box(s, preview) }}
       <a class="card-head-link" href="/servers/{{ s.identifier }}" title="{{ s.name }}">
         {{ c.logo(s) }}
-        <div class="card-title"><h2>{{ s.name }}</h2>{{ c.state_pill(s) }}</div>
+        <div class="card-title"><h2>{{ s.name }}</h2>{{ c.status_pills(s) }}</div>
       </a>
     </div>
     <div class="facts">{{ c.join_facts(s) }}</div>
@@ -135,7 +135,7 @@
       <a class="card-head-link" href="/servers/{{ s.identifier }}" title="{{ s.name }}">
         {{ c.logo(s) }}
         <div class="card-title">
-          <div class="title-row"><h2>{{ s.name }}</h2>{{ c.state_pill(s) }}</div>
+          <div class="title-row"><h2>{{ s.name }}</h2>{{ c.status_pills(s) }}</div>
           <div class="faint small">{{ s.egg }}{% for t in s.tags %} <span class="tag">#{{ t }}</span>{% endfor %}</div>
         </div>
       </a>

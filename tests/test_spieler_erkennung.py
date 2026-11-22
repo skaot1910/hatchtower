@@ -165,3 +165,22 @@ def test_verlauf_nur_bei_wechseln(world):
     assert [tuple(r) for r in rows] == [("empty", 0, ""), ("busy", 1, "Alex")]
     page = world.client(world.ids["olga"]).get("/servers/srv-a/players").text
     assert "Verlauf" in page and "Alex" in page
+
+
+def test_spielerzahl_in_der_uebersicht_abschaltbar(world):
+    from hatchtower import db
+    with db.connect() as con:
+        con.execute("UPDATE server_state SET presence = 'busy', presence_source = 'query', presence_players = 3,"
+                    " max_players = 20 WHERE identifier = 'srv-a'")
+        con.execute("UPDATE server_state SET presence = 'busy', presence_source = 'traffic' WHERE identifier = 'srv-b'")
+    uid = world.user("verwalter", grants={"srv-a": {"server.view", "server.players", "server.manage"},
+                                           "srv-b": {"server.view"}})
+    c = world.client(uid)
+    page = c.get("/").text
+    assert "3 / 20" in page
+    assert "vermutlich belegt" not in page                            # srv-b: no right to see players
+    r = c.post("/servers/srv-a/settings", data={"csrf": c.csrf, "ingame_name": "", "password": ""})
+    assert r.status_code == 303
+    assert "3 / 20" not in c.get("/").text
+    c.post("/servers/srv-a/settings", data={"csrf": c.csrf, "password": "", "show_players": "1"})
+    assert "3 / 20" in c.get("/").text

@@ -1846,7 +1846,8 @@ def upsert_meta(ident: str, user: UserContext, **fields) -> None:
 @app.post("/servers/{ident}/settings")
 async def server_settings_save(request: Request, ident: str, ingame_name: str = Form(""), game_name: str = Form(""),
                                password: str = Form(""), public_address: str = Form(""),
-                               query_port: str = Form(""), tags: str = Form(""), password_clear: str = Form("")):
+                               query_port: str = Form(""), tags: str = Form(""), password_clear: str = Form(""),
+                               show_players: str = Form("")):
     user = current_user(request)
     await check_csrf(request)
     get_server_or_deny(request, user, ident)
@@ -1870,6 +1871,7 @@ async def server_settings_save(request: Request, ident: str, ingame_name: str = 
         public_address=public_address.strip()[:200] or None,
         query_port=port,
         tags=", ".join(extras.parse_tags(tags)) or None,
+        show_players=1 if show_players else 0,
     )
     app.state.monitor.query.forget(ident)
     audit.record("server.meta.update", user_id=user.id, username=user.username, ip=ip_of(request), server=ident,
@@ -1877,7 +1879,7 @@ async def server_settings_save(request: Request, ident: str, ingame_name: str = 
                          "password_set": bool(password),
                          "password_removed": not password and password_field.get("password_enc", "") is None,
                          "public_address": public_address.strip() or None, "query_port": port,
-                         "tags": extras.parse_tags(tags)})
+                         "tags": extras.parse_tags(tags), "show_players": bool(show_players)})
     return back(f"/servers/{ident}/settings", "Gespeichert")
 
 

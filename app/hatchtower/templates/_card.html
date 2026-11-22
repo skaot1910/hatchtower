@@ -7,6 +7,11 @@
 <span class="pill state-{{ s.state }}" data-f="state"><span class="dot"></span><span data-f="state_label">{{ s.state_label }}</span></span>
 {% endmacro %}
 
+{# State plus the player count (empty and hidden when unknown or switched off for this server) #}
+{% macro status_pills(s) %}
+<span class="pills">{{ state_pill(s) }}<span class="pill players-pill" data-players title="{{ _("Spieler online") }}"{% if not s.players_text %} hidden{% endif %}>{{ ic.icon("users") }}<span data-f="players_text">{{ s.players_text }}</span></span></span>
+{% endmacro %}
+
 {# Choose a server for a shared start/stop/restart (overview, both views) #}
 {% macro bulk_box(s, preview=False) %}
 {% if not preview and (s.can_start or s.can_stop or s.can_restart) %}<input type="checkbox" class="bulk-box" data-bulk="{{ s.identifier }}" data-can="{{ 'start ' if s.can_start }}{{ 'stop ' if s.can_stop }}{{ 'restart' if s.can_restart }}" aria-label="{{ _("{name} für gemeinsame Aktion auswählen", name=s.name) }}" title="{{ _("Für gemeinsame Aktion auswählen") }}">{% endif %}

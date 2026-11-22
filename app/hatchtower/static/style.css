@@ -229,6 +229,8 @@ input[type="file"] { padding: 7px; }
 .pill.state-starting .dot, .pill.state-stopping .dot { background: var(--amber); }
 .pill.state-suspended { background: var(--red-bg); color: var(--red-fg); }
 .pill.state-suspended .dot { background: var(--red); }
+.pills { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.players-pill svg { width: 13px; height: 13px; }
 
 /* Players tab on the server page: is anyone on it? (presence.py) */
 .presence {
