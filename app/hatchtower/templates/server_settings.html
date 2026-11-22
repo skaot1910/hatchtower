@@ -64,7 +64,7 @@
       <label>{{ _("Tags (durch Komma getrennt, max. 8)") }}
         <input name="tags" maxlength="200" value="{{ meta.tags if meta and meta.tags else '' }}" placeholder="{{ _("z. B. Survival, Community, Event") }}">
       </label>
-      <label class="check"><input type="checkbox" name="show_players" value="1" {% if not meta or meta.show_players %}checked{% endif %}> {{ _("Spielerzahl in der Übersicht anzeigen") }}</label>
+      <label class="check"><input type="checkbox" name="show_players" value="1" {% if not meta or meta.show_players %}checked{% endif %}> {{ _("Spielerzahl anzeigen (Übersicht, Statusseite, Discord)") }}</label>
       <button class="btn btn-primary" type="submit">{{ _("Speichern") }}</button>
     </form>
     <p class="faint small">{{ _("Automatisch erkannt: Ingame-Servername „{name}“", name=server.ingame_name) }}{% if server.password_source %}{{ _(", Passwort {quelle}", quelle=server.password_source) }}{% endif %}{{ _(". Manuelle Angaben haben Vorrang.") }}</p>

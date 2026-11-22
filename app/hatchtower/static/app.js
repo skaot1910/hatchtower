@@ -1493,6 +1493,11 @@
             }
             var started = row.querySelector('[data-f="started"]');
             if (started) started.textContent = s.started || "";
+            var players = row.querySelector("[data-players]");
+            if (players) {
+              players.hidden = !s.players;
+              players.querySelector('[data-f="players"]').textContent = s.players || "";
+            }
             var ingame = row.querySelector('[data-f="ingame"]');
             if (ingame && s.ingame) ingame.textContent = s.ingame;
           });

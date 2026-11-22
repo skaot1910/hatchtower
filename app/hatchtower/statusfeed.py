@@ -74,6 +74,8 @@ def _field(s: dict, show_state: bool) -> dict:
     lines = []
     if show_state:
         lines.append(f"{EMOJI.get(s.get('state'), '⚪')} **{i18n.t(LABELS.get(s.get('state'), 'Unbekannt'))}**")
+    if s.get("players"):
+        lines.append(f"👥 {s['players']}")
     if s.get("egg") and s["egg"] != label:
         lines.append(f"🎮 {s['egg']}")
     if s.get("address"):

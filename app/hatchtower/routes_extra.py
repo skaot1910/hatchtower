@@ -31,7 +31,7 @@ from .main import (BACKUP_SUFFIX, LoginRequired, announce_new_user, app, apply_c
 from .config import is_trusted_proxy
 from .panels import PANELS
 from .permissions import BY_KEY, load_grants, load_groups, save_assignments, save_default_group
-from .views import STATE_LABELS, fmt_dt, is_stale, monogram
+from .views import STATE_LABELS, fmt_dt, is_stale, monogram, players_text
 
 
 
@@ -94,7 +94,7 @@ def owner_audit(request: Request, owner, action: str, **kw) -> None:
 
 # Was die Statusseite zeigen darf (gilt für alle Server gleich)
 STATUS_FIELDS = {"name": "Servername aus {panel}", "ingame": "Ingame-Servername", "status": "Status",
-                 "started": "Gestartet/Gestoppt (Uhrzeit)", "address": "Adresse (IP und Port)",
+                 "players": "Spielerzahl", "started": "Gestartet/Gestoppt (Uhrzeit)", "address": "Adresse (IP und Port)",
                  "password": "Serverpasswort",
                  "uptime": "Verfügbarkeitsbalken (30 Tage)"}
 STATUS_ORDER = {"running": 0, "starting": 1, "stopping": 2, "offline": 3, "suspended": 4, "unknown": 5}
@@ -123,7 +123,8 @@ def status_servers(fields: set[str] | None = None, idents: set[str] | None = Non
         rows = con.execute(
             "SELECT s.identifier, s.name, s.egg, s.primary_port, s.suspended, s.startup_name, s.startup_password_enc,"
             " st.state, st.updated_at, st.query_name, st.last_started_at, st.last_stopped_at, m.logo_file, m.public_address,"
-            " m.ingame_name, m.game_name, m.password_enc"
+            " m.ingame_name, m.game_name, m.password_enc, m.show_players, st.max_players, st.presence, st.presence_source,"
+            " st.presence_players, st.presence_info"
             " FROM servers s LEFT JOIN server_state st ON st.identifier = s.identifier"
             f" LEFT JOIN server_meta m ON m.identifier = s.identifier WHERE s.present = 1 AND {where}"
             " ORDER BY s.name COLLATE NOCASE", params).fetchall()
@@ -142,6 +143,8 @@ def status_servers(fields: set[str] | None = None, idents: set[str] | None = Non
         if "status" in fields:
             item["state"] = state
             item["state_label"] = i18n.t({**STATE_LABELS, "suspended": "gesperrt"}.get(state, state))
+        if "players" in fields:
+            item["players"] = players_text(r) if r["show_players"] != 0 else ""
         if "started" in fields:
             when = r["last_started_at"] if running else r["last_stopped_at"]
             item["started"] = (i18n.t("Gestartet: {zeit}" if running else "Gestoppt: {zeit}",

@@ -173,3 +173,20 @@ def test_spiel_ueberschreiben(world):
         con.execute("INSERT OR IGNORE INTO server_meta (identifier) VALUES (?)", (ident,))
         con.execute("UPDATE server_meta SET on_status = 1, game_name = 'Mein Spiel' WHERE identifier = ?", (ident,))
     assert any(s["egg"] == "Mein Spiel" for s in routes_extra.status_servers())
+
+
+def test_spielerzahl_auf_statusseite_und_discord(world):
+    from hatchtower import db, routes_extra
+    with db.connect() as con:
+        con.execute("UPDATE server_state SET presence = 'busy', presence_source = 'query', presence_players = 4,"
+                    " max_players = 10 WHERE identifier = 'srv-a'")
+    db.set_setting("status_fields", "name,status", None)
+    assert all("players" not in s for s in routes_extra.status_servers())        # field off: nothing leaves
+    db.set_setting("status_fields", "name,status,players", None)
+    srv = {s["identifier"]: s for s in routes_extra.status_servers()}["srv-a"]
+    assert srv["players"] == "4 / 10"
+    assert "4 / 10" in world.client().get("/status").text
+    assert "👥 4 / 10" in str(statusfeed.build("Status", [srv], {"name", "status", "players"}, ""))
+    with db.connect() as con:
+        con.execute("UPDATE server_meta SET show_players = 0 WHERE identifier = 'srv-a'")
+    assert {s["identifier"]: s for s in routes_extra.status_servers()}["srv-a"]["players"] == ""

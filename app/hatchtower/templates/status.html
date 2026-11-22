@@ -53,6 +53,7 @@
         {% endif %}
         <div class="status-address">
           {% if s.address %}<span class="mono copyable" data-copy="{{ s.address }}">{{ s.address }}</span>{% endif %}
+          {% if 'players' in s %}<span class="small" data-players{% if not s.players %} hidden{% endif %}>{{ _("Spieler") }}: <span data-f="players">{{ s.players }}</span></span>{% endif %}
           {% if 'started' in s %}<span class="faint small" data-f="started">{{ s.started or '' }}</span>{% endif %}
           {% if s.password %}<span class="small">{{ _("Passwort") }}: <span class="mono copyable" data-copy="{{ s.password }}" data-f="password">{{ s.password }}</span></span>{% endif %}
         </div>
