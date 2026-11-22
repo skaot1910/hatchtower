@@ -3,6 +3,13 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.1 – 2026-11-22
+
+- The player count can now also be shown on the public status page and in Discord status channels: new field
+  "Player count" in the status page settings and per Discord channel (off by default). The page updates it live
+- The per-server switch in the server settings is now called "Show player count (overview, status page, Discord)" and
+  hides the count everywhere
+
 ## 0.43.0 – 2026-11-22
 
 Includes everything from 0.43.0-pre.1 to 0.43.0-pre.6. Database migrations 40–42 run on their own.
