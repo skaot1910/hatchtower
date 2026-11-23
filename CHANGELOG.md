@@ -3,6 +3,12 @@
 Newest entries first. The "## <version>" sections are used automatically as the description of the GitHub release
 when publishing (`tools/release.sh`).
 
+## 0.43.2-pre.1 – 2026-11-23
+
+- Password reset and e-mail confirmation links are now checked and used up in one atomic step, so two simultaneous
+  requests can no longer both use the same link (invitations already worked this way)
+- Updated `opentelemetry-api` to 1.45.2
+
 ## 0.43.1 – 2026-11-22
 
 - The player count can now also be shown on the public status page and in Discord status channels: new field

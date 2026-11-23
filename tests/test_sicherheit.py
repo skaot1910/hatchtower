@@ -142,6 +142,14 @@ def test_owner_eingriff_entwertet_reset_link(world, how):
     assert accounts.get(reset, "reset") is None
 
 
+def test_einmal_link_nur_einmal_verbrauchbar(world):
+    reset = world.args["@reset"]
+    assert accounts.take(reset, "reset") is True
+    assert accounts.take(reset, "reset") is False      # second (concurrent) request gets nothing
+    assert accounts.take(world.args["@verify"], "reset") is False
+    assert accounts.get(reset, "reset") is None
+
+
 def test_neue_email_entwertet_reset_link(world):
     reset = world.args["@reset"]
     assert world.client().get(f"/verify/{world.args['@verify']}").status_code == 303

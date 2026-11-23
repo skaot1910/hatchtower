@@ -404,10 +404,11 @@ async def reset_save(request: Request, token: str, password: str = Form(""), rep
     error = password_error(password, repeat, user["username"])
     if error:
         return prelogin_page(request, "reset.html", 400, token=token, error=error)
+    if not accounts.take(token, "reset"):              # used up by a concurrent request in the meantime
+        return RedirectResponse(f"/reset/{quote(token)}", status_code=303)
     with db.connect() as con:
         con.execute("UPDATE users SET password_hash = ?, failed_logins = 0, locked_until = NULL WHERE id = ?",
                     (security.hash_password(password), user["id"]))
-    accounts.consume(token)
     security.delete_user_sessions(user["id"])
     audit.record("password.reset_mail", user_id=user["id"], username=user["username"], ip=ip_of(request))
     return back("/login", "Passwort geändert. Du kannst dich jetzt anmelden.")
@@ -419,10 +420,12 @@ async def verify_email(request: Request, token: str):
     if row is None:
         return render(request, "error.html", status=410, title="Link abgelaufen",
                       message="Dieser Link ist abgelaufen oder wurde schon benutzt.")
+    if not accounts.take(token, "verify"):
+        return render(request, "error.html", status=410, title="Link abgelaufen",
+                      message="Dieser Link ist abgelaufen oder wurde schon benutzt.")
     with db.connect() as con:
         con.execute("UPDATE users SET email = ?, email_verified = 1 WHERE id = ?", (row["email"], row["user_id"]))
         user = con.execute("SELECT username FROM users WHERE id = ?", (row["user_id"],)).fetchone()
-    accounts.consume(token)
     accounts.revoke_resets(row["user_id"])
     audit.record("email.verify", user_id=row["user_id"], username=user["username"] if user else None, ip=ip_of(request))
     return back("/account", "E-Mail-Adresse bestätigt")

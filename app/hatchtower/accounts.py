@@ -64,6 +64,15 @@ def revoke_resets(user_id: int) -> None:
         con.execute("DELETE FROM tokens WHERE purpose = 'reset' AND user_id = ?", (user_id,))
 
 
+def take(raw: str, purpose: str) -> bool:
+    """Atomically use up a single-use link. Only one of several concurrent requests gets True."""
+    if not raw or len(raw) > 100:
+        return False
+    with db.connect() as con:
+        return con.execute("DELETE FROM tokens WHERE token_hash = ? AND purpose = ? AND expires_at > ?",
+                           (_hash(raw), purpose, db.utcnow())).rowcount > 0
+
+
 def consume(raw: str) -> None:
     with db.connect() as con:
         con.execute("DELETE FROM tokens WHERE token_hash = ?", (_hash(raw),))
